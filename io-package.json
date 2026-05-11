@@ -1,0 +1,94 @@
+{
+  "common": {
+    "name": "alarmsystem",
+    "version": "0.0.1",
+    "news": {
+      "0.0.1": {
+        "en": "Initial scaffold with configurable mappings and no secret defaults",
+        "de": "Initiales Grundgerüst mit konfigurierbaren Mappings und ohne Secret-Defaults"
+      }
+    },
+    "titleLang": {
+      "en": "Alarm System",
+      "de": "Alarmanlage"
+    },
+    "desc": {
+      "en": "Custom modular alarm adapter",
+      "de": "Eigener modularer Alarm-Adapter"
+    },
+    "authors": [
+      "ebonyandivory84"
+    ],
+    "licenseInformation": {
+      "license": "MIT",
+      "type": "free"
+    },
+    "platform": "Javascript/Node.js",
+    "mode": "daemon",
+    "icon": "alarm.png",
+    "enabled": true,
+    "extIcon": "",
+    "readme": "https://github.com/ebonyandivory84/AlarmSystem/blob/main/README.md",
+    "loglevel": "info",
+    "type": "security",
+    "compact": true,
+    "connectionType": "local",
+    "dataSource": "push",
+    "adminUI": {
+      "config": "json"
+    },
+    "dependencies": [
+      {
+        "js-controller": ">=5.0.19"
+      }
+    ]
+  },
+  "native": {
+    "debugLevel": "info",
+    "defaultCountdownSec": 20,
+    "eventDedupeMs": 1000,
+    "telegram": {
+      "enabled": false,
+      "instance": "telegram.1",
+      "botToken": "",
+      "chatIdsCsv": ""
+    },
+    "camerasJson": "[]",
+    "sensorsJson": "{\"doors\":[],\"windows\":[],\"motions\":[],\"cameraHumans\":[]}",
+    "pinCommandsJson": "[]",
+    "fingerprintUsersCsv": ""
+  },
+  "objects": [],
+  "instanceObjects": [
+    {
+      "_id": "runtime.mode",
+      "type": "state",
+      "common": { "name": "Mode", "type": "string", "role": "text", "read": true, "write": false, "def": "disarmed" },
+      "native": {}
+    },
+    {
+      "_id": "runtime.alarmActive",
+      "type": "state",
+      "common": { "name": "Alarm active", "type": "boolean", "role": "indicator.alarm", "read": true, "write": false, "def": false },
+      "native": {}
+    },
+    {
+      "_id": "commands.armFull",
+      "type": "state",
+      "common": { "name": "Arm full", "type": "boolean", "role": "button", "read": false, "write": true, "def": false },
+      "native": {}
+    },
+    {
+      "_id": "commands.armPerimeter",
+      "type": "state",
+      "common": { "name": "Arm perimeter", "type": "boolean", "role": "button", "read": false, "write": true, "def": false },
+      "native": {}
+    },
+    {
+      "_id": "commands.disarm",
+      "type": "state",
+      "common": { "name": "Disarm", "type": "boolean", "role": "button", "read": false, "write": true, "def": false },
+      "native": {}
+    }
+  ]
+}

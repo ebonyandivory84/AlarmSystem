@@ -1,0 +1,121 @@
+{
+  "general": {
+    "timezone": "Europe/Berlin",
+    "debugLevel": "info",
+    "defaultCountdownSec": 20,
+    "eventDedupeMs": 1000
+  },
+  "states": {
+    "armFull": "mqtt.1.AlarmCenter.AlarmSystemArmed",
+    "armPerimeter": "mqtt.1.AlarmCenter.PerimeterProtection",
+    "countdown": "mqtt.1.AlarmCenter.ActivateAlarmCountdown",
+    "alarm": "mqtt.1.AlarmCenter.ActivateSiren",
+    "triggerReason": "mqtt.1.AlarmCenter.AlarmTrigger",
+    "panic": "0_userdata.0.AlarmSystem.panic"
+  },
+  "profiles": {
+    "full": ["doors", "windows", "motions", "cameraHumans"],
+    "perimeter": ["doors", "windows"]
+  },
+  "sensors": {
+    "doors": [
+      { "key": "entrance", "id": "mqtt.1.entrance_door_status", "openValues": ["open"] },
+      { "key": "sideEntrance", "id": "mqtt.1.side_entrance_door_status", "openValues": ["open"] },
+      { "key": "terrace", "id": "mqtt.1.terrace_door_status", "openValues": ["open"] },
+      { "key": "shed", "id": "mqtt.1.Garage.shedDoorStatus", "openValues": ["open"] }
+    ],
+    "windows": [
+      { "key": "wcChildren", "id": "mqtt.1.WC_children.windowStatus", "openValues": ["open"] }
+    ],
+    "motions": [
+      { "key": "entranceMotion", "id": "mqtt.1.entrance_motion_sensor", "activeValues": ["motion detected"] },
+      { "key": "livingMotion", "id": "mqtt.1.living_motion_sensor", "activeValues": ["motion detected"] }
+    ],
+    "cameraHumans": [
+      { "key": "backyard", "id": "mqtt.2.HumanDetection.CamBackyard", "activeValues": ["human detected", true] },
+      { "key": "terrace", "id": "mqtt.2.HumanDetection.CamTerrace", "activeValues": ["human detected", true] }
+    ]
+  },
+  "alarmCenter": {
+    "display": {
+      "id": "mqtt.1.AlarmCenter.Display",
+      "clearId": "mqtt.1.AlarmCenter.ClearDisplay",
+      "rotationMs": 2000,
+      "idleSources": ["0_userdata.0.currentDateTime", "sainlogic.0.weather.current.outdoortemp"]
+    },
+    "buzzer": {
+      "id": "mqtt.1.AlarmCenter.Buzzer",
+      "patterns": {
+        "confirm": "confirm",
+        "warn": "beep long 2x",
+        "doorOpen": "beep 2x",
+        "decline": "decline"
+      }
+    },
+    "led": {
+      "redId": "mqtt.1.AlarmCenter.LEDRingRed",
+      "yellowId": "mqtt.1.AlarmCenter.LEDRingYellow",
+      "standbyId": "mqtt.1.AlarmCenter.StandBy"
+    },
+    "motionSensorId": "mqtt.1.AlarmCenter.MotionSensor"
+  },
+  "auth": {
+    "fingerprint": {
+      "stateId": "mqtt.1.fingerprintDoorbell.lastLogMessage",
+      "knownUsers": ["Sebastian R1", "Teresa R1"],
+      "cooldownMs": 3000,
+      "disarmOnMatch": true
+    },
+    "pinCommands": [
+      { "sequence": "*1", "action": "garageOpen" },
+      { "sequence": "*2", "action": "garageClose" },
+      { "sequence": "*4", "action": "pdlcOpen" },
+      { "sequence": "*5", "action": "pdlcClose" }
+    ]
+  },
+  "actuators": {
+    "garage": { "doorCommandId": "hmip.0.devices.3014F711A000241F29970E70.channels.1.doorCommand", "openValue": 0, "closeValue": 2 },
+    "pdlc": { "id": "tuya.0.bf2bb23b342877f2e1maqy.1", "openValue": true, "closeValue": false }
+  },
+  "notifications": {
+    "telegram": {
+      "enabled": true,
+      "instance": "telegram.1",
+      "chatIds": ["<REDACTED_CHAT_ID_1>", "<REDACTED_CHAT_ID_2>"],
+      "sendAlarmText": true,
+      "sendTriggerReason": true
+    },
+    "alexa": {
+      "enabled": true,
+      "speakId": "alexa2.0.Echo-Devices.90F0081872670ASA.Commands.speak"
+    }
+  },
+  "cameras": [
+    {
+      "key": "backyard",
+      "humanStateId": "mqtt.2.reolink.HumanDetection.CamBackyard",
+      "snapshotUrl": "http://<camera>/cgi-bin/api.cgi?...",
+      "reolinkAlarmId": "reolink.0.settings.playAlarm",
+      "reolinkFlashlightId": "reolink.0.settings.switchLed",
+      "maxRunMs": 30000
+    }
+  ],
+  "automation": {
+    "awayAutoArm": {
+      "enabled": true,
+      "presenceIds": [
+        "0_userdata.0.presence_geofence.Sebastian",
+        "0_userdata.0.presence_geofence.Teresa",
+        "0_userdata.0.presence_at_home.Sebastian",
+        "0_userdata.0.presence_at_home.Teresa"
+      ],
+      "armDelaySec": 60
+    },
+    "bedtimePerimeter": {
+      "enabled": true,
+      "lightSensorId": "mqtt.1.living_light_sensor",
+      "lightThreshold": 30,
+      "startHour": 20
+    }
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "type": "tabs",
+  "items": {
+    "general": {
+      "type": "panel",
+      "label": "General",
+      "items": {
+        "debugLevel": { "type": "select", "label": "Debug level", "options": ["error", "warn", "info", "debug"] },
+        "defaultCountdownSec": { "type": "number", "label": "Default countdown (sec)", "min": 5, "max": 300 },
+        "eventDedupeMs": { "type": "number", "label": "Event dedupe (ms)", "min": 0, "max": 10000 }
+      }
+    },
+    "sensors": {
+      "type": "panel",
+      "label": "Sensors",
+      "items": {
+        "sensorsJson": {
+          "type": "textarea",
+          "label": "Sensors JSON",
+          "rows": 18,
+          "help": "Define doors/windows/motions/cameraHumans mappings. No hardcoded limits."
+        }
+      }
+    },
+    "cameras": {
+      "type": "panel",
+      "label": "Cameras",
+      "items": {
+        "camerasJson": {
+          "type": "textarea",
+          "label": "Cameras JSON",
+          "rows": 16,
+          "help": "Camera mappings and optional snapshot/reolink datapoints. Leave secrets empty until configured."
+        }
+      }
+    },
+    "auth": {
+      "type": "panel",
+      "label": "Auth",
+      "items": {
+        "pinCommandsJson": { "type": "textarea", "label": "PIN command mapping JSON", "rows": 10 },
+        "fingerprintUsersCsv": { "type": "text", "label": "Fingerprint users CSV" }
+      }
+    },
+    "telegram": {
+      "type": "panel",
+      "label": "Telegram",
+      "items": {
+        "telegram.enabled": { "type": "checkbox", "label": "Enable Telegram" },
+        "telegram.instance": { "type": "text", "label": "Telegram instance" },
+        "telegram.botToken": { "type": "password", "label": "Bot token" },
+        "telegram.chatIdsCsv": { "type": "text", "label": "Chat IDs CSV" }
+      }
+    }
+  }
+}
