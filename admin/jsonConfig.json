@@ -10,6 +10,32 @@
         "eventDedupeMs": { "type": "number", "label": "Event dedupe (ms)", "min": 0, "max": 10000 }
       }
     },
+    "datapoints": {
+      "type": "panel",
+      "label": "Core Datapoints",
+      "items": {
+        "armStateId": { "type": "text", "label": "Alarm armed state" },
+        "perimeterStateId": { "type": "text", "label": "Perimeter state" },
+        "countdownStateId": { "type": "text", "label": "Countdown state" },
+        "sirenStateId": { "type": "text", "label": "Siren state" },
+        "triggerStateId": { "type": "text", "label": "Trigger reason state" },
+        "panicStateId": { "type": "text", "label": "Panic state" }
+      }
+    },
+    "alarmcenter": {
+      "type": "panel",
+      "label": "AlarmCenter HMI",
+      "items": {
+        "displayId": { "type": "text", "label": "Display state" },
+        "clearDisplayId": { "type": "text", "label": "Clear display state" },
+        "buzzerId": { "type": "text", "label": "Buzzer state" },
+        "ledRedId": { "type": "text", "label": "LED red" },
+        "ledYellowId": { "type": "text", "label": "LED yellow" },
+        "standbyId": { "type": "text", "label": "Standby state" },
+        "motionSensorId": { "type": "text", "label": "Motion sensor state" },
+        "speakId": { "type": "text", "label": "Alexa speak datapoint" }
+      }
+    },
     "sensors": {
       "type": "panel",
       "label": "Sensors",
@@ -17,29 +43,52 @@
         "sensorsJson": {
           "type": "textarea",
           "label": "Sensors JSON",
-          "rows": 18,
-          "help": "Define doors/windows/motions/cameraHumans mappings. No hardcoded limits."
+          "rows": 20,
+          "help": "Add unlimited doors/windows/motions/cameraHumans with ids and active values."
         }
+      }
+    },
+    "auth": {
+      "type": "panel",
+      "label": "Auth & PIN",
+      "items": {
+        "fingerprintStateId": { "type": "text", "label": "Fingerprint log datapoint" },
+        "fingerprintUsersCsv": { "type": "text", "label": "Fingerprint users CSV" },
+        "pinCommandsJson": { "type": "textarea", "label": "PIN command mapping JSON", "rows": 12 }
+      }
+    },
+    "actuators": {
+      "type": "panel",
+      "label": "Actuators",
+      "items": {
+        "garageDoorCommandId": { "type": "text", "label": "Garage command datapoint" },
+        "garageOpenValue": { "type": "number", "label": "Garage open value" },
+        "garageCloseValue": { "type": "number", "label": "Garage close value" },
+        "pdlcId": { "type": "text", "label": "PDLC datapoint" },
+        "pdlcOpenValue": { "type": "checkbox", "label": "PDLC open value (true/false)" },
+        "pdlcCloseValue": { "type": "checkbox", "label": "PDLC close value (true/false)" }
+      }
+    },
+    "presence": {
+      "type": "panel",
+      "label": "Presence/AutoArm",
+      "items": {
+        "presenceIdsJson": { "type": "textarea", "label": "Presence IDs JSON", "rows": 8 },
+        "autoArmDelaySec": { "type": "number", "label": "Auto-arm delay (sec)", "min": 5, "max": 3600 }
       }
     },
     "cameras": {
       "type": "panel",
       "label": "Cameras",
       "items": {
+        "cameraDefaultUsername": { "type": "text", "label": "Default camera username" },
+        "cameraDefaultPassword": { "type": "password", "label": "Default camera password" },
         "camerasJson": {
           "type": "textarea",
           "label": "Cameras JSON",
-          "rows": 16,
-          "help": "Camera mappings and optional snapshot/reolink datapoints. Leave secrets empty until configured."
+          "rows": 24,
+          "help": "Keep IP/url templates as default and set credentials per camera or via default username/password."
         }
-      }
-    },
-    "auth": {
-      "type": "panel",
-      "label": "Auth",
-      "items": {
-        "pinCommandsJson": { "type": "textarea", "label": "PIN command mapping JSON", "rows": 10 },
-        "fingerprintUsersCsv": { "type": "text", "label": "Fingerprint users CSV" }
       }
     },
     "telegram": {
@@ -48,7 +97,7 @@
       "items": {
         "telegram.enabled": { "type": "checkbox", "label": "Enable Telegram" },
         "telegram.instance": { "type": "text", "label": "Telegram instance" },
-        "telegram.botToken": { "type": "password", "label": "Bot token" },
+        "telegram.botToken": { "type": "password", "label": "Bot token (optional)" },
         "telegram.chatIdsCsv": { "type": "text", "label": "Chat IDs CSV" }
       }
     }
