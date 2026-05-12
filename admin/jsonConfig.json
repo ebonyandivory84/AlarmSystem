@@ -85,22 +85,6 @@
           "type": "staticText",
           "text": "Sensoren/Detections erhalten pro Zeile eine Zone: perimeter, aussenhaut, innenraum."
         },
-        "armStateId": {
-          "type": "text",
-          "label": "Legacy arm state datapoint"
-        },
-        "perimeterStateId": {
-          "type": "text",
-          "label": "Legacy perimeter state datapoint"
-        },
-        "triggerStateId": {
-          "type": "text",
-          "label": "Trigger text datapoint"
-        },
-        "sirenStateId": {
-          "type": "text",
-          "label": "Siren datapoint"
-        },
         "zoneDelaysTable": {
           "type": "table",
           "label": "Zone delays (Entry/Exit)",
@@ -388,70 +372,6 @@
         }
       }
     },
-    "actuators": {
-      "type": "panel",
-      "label": "Actuators",
-      "items": {
-        "_desc_actuators": {
-          "type": "staticText",
-          "text": "Aktorenliste für beliebige schaltbare Datenpunkte. Zusätzlich globale AlarmCenter-Ausgabedatenpunkte (Display/Buzzer/LED)."
-        },
-        "actuatorsTable": {
-          "type": "table",
-          "label": "Actuators (Add/Remove)",
-          "items": [
-            {
-              "type": "text",
-              "attr": "key",
-              "title": "Key"
-            },
-            {
-              "type": "text",
-              "attr": "id",
-              "title": "Datapoint ID"
-            },
-            {
-              "type": "text",
-              "attr": "onValue",
-              "title": "ON value"
-            },
-            {
-              "type": "text",
-              "attr": "offValue",
-              "title": "OFF value"
-            }
-          ]
-        },
-        "displayId": {
-          "type": "text",
-          "label": "Display datapoint"
-        },
-        "clearDisplayId": {
-          "type": "text",
-          "label": "Clear display datapoint"
-        },
-        "buzzerId": {
-          "type": "text",
-          "label": "Buzzer datapoint"
-        },
-        "motionSensorId": {
-          "type": "text",
-          "label": "Motion sensor datapoint"
-        },
-        "ledRedId": {
-          "type": "text",
-          "label": "LED red datapoint"
-        },
-        "ledYellowId": {
-          "type": "text",
-          "label": "LED yellow datapoint"
-        },
-        "standbyId": {
-          "type": "text",
-          "label": "Standby datapoint"
-        }
-      }
-    },
     "telegram": {
       "type": "panel",
       "label": "Telegram",
@@ -553,6 +473,96 @@
         "_d3": {
           "type": "staticText",
           "text": "Quittierung über alarmsystem.0.commands.ackActiveCase=true"
+        }
+      }
+    },
+    "alarmcenter_hi": {
+      "type": "panel",
+      "label": "AlarmCenter HI",
+      "items": {
+        "_desc_alarmcenter_hi": {
+          "type": "staticText",
+          "text": "Hardware Interface des AlarmCenter-Terminals (Display, Buzzer, LEDs, Standby und zentrale AlarmCenter-Datenpunkte)."
+        },
+        "displayId": {
+          "type": "text",
+          "label": "Display datapoint"
+        },
+        "clearDisplayId": {
+          "type": "text",
+          "label": "Clear display datapoint"
+        },
+        "buzzerId": {
+          "type": "text",
+          "label": "Buzzer datapoint"
+        },
+        "motionSensorId": {
+          "type": "text",
+          "label": "Motion sensor datapoint"
+        },
+        "ledRedId": {
+          "type": "text",
+          "label": "LED red datapoint"
+        },
+        "ledYellowId": {
+          "type": "text",
+          "label": "LED yellow datapoint"
+        },
+        "standbyId": {
+          "type": "text",
+          "label": "Standby datapoint"
+        },
+        "armStateId": {
+          "type": "text",
+          "label": "Alarm armed state datapoint"
+        },
+        "perimeterStateId": {
+          "type": "text",
+          "label": "Perimeter state datapoint"
+        },
+        "triggerStateId": {
+          "type": "text",
+          "label": "Trigger text datapoint"
+        },
+        "sirenStateId": {
+          "type": "text",
+          "label": "Siren datapoint"
+        }
+      }
+    },
+    "sonstige_aktoren": {
+      "type": "panel",
+      "label": "Sonstige Aktoren",
+      "items": {
+        "_desc_sonstige_aktoren": {
+          "type": "staticText",
+          "text": "Freie, erweiterbare Aktorenliste für zusätzliche Geräte/Funktionen außerhalb des AlarmCenter-Hardwareinterfaces."
+        },
+        "actuatorsTable": {
+          "type": "table",
+          "label": "Actuators (Add/Remove)",
+          "items": [
+            {
+              "type": "text",
+              "attr": "key",
+              "title": "Key"
+            },
+            {
+              "type": "text",
+              "attr": "id",
+              "title": "Datapoint ID"
+            },
+            {
+              "type": "text",
+              "attr": "onValue",
+              "title": "ON value"
+            },
+            {
+              "type": "text",
+              "attr": "offValue",
+              "title": "OFF value"
+            }
+          ]
         }
       }
     }
