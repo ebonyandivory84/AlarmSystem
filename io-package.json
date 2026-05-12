@@ -25,7 +25,7 @@
     },
     "platform": "Javascript/Node.js",
     "mode": "daemon",
-    "icon": "alarm.png",
+    "icon": "alarmsystem.png",
     "enabled": true,
     "extIcon": "",
     "readme": "https://github.com/ebonyandivory84/AlarmSystem/blob/main/README.md",
