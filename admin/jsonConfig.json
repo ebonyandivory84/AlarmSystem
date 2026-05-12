@@ -13,10 +13,22 @@
           "type": "select",
           "label": "Debug level",
           "options": [
-            "error",
-            "warn",
-            "info",
-            "debug"
+            {
+              "label": "error",
+              "value": "error"
+            },
+            {
+              "label": "warn",
+              "value": "warn"
+            },
+            {
+              "label": "info",
+              "value": "info"
+            },
+            {
+              "label": "debug",
+              "value": "debug"
+            }
           ]
         },
         "defaultCountdownSec": {
@@ -94,9 +106,18 @@
               "attr": "zone",
               "title": "Zone",
               "options": [
-                "perimeter",
-                "aussenhaut",
-                "innenraum"
+                {
+                  "label": "perimeter",
+                  "value": "perimeter"
+                },
+                {
+                  "label": "aussenhaut",
+                  "value": "aussenhaut"
+                },
+                {
+                  "label": "innenraum",
+                  "value": "innenraum"
+                }
               ]
             },
             {
@@ -145,9 +166,18 @@
               "attr": "zone",
               "title": "Zone",
               "options": [
-                "perimeter",
-                "aussenhaut",
-                "innenraum"
+                {
+                  "label": "perimeter",
+                  "value": "perimeter"
+                },
+                {
+                  "label": "aussenhaut",
+                  "value": "aussenhaut"
+                },
+                {
+                  "label": "innenraum",
+                  "value": "innenraum"
+                }
               ]
             },
             {
@@ -191,9 +221,18 @@
               "attr": "zone",
               "title": "Zone",
               "options": [
-                "perimeter",
-                "aussenhaut",
-                "innenraum"
+                {
+                  "label": "perimeter",
+                  "value": "perimeter"
+                },
+                {
+                  "label": "aussenhaut",
+                  "value": "aussenhaut"
+                },
+                {
+                  "label": "innenraum",
+                  "value": "innenraum"
+                }
               ]
             },
             {
@@ -237,9 +276,18 @@
               "attr": "zone",
               "title": "Zone",
               "options": [
-                "perimeter",
-                "aussenhaut",
-                "innenraum"
+                {
+                  "label": "perimeter",
+                  "value": "perimeter"
+                },
+                {
+                  "label": "aussenhaut",
+                  "value": "aussenhaut"
+                },
+                {
+                  "label": "innenraum",
+                  "value": "innenraum"
+                }
               ]
             },
             {
@@ -283,9 +331,18 @@
               "attr": "zone",
               "title": "Zone",
               "options": [
-                "perimeter",
-                "aussenhaut",
-                "innenraum"
+                {
+                  "label": "perimeter",
+                  "value": "perimeter"
+                },
+                {
+                  "label": "aussenhaut",
+                  "value": "aussenhaut"
+                },
+                {
+                  "label": "innenraum",
+                  "value": "innenraum"
+                }
               ]
             },
             {
@@ -293,8 +350,14 @@
               "attr": "mode",
               "title": "Type",
               "options": [
-                "boolean",
-                "string"
+                {
+                  "label": "boolean",
+                  "value": "boolean"
+                },
+                {
+                  "label": "string",
+                  "value": "string"
+                }
               ]
             },
             {
