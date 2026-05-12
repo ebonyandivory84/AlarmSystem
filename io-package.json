@@ -1,11 +1,11 @@
 {
   "common": {
     "name": "alarmsystem",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "news": {
-      "0.3.0": {
-        "en": "Zone-based arming, expandable list-based config for sensors/actuators/cameras/person-detection/telegram",
-        "de": "Zonenbasierte Scharfschaltung, erweiterbare Listen-Konfiguration für Sensoren/Aktoren/Kameras/Person-Detection/Telegram"
+      "0.4.0": {
+        "en": "Zone entry/exit delays, case log+ack, sabotage watchdog, simulation mode",
+        "de": "Zonen Entry/Exit-Delay, Case-Log+Quittierung, Sabotage-Watchdog, Simulationsmodus"
       }
     },
     "titleLang": {
@@ -264,7 +264,28 @@
         "token": ""
       }
     ],
-    "telegramTargetsTable": []
+    "telegramTargetsTable": [],
+    "defaultEntryDelaySec": 20,
+    "defaultExitDelaySec": 10,
+    "heartbeatTimeoutSec": 180,
+    "simulationMode": false,
+    "zoneDelaysTable": [
+      {
+        "zone": "perimeter",
+        "entryDelaySec": 20,
+        "exitDelaySec": 10
+      },
+      {
+        "zone": "aussenhaut",
+        "entryDelaySec": 20,
+        "exitDelaySec": 10
+      },
+      {
+        "zone": "innenraum",
+        "entryDelaySec": 20,
+        "exitDelaySec": 10
+      }
+    ]
   },
   "objects": [],
   "instanceObjects": [
@@ -282,6 +303,19 @@
       "native": {}
     },
     {
+      "_id": "runtime.activeCaseId",
+      "type": "state",
+      "common": {
+        "name": "Active case id",
+        "type": "string",
+        "role": "text",
+        "read": true,
+        "write": false,
+        "def": ""
+      },
+      "native": {}
+    },
+    {
       "_id": "runtime.lastTrigger",
       "type": "state",
       "common": {
@@ -291,6 +325,19 @@
         "read": true,
         "write": false,
         "def": ""
+      },
+      "native": {}
+    },
+    {
+      "_id": "runtime.simulationMode",
+      "type": "state",
+      "common": {
+        "name": "Simulation mode",
+        "type": "boolean",
+        "role": "switch",
+        "read": true,
+        "write": true,
+        "def": false
       },
       "native": {}
     },
@@ -344,6 +391,32 @@
         "read": true,
         "write": false,
         "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "diagnostics.eventsJson",
+      "type": "state",
+      "common": {
+        "name": "Event log JSON",
+        "type": "string",
+        "role": "json",
+        "read": true,
+        "write": false,
+        "def": "[]"
+      },
+      "native": {}
+    },
+    {
+      "_id": "diagnostics.lastSabotage",
+      "type": "state",
+      "common": {
+        "name": "Last sabotage warning",
+        "type": "string",
+        "role": "text",
+        "read": true,
+        "write": false,
+        "def": ""
       },
       "native": {}
     },
@@ -443,6 +516,19 @@
       "type": "state",
       "common": {
         "name": "Disarm innenraum zone",
+        "type": "boolean",
+        "role": "button",
+        "read": false,
+        "write": true,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "commands.ackActiveCase",
+      "type": "state",
+      "common": {
+        "name": "Acknowledge active case",
         "type": "boolean",
         "role": "button",
         "read": false,

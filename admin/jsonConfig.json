@@ -5,23 +5,120 @@
       "type": "panel",
       "label": "General",
       "items": {
-        "debugLevel": { "type": "select", "label": "Debug level", "options": ["error", "warn", "info", "debug"] },
-        "defaultCountdownSec": { "type": "number", "label": "Default countdown (sec)", "min": 5, "max": 300 },
-        "eventDedupeMs": { "type": "number", "label": "Event dedupe (ms)", "min": 0, "max": 10000 },
-        "snapshotSendDelayMs": { "type": "number", "label": "Snapshot delay after trigger (ms)", "min": 0, "max": 60000 },
-        "snapshotBurstCount": { "type": "number", "label": "Snapshot burst count", "min": 1, "max": 10 },
-        "snapshotBurstIntervalMs": { "type": "number", "label": "Burst interval (ms)", "min": 500, "max": 60000 }
+        "debugLevel": {
+          "type": "select",
+          "label": "Debug level",
+          "options": [
+            "error",
+            "warn",
+            "info",
+            "debug"
+          ]
+        },
+        "defaultCountdownSec": {
+          "type": "number",
+          "label": "Default countdown (sec)",
+          "min": 5,
+          "max": 300
+        },
+        "eventDedupeMs": {
+          "type": "number",
+          "label": "Event dedupe (ms)",
+          "min": 0,
+          "max": 10000
+        },
+        "snapshotSendDelayMs": {
+          "type": "number",
+          "label": "Snapshot delay after trigger (ms)",
+          "min": 0,
+          "max": 60000
+        },
+        "snapshotBurstCount": {
+          "type": "number",
+          "label": "Snapshot burst count",
+          "min": 1,
+          "max": 10
+        },
+        "snapshotBurstIntervalMs": {
+          "type": "number",
+          "label": "Burst interval (ms)",
+          "min": 500,
+          "max": 60000
+        },
+        "defaultEntryDelaySec": {
+          "type": "number",
+          "label": "Default entry delay (sec)",
+          "min": 0,
+          "max": 600
+        },
+        "defaultExitDelaySec": {
+          "type": "number",
+          "label": "Default exit delay (sec)",
+          "min": 0,
+          "max": 600
+        },
+        "heartbeatTimeoutSec": {
+          "type": "number",
+          "label": "Heartbeat timeout (sec)",
+          "min": 10,
+          "max": 3600
+        },
+        "simulationMode": {
+          "type": "checkbox",
+          "label": "Simulation mode (no real actuator writes)"
+        }
       }
     },
     "zones": {
       "type": "panel",
       "label": "Alarm Zones",
       "items": {
-        "_z": { "type": "staticText", "text": "Sensoren/Detections erhalten pro Zeile eine Zone: perimeter, aussenhaut, innenraum." },
-        "armStateId": { "type": "text", "label": "Legacy arm state datapoint" },
-        "perimeterStateId": { "type": "text", "label": "Legacy perimeter state datapoint" },
-        "triggerStateId": { "type": "text", "label": "Trigger text datapoint" },
-        "sirenStateId": { "type": "text", "label": "Siren datapoint" }
+        "_z": {
+          "type": "staticText",
+          "text": "Sensoren/Detections erhalten pro Zeile eine Zone: perimeter, aussenhaut, innenraum."
+        },
+        "armStateId": {
+          "type": "text",
+          "label": "Legacy arm state datapoint"
+        },
+        "perimeterStateId": {
+          "type": "text",
+          "label": "Legacy perimeter state datapoint"
+        },
+        "triggerStateId": {
+          "type": "text",
+          "label": "Trigger text datapoint"
+        },
+        "sirenStateId": {
+          "type": "text",
+          "label": "Siren datapoint"
+        },
+        "zoneDelaysTable": {
+          "type": "table",
+          "label": "Zone delays (Entry/Exit)",
+          "items": [
+            {
+              "type": "select",
+              "attr": "zone",
+              "title": "Zone",
+              "options": [
+                "perimeter",
+                "aussenhaut",
+                "innenraum"
+              ]
+            },
+            {
+              "type": "number",
+              "attr": "entryDelaySec",
+              "title": "Entry delay sec"
+            },
+            {
+              "type": "number",
+              "attr": "exitDelaySec",
+              "title": "Exit delay sec"
+            }
+          ]
+        }
       }
     },
     "sensors_pir": {
@@ -32,11 +129,36 @@
           "type": "table",
           "label": "PIR sensors (Add/Remove)",
           "items": [
-            { "type": "text", "attr": "key", "title": "Key" },
-            { "type": "text", "attr": "label", "title": "Label" },
-            { "type": "text", "attr": "id", "title": "Datapoint ID" },
-            { "type": "select", "attr": "zone", "title": "Zone", "options": ["perimeter", "aussenhaut", "innenraum"] },
-            { "type": "text", "attr": "activeValuesCsv", "title": "Active Values CSV" }
+            {
+              "type": "text",
+              "attr": "key",
+              "title": "Key"
+            },
+            {
+              "type": "text",
+              "attr": "label",
+              "title": "Label"
+            },
+            {
+              "type": "text",
+              "attr": "id",
+              "title": "Datapoint ID"
+            },
+            {
+              "type": "select",
+              "attr": "zone",
+              "title": "Zone",
+              "options": [
+                "perimeter",
+                "aussenhaut",
+                "innenraum"
+              ]
+            },
+            {
+              "type": "text",
+              "attr": "activeValuesCsv",
+              "title": "Active Values CSV"
+            }
           ]
         }
       }
@@ -49,11 +171,36 @@
           "type": "table",
           "label": "Door/Window contacts (Add/Remove)",
           "items": [
-            { "type": "text", "attr": "key", "title": "Key" },
-            { "type": "text", "attr": "label", "title": "Label" },
-            { "type": "text", "attr": "id", "title": "Datapoint ID" },
-            { "type": "select", "attr": "zone", "title": "Zone", "options": ["perimeter", "aussenhaut", "innenraum"] },
-            { "type": "text", "attr": "activeValuesCsv", "title": "Active Values CSV" }
+            {
+              "type": "text",
+              "attr": "key",
+              "title": "Key"
+            },
+            {
+              "type": "text",
+              "attr": "label",
+              "title": "Label"
+            },
+            {
+              "type": "text",
+              "attr": "id",
+              "title": "Datapoint ID"
+            },
+            {
+              "type": "select",
+              "attr": "zone",
+              "title": "Zone",
+              "options": [
+                "perimeter",
+                "aussenhaut",
+                "innenraum"
+              ]
+            },
+            {
+              "type": "text",
+              "attr": "activeValuesCsv",
+              "title": "Active Values CSV"
+            }
           ]
         }
       }
@@ -66,11 +213,36 @@
           "type": "table",
           "label": "Presence sensors (Add/Remove)",
           "items": [
-            { "type": "text", "attr": "key", "title": "Key" },
-            { "type": "text", "attr": "label", "title": "Label" },
-            { "type": "text", "attr": "id", "title": "Datapoint ID" },
-            { "type": "select", "attr": "zone", "title": "Zone", "options": ["perimeter", "aussenhaut", "innenraum"] },
-            { "type": "text", "attr": "activeValuesCsv", "title": "Active Values CSV" }
+            {
+              "type": "text",
+              "attr": "key",
+              "title": "Key"
+            },
+            {
+              "type": "text",
+              "attr": "label",
+              "title": "Label"
+            },
+            {
+              "type": "text",
+              "attr": "id",
+              "title": "Datapoint ID"
+            },
+            {
+              "type": "select",
+              "attr": "zone",
+              "title": "Zone",
+              "options": [
+                "perimeter",
+                "aussenhaut",
+                "innenraum"
+              ]
+            },
+            {
+              "type": "text",
+              "attr": "activeValuesCsv",
+              "title": "Active Values CSV"
+            }
           ]
         }
       }
@@ -83,12 +255,45 @@
           "type": "table",
           "label": "Person detection datapoints (Add/Remove)",
           "items": [
-            { "type": "text", "attr": "key", "title": "Key" },
-            { "type": "text", "attr": "label", "title": "Label" },
-            { "type": "text", "attr": "id", "title": "Datapoint ID" },
-            { "type": "select", "attr": "zone", "title": "Zone", "options": ["perimeter", "aussenhaut", "innenraum"] },
-            { "type": "select", "attr": "mode", "title": "Type", "options": ["boolean", "string"] },
-            { "type": "text", "attr": "detectValue", "title": "Detect value (for string mode)" }
+            {
+              "type": "text",
+              "attr": "key",
+              "title": "Key"
+            },
+            {
+              "type": "text",
+              "attr": "label",
+              "title": "Label"
+            },
+            {
+              "type": "text",
+              "attr": "id",
+              "title": "Datapoint ID"
+            },
+            {
+              "type": "select",
+              "attr": "zone",
+              "title": "Zone",
+              "options": [
+                "perimeter",
+                "aussenhaut",
+                "innenraum"
+              ]
+            },
+            {
+              "type": "select",
+              "attr": "mode",
+              "title": "Type",
+              "options": [
+                "boolean",
+                "string"
+              ]
+            },
+            {
+              "type": "text",
+              "attr": "detectValue",
+              "title": "Detect value (for string mode)"
+            }
           ]
         }
       }
@@ -101,16 +306,56 @@
           "type": "table",
           "label": "Cameras (Add/Remove)",
           "items": [
-            { "type": "text", "attr": "key", "title": "Key" },
-            { "type": "text", "attr": "label", "title": "Label" },
-            { "type": "text", "attr": "ip", "title": "IP" },
-            { "type": "text", "attr": "streamUrl", "title": "Stream URL" },
-            { "type": "text", "attr": "snapshotUrl", "title": "Snapshot URL" },
-            { "type": "text", "attr": "alarmDatapoint", "title": "Alarm datapoint" },
-            { "type": "text", "attr": "ledDatapoint", "title": "LED datapoint" },
-            { "type": "text", "attr": "personDetectionDp", "title": "Person detection datapoint" },
-            { "type": "text", "attr": "username", "title": "Username" },
-            { "type": "password", "attr": "password", "title": "Password" }
+            {
+              "type": "text",
+              "attr": "key",
+              "title": "Key"
+            },
+            {
+              "type": "text",
+              "attr": "label",
+              "title": "Label"
+            },
+            {
+              "type": "text",
+              "attr": "ip",
+              "title": "IP"
+            },
+            {
+              "type": "text",
+              "attr": "streamUrl",
+              "title": "Stream URL"
+            },
+            {
+              "type": "text",
+              "attr": "snapshotUrl",
+              "title": "Snapshot URL"
+            },
+            {
+              "type": "text",
+              "attr": "alarmDatapoint",
+              "title": "Alarm datapoint"
+            },
+            {
+              "type": "text",
+              "attr": "ledDatapoint",
+              "title": "LED datapoint"
+            },
+            {
+              "type": "text",
+              "attr": "personDetectionDp",
+              "title": "Person detection datapoint"
+            },
+            {
+              "type": "text",
+              "attr": "username",
+              "title": "Username"
+            },
+            {
+              "type": "password",
+              "attr": "password",
+              "title": "Password"
+            }
           ]
         }
       }
@@ -123,19 +368,56 @@
           "type": "table",
           "label": "Actuators (Add/Remove)",
           "items": [
-            { "type": "text", "attr": "key", "title": "Key" },
-            { "type": "text", "attr": "id", "title": "Datapoint ID" },
-            { "type": "text", "attr": "onValue", "title": "ON value" },
-            { "type": "text", "attr": "offValue", "title": "OFF value" }
+            {
+              "type": "text",
+              "attr": "key",
+              "title": "Key"
+            },
+            {
+              "type": "text",
+              "attr": "id",
+              "title": "Datapoint ID"
+            },
+            {
+              "type": "text",
+              "attr": "onValue",
+              "title": "ON value"
+            },
+            {
+              "type": "text",
+              "attr": "offValue",
+              "title": "OFF value"
+            }
           ]
         },
-        "displayId": { "type": "text", "label": "Display datapoint" },
-        "clearDisplayId": { "type": "text", "label": "Clear display datapoint" },
-        "buzzerId": { "type": "text", "label": "Buzzer datapoint" },
-        "motionSensorId": { "type": "text", "label": "Motion sensor datapoint" },
-        "ledRedId": { "type": "text", "label": "LED red datapoint" },
-        "ledYellowId": { "type": "text", "label": "LED yellow datapoint" },
-        "standbyId": { "type": "text", "label": "Standby datapoint" }
+        "displayId": {
+          "type": "text",
+          "label": "Display datapoint"
+        },
+        "clearDisplayId": {
+          "type": "text",
+          "label": "Clear display datapoint"
+        },
+        "buzzerId": {
+          "type": "text",
+          "label": "Buzzer datapoint"
+        },
+        "motionSensorId": {
+          "type": "text",
+          "label": "Motion sensor datapoint"
+        },
+        "ledRedId": {
+          "type": "text",
+          "label": "LED red datapoint"
+        },
+        "ledYellowId": {
+          "type": "text",
+          "label": "LED yellow datapoint"
+        },
+        "standbyId": {
+          "type": "text",
+          "label": "Standby datapoint"
+        }
       }
     },
     "telegram": {
@@ -146,16 +428,32 @@
           "type": "table",
           "label": "Telegram instances (Add/Remove)",
           "items": [
-            { "type": "text", "attr": "instance", "title": "Instance (e.g. telegram.1)" },
-            { "type": "password", "attr": "token", "title": "Token (optional metadata)" }
+            {
+              "type": "text",
+              "attr": "instance",
+              "title": "Instance (e.g. telegram.1)"
+            },
+            {
+              "type": "password",
+              "attr": "token",
+              "title": "Token (optional metadata)"
+            }
           ]
         },
         "telegramTargetsTable": {
           "type": "table",
           "label": "Telegram targets (Add/Remove)",
           "items": [
-            { "type": "text", "attr": "instance", "title": "Instance" },
-            { "type": "text", "attr": "chatId", "title": "Chat ID" }
+            {
+              "type": "text",
+              "attr": "instance",
+              "title": "Instance"
+            },
+            {
+              "type": "text",
+              "attr": "chatId",
+              "title": "Chat ID"
+            }
           ]
         }
       }
@@ -164,12 +462,54 @@
       "type": "panel",
       "label": "Advanced JSON (Fallback)",
       "items": {
-        "sensorsJson": { "type": "textarea", "label": "Legacy sensorsJson", "rows": 6 },
-        "personDetectionJson": { "type": "textarea", "label": "Legacy personDetectionJson", "rows": 6 },
-        "camerasJson": { "type": "textarea", "label": "Legacy camerasJson", "rows": 6 },
-        "actuatorsJson": { "type": "textarea", "label": "Legacy actuatorsJson", "rows": 6 },
-        "telegramInstancesJson": { "type": "textarea", "label": "Legacy telegramInstancesJson", "rows": 6 },
-        "telegramTargetsJson": { "type": "textarea", "label": "Legacy telegramTargetsJson", "rows": 6 }
+        "sensorsJson": {
+          "type": "textarea",
+          "label": "Legacy sensorsJson",
+          "rows": 6
+        },
+        "personDetectionJson": {
+          "type": "textarea",
+          "label": "Legacy personDetectionJson",
+          "rows": 6
+        },
+        "camerasJson": {
+          "type": "textarea",
+          "label": "Legacy camerasJson",
+          "rows": 6
+        },
+        "actuatorsJson": {
+          "type": "textarea",
+          "label": "Legacy actuatorsJson",
+          "rows": 6
+        },
+        "telegramInstancesJson": {
+          "type": "textarea",
+          "label": "Legacy telegramInstancesJson",
+          "rows": 6
+        },
+        "telegramTargetsJson": {
+          "type": "textarea",
+          "label": "Legacy telegramTargetsJson",
+          "rows": 6
+        }
+      }
+    },
+    "diagnostics": {
+      "type": "panel",
+      "label": "Diagnostics",
+      "items": {
+        "_d1": {
+          "type": "staticText",
+          "text": "Eventlog liegt in alarmsystem.0.diagnostics.eventsJson"
+        },
+        "_d2": {
+          "type": "staticText",
+          "text": "Aktive Case-ID: alarmsystem.0.runtime.activeCaseId"
+        },
+        "_d3": {
+          "type": "staticText",
+          "text": "Quittierung über alarmsystem.0.commands.ackActiveCase=true"
+        }
       }
     }
   }

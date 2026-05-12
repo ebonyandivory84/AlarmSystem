@@ -5,8 +5,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 
 type Zone = 'perimeter' | 'aussenhaut' | 'innenraum';
-type SensorType = 'pir' | 'contact' | 'presence' | 'personDetection';
-
+type SensorType = 'pir' | 'contact' | 'presence';
 type DetectionMode = 'boolean' | 'string';
 
 interface SensorDef {
@@ -40,11 +39,10 @@ interface CameraDef {
   personDetectionDp?: string;
 }
 
-interface ActuatorDef {
-  key: string;
-  id: string;
-  onValue?: string;
-  offValue?: string;
+interface ZoneDelayDef {
+  zone: Zone;
+  entryDelaySec: number;
+  exitDelaySec: number;
 }
 
 interface TelegramInstanceDef {
@@ -57,12 +55,25 @@ interface TelegramTargetDef {
   chatId: string;
 }
 
+interface EventEntry {
+  ts: number;
+  level: 'info' | 'warn' | 'alarm';
+  type: string;
+  message: string;
+  caseId?: string;
+  acked?: boolean;
+}
+
 interface Config {
-  countdownSec: number;
   dedupeMs: number;
+  defaultEntryDelaySec: number;
+  defaultExitDelaySec: number;
   snapshotDelayMs: number;
   snapshotBurstCount: number;
   snapshotBurstIntervalMs: number;
+  heartbeatTimeoutSec: number;
+  simulationMode: boolean;
+
   armStateId: string;
   perimeterStateId: string;
   triggerStateId: string;
@@ -70,27 +81,28 @@ interface Config {
   displayId: string;
   clearDisplayId: string;
   buzzerId: string;
-  motionSensorId: string;
   ledRedId: string;
   ledYellowId: string;
-  standbyId: string;
+
   sensors: SensorDef[];
   personDetections: PersonDetectionDef[];
   cameras: CameraDef[];
-  actuators: ActuatorDef[];
+  zoneDelays: Record<Zone, { entryDelaySec: number; exitDelaySec: number }>;
   telegramInstances: TelegramInstanceDef[];
   telegramTargets: TelegramTargetDef[];
 }
 
 class AlarmSystemAdapter extends utils.Adapter {
   private cfg!: Config;
-  private activeById = new Map<string, boolean>();
+  private zoneArmed: Record<Zone, boolean> = { perimeter: false, aussenhaut: false, innenraum: false };
+  private zoneExitTimers: Partial<Record<Zone, ioBroker.Timeout>> = {};
   private dedupe = new Map<string, number>();
-  private lastTrigger = '';
-  private zoneState: Record<Zone, boolean> = { perimeter: false, aussenhaut: false, innenraum: false };
-  private countdownRemaining = 0;
+  private lastSeen = new Map<string, number>();
+  private heartbeatTimer: ioBroker.Interval | null = null;
+
+  private activeCaseId = '';
+  private eventLog: EventEntry[] = [];
   private countdownTimer: ioBroker.Timeout | null = null;
-  private countdownTick: ioBroker.Interval | null = null;
 
   public constructor(options: Partial<utils.AdapterOptions> = {}) {
     super({ ...options, name: 'alarmsystem' });
@@ -100,64 +112,32 @@ class AlarmSystemAdapter extends utils.Adapter {
 
   private async onReady(): Promise<void> {
     this.cfg = this.buildConfig();
-
     await this.subscribeStates('*');
     await this.subscribeForeignInputs();
-
-    await this.ensureRuntimeStates();
-    await this.refreshAllInputs();
-    await this.recomputeIndicators();
-
-    this.log.info('AlarmSystem started with zone-based logic');
+    await this.ensureStates();
+    await this.refreshInitialSeen();
+    this.startHeartbeatWatchdog();
+    await this.logEvent('info', 'system_start', 'AlarmSystem gestartet');
   }
 
   private buildConfig(): Config {
     const n = this.config as Record<string, any>;
-
-    const fromTableSensors = this.parseSensorTable(n.pirSensorsTable, 'pir')
+    const sensors = this.parseSensorTable(n.pirSensorsTable, 'pir')
       .concat(this.parseSensorTable(n.contactSensorsTable, 'contact'))
       .concat(this.parseSensorTable(n.presenceSensorsTable, 'presence'));
-    const fromTablePd = this.parsePersonDetectionTable(n.personDetectionTable);
-
-    const sensors = fromTableSensors.length > 0 ? fromTableSensors : this.tryJson<SensorDef[]>(n.sensorsJson, []);
-    const personDetections = fromTablePd.length > 0 ? fromTablePd : this.tryJson<PersonDetectionDef[]>(n.personDetectionJson, []);
-
-    const cameras = (Array.isArray(n.camerasTable) ? n.camerasTable : this.tryJson<CameraDef[]>(n.camerasJson, [])).map((c: any) => ({
-      key: String(c.key || c.ip || c.label || ''),
-      label: String(c.label || c.key || c.ip || ''),
-      ip: String(c.ip || ''),
-      streamUrl: String(c.streamUrl || ''),
-      snapshotUrl: String(c.snapshotUrl || ''),
-      alarmDatapoint: c.alarmDatapoint ? String(c.alarmDatapoint) : undefined,
-      ledDatapoint: c.ledDatapoint ? String(c.ledDatapoint) : undefined,
-      username: c.username ? String(c.username) : undefined,
-      password: c.password ? String(c.password) : undefined,
-      personDetectionDp: c.personDetectionDp ? String(c.personDetectionDp) : undefined
-    }));
-
-    const actuators = (Array.isArray(n.actuatorsTable) ? n.actuatorsTable : this.tryJson<ActuatorDef[]>(n.actuatorsJson, [])).map((a: any) => ({
-      key: String(a.key || a.id || ''),
-      id: String(a.id || ''),
-      onValue: a.onValue !== undefined && a.onValue !== '' ? String(a.onValue) : undefined,
-      offValue: a.offValue !== undefined && a.offValue !== '' ? String(a.offValue) : undefined
-    })).filter((a: ActuatorDef) => a.id);
-
-    const telegramInstances = (Array.isArray(n.telegramInstancesTable) ? n.telegramInstancesTable : this.tryJson<TelegramInstanceDef[]>(n.telegramInstancesJson, [])).map((x: any) => ({
-      instance: String(x.instance || '').trim(),
-      token: x.token ? String(x.token) : undefined
-    })).filter((x: TelegramInstanceDef) => x.instance);
-
-    const telegramTargets = (Array.isArray(n.telegramTargetsTable) ? n.telegramTargetsTable : this.tryJson<TelegramTargetDef[]>(n.telegramTargetsJson, [])).map((x: any) => ({
-      instance: String(x.instance || '').trim(),
-      chatId: String(x.chatId || '').trim()
-    })).filter((x: TelegramTargetDef) => x.instance && x.chatId);
+    const personDetections = this.parsePersonDetectionTable(n.personDetectionTable);
+    const cameras = this.parseCamerasTable(n.camerasTable);
 
     return {
-      countdownSec: this.toNumber(n.defaultCountdownSec, 20),
       dedupeMs: this.toNumber(n.eventDedupeMs, 1000),
+      defaultEntryDelaySec: this.toNumber(n.defaultEntryDelaySec, 20),
+      defaultExitDelaySec: this.toNumber(n.defaultExitDelaySec, 10),
       snapshotDelayMs: this.toNumber(n.snapshotSendDelayMs, 0),
       snapshotBurstCount: Math.max(1, this.toNumber(n.snapshotBurstCount, 1)),
       snapshotBurstIntervalMs: Math.max(500, this.toNumber(n.snapshotBurstIntervalMs, 5000)),
+      heartbeatTimeoutSec: this.toNumber(n.heartbeatTimeoutSec, 180),
+      simulationMode: n.simulationMode === true,
+
       armStateId: n.armStateId || 'mqtt.1.AlarmCenter.AlarmSystemArmed',
       perimeterStateId: n.perimeterStateId || 'mqtt.1.AlarmCenter.PerimeterProtection',
       triggerStateId: n.triggerStateId || 'mqtt.1.AlarmCenter.AlarmTrigger',
@@ -165,202 +145,327 @@ class AlarmSystemAdapter extends utils.Adapter {
       displayId: n.displayId || 'mqtt.1.AlarmCenter.Display',
       clearDisplayId: n.clearDisplayId || 'mqtt.1.AlarmCenter.ClearDisplay',
       buzzerId: n.buzzerId || 'mqtt.1.AlarmCenter.Buzzer',
-      motionSensorId: n.motionSensorId || 'mqtt.1.AlarmCenter.MotionSensor',
       ledRedId: n.ledRedId || 'mqtt.1.AlarmCenter.LEDRingRed',
       ledYellowId: n.ledYellowId || 'mqtt.1.AlarmCenter.LEDRingYellow',
-      standbyId: n.standbyId || 'mqtt.1.AlarmCenter.StandBy',
+
       sensors,
       personDetections,
       cameras,
-      actuators,
-      telegramInstances,
-      telegramTargets
+      zoneDelays: this.parseZoneDelays(n.zoneDelaysTable, this.toNumber(n.defaultEntryDelaySec, 20), this.toNumber(n.defaultExitDelaySec, 10)),
+      telegramInstances: this.parseTelegramInstances(n.telegramInstancesTable),
+      telegramTargets: this.parseTelegramTargets(n.telegramTargetsTable)
     };
+  }
+
+  private parseZoneDelays(rows: any, defaultEntry: number, defaultExit: number): Record<Zone, { entryDelaySec: number; exitDelaySec: number }> {
+    const out: Record<Zone, { entryDelaySec: number; exitDelaySec: number }> = {
+      perimeter: { entryDelaySec: defaultEntry, exitDelaySec: defaultExit },
+      aussenhaut: { entryDelaySec: defaultEntry, exitDelaySec: defaultExit },
+      innenraum: { entryDelaySec: defaultEntry, exitDelaySec: defaultExit }
+    };
+    if (!Array.isArray(rows)) return out;
+    for (const r of rows) {
+      const z = this.parseZone(r?.zone);
+      out[z] = {
+        entryDelaySec: Math.max(0, this.toNumber(r?.entryDelaySec, out[z].entryDelaySec)),
+        exitDelaySec: Math.max(0, this.toNumber(r?.exitDelaySec, out[z].exitDelaySec))
+      };
+    }
+    return out;
   }
 
   private parseSensorTable(rows: any, sensorType: SensorType): SensorDef[] {
     if (!Array.isArray(rows)) return [];
-    return rows
-      .filter(r => r && r.id)
-      .map((r: any) => ({
-        key: String(r.key || r.id),
-        id: String(r.id),
-        label: String(r.label || r.key || r.id),
-        sensorType,
-        zone: this.parseZone(r.zone),
-        activeValues: String(r.activeValuesCsv || 'open').split(',').map((x: string) => x.trim()).filter(Boolean).map((x: string) => this.parseScalar(x))
-      }));
+    return rows.filter(r => r?.id).map((r: any) => ({
+      key: String(r.key || r.id),
+      id: String(r.id),
+      label: String(r.label || r.key || r.id),
+      sensorType,
+      zone: this.parseZone(r.zone),
+      activeValues: String(r.activeValuesCsv || 'open').split(',').map((x: string) => x.trim()).filter(Boolean).map((x: string) => this.parseScalar(x))
+    }));
   }
 
   private parsePersonDetectionTable(rows: any): PersonDetectionDef[] {
     if (!Array.isArray(rows)) return [];
-    return rows
-      .filter(r => r && r.id)
-      .map((r: any) => ({
-        key: String(r.key || r.id),
-        id: String(r.id),
-        label: String(r.label || r.key || r.id),
-        zone: this.parseZone(r.zone),
-        mode: (r.mode === 'string' ? 'string' : 'boolean'),
-        detectValue: r.detectValue ? String(r.detectValue) : undefined
-      }));
+    return rows.filter(r => r?.id).map((r: any) => ({
+      key: String(r.key || r.id),
+      id: String(r.id),
+      label: String(r.label || r.key || r.id),
+      zone: this.parseZone(r.zone),
+      mode: r.mode === 'string' ? 'string' : 'boolean',
+      detectValue: r.detectValue ? String(r.detectValue) : undefined
+    }));
+  }
+
+  private parseCamerasTable(rows: any): CameraDef[] {
+    if (!Array.isArray(rows)) return [];
+    return rows.filter(r => r?.snapshotUrl).map((r: any) => ({
+      key: String(r.key || r.ip || ''),
+      label: String(r.label || r.key || r.ip || ''),
+      ip: String(r.ip || ''),
+      streamUrl: String(r.streamUrl || ''),
+      snapshotUrl: String(r.snapshotUrl || ''),
+      alarmDatapoint: r.alarmDatapoint ? String(r.alarmDatapoint) : undefined,
+      ledDatapoint: r.ledDatapoint ? String(r.ledDatapoint) : undefined,
+      username: r.username ? String(r.username) : undefined,
+      password: r.password ? String(r.password) : undefined,
+      personDetectionDp: r.personDetectionDp ? String(r.personDetectionDp) : undefined
+    }));
+  }
+
+  private parseTelegramInstances(rows: any): TelegramInstanceDef[] {
+    if (!Array.isArray(rows)) return [];
+    return rows.filter(r => r?.instance).map((r: any) => ({ instance: String(r.instance), token: r.token ? String(r.token) : undefined }));
+  }
+
+  private parseTelegramTargets(rows: any): TelegramTargetDef[] {
+    if (!Array.isArray(rows)) return [];
+    return rows.filter(r => r?.instance && r?.chatId).map((r: any) => ({ instance: String(r.instance), chatId: String(r.chatId) }));
   }
 
   private parseZone(v: any): Zone {
     const z = String(v || '').toLowerCase();
-    if (z === 'innenraum') return 'innenraum';
     if (z === 'aussenhaut') return 'aussenhaut';
+    if (z === 'innenraum') return 'innenraum';
     return 'perimeter';
   }
 
   private async subscribeForeignInputs(): Promise<void> {
-    const ids = new Set<string>([
-      this.cfg.armStateId,
-      this.cfg.perimeterStateId,
-      this.cfg.motionSensorId
-    ]);
-
+    const ids = new Set<string>([this.cfg.armStateId, this.cfg.perimeterStateId]);
     for (const s of this.cfg.sensors) ids.add(s.id);
     for (const p of this.cfg.personDetections) ids.add(p.id);
-    for (const c of this.cfg.cameras) {
-      if (c.personDetectionDp) ids.add(c.personDetectionDp);
-      if (c.alarmDatapoint) ids.add(c.alarmDatapoint);
-      if (c.ledDatapoint) ids.add(c.ledDatapoint);
-    }
-
+    for (const c of this.cfg.cameras) if (c.personDetectionDp) ids.add(c.personDetectionDp);
     for (const id of ids) await this.subscribeForeignStatesAsync(id);
   }
 
-  private async ensureRuntimeStates(): Promise<void> {
-    await this.setStateAsync('runtime.mode', 'disarmed', true);
-    await this.setStateAsync('runtime.lastTrigger', '', true);
-    await this.setStateAsync('runtime.countdownRemainingSec', 0, true);
-    await this.setStateAsync('zones.perimeter.armed', false, true);
-    await this.setStateAsync('zones.aussenhaut.armed', false, true);
-    await this.setStateAsync('zones.innenraum.armed', false, true);
+  private async ensureStates(): Promise<void> {
+    const defaults: Array<[string, ioBroker.StateValue]> = [
+      ['runtime.mode', 'disarmed'],
+      ['runtime.activeCaseId', ''],
+      ['runtime.lastTrigger', ''],
+      ['runtime.simulationMode', this.cfg.simulationMode],
+      ['runtime.countdownRemainingSec', 0],
+      ['zones.perimeter.armed', false],
+      ['zones.aussenhaut.armed', false],
+      ['zones.innenraum.armed', false],
+      ['diagnostics.eventsJson', '[]'],
+      ['diagnostics.lastSabotage', ''],
+      ['commands.ackActiveCase', false]
+    ];
+    for (const [id, val] of defaults) await this.setStateAsync(id, val, true);
   }
 
-  private async refreshAllInputs(): Promise<void> {
-    for (const s of this.cfg.sensors) {
-      const st = await this.getForeignStateAsync(s.id);
-      this.activeById.set(s.id, this.matchesAny(st?.val ?? null, s.activeValues));
-    }
-    for (const p of this.cfg.personDetections) {
-      const st = await this.getForeignStateAsync(p.id);
-      this.activeById.set(p.id, this.matchesPersonDetection(st?.val ?? null, p));
+  private async refreshInitialSeen(): Promise<void> {
+    const ids = new Set<string>();
+    this.cfg.sensors.forEach(s => ids.add(s.id));
+    this.cfg.personDetections.forEach(p => ids.add(p.id));
+    this.cfg.cameras.forEach(c => c.personDetectionDp && ids.add(c.personDetectionDp));
+    const now = Date.now();
+    for (const id of ids) this.lastSeen.set(id, now);
+  }
+
+  private startHeartbeatWatchdog(): void {
+    this.heartbeatTimer && this.clearInterval(this.heartbeatTimer);
+    this.heartbeatTimer = this.setInterval(() => void this.runHeartbeatCheck(), 30000) ?? null;
+  }
+
+  private async runHeartbeatCheck(): Promise<void> {
+    const now = Date.now();
+    const timeoutMs = this.cfg.heartbeatTimeoutSec * 1000;
+    for (const [id, ts] of this.lastSeen) {
+      if (now - ts > timeoutMs) {
+        const msg = `Sabotage/Offline erkannt: ${id} seit ${Math.round((now - ts) / 1000)}s ohne Heartbeat`;
+        await this.setStateAsync('diagnostics.lastSabotage', msg, true);
+        await this.logEvent('warn', 'sabotage_offline', msg);
+      }
     }
   }
 
   private async onStateChange(id: string, state: ioBroker.State | null | undefined): Promise<void> {
     if (!state) return;
 
-    const localId = id.startsWith(this.namespace + '.') ? id.slice(this.namespace.length + 1) : '';
-
-    if (localId && !state.ack) {
-      if (localId === 'commands.armAll' && state.val === true) {
-        await this.setZoneArmed('perimeter', true);
-        await this.setZoneArmed('aussenhaut', true);
-        await this.setZoneArmed('innenraum', true);
-        await this.setStateAsync('commands.armAll', false, true);
-        return;
+    const local = id.startsWith(this.namespace + '.') ? id.slice(this.namespace.length + 1) : '';
+    if (local && !state.ack) {
+      if (local === 'commands.armAll' && state.val === true) {
+        await this.armZone('perimeter');
+        await this.armZone('aussenhaut');
+        await this.armZone('innenraum');
+        await this.setStateAsync(local, false, true);
       }
-      if (localId === 'commands.disarmAll' && state.val === true) {
-        await this.setZoneArmed('perimeter', false);
-        await this.setZoneArmed('aussenhaut', false);
-        await this.setZoneArmed('innenraum', false);
-        await this.abortCountdown();
-        await this.setForeignStateSafe(this.cfg.sirenStateId, false);
-        await this.setStateAsync('commands.disarmAll', false, true);
-        return;
+      if (local === 'commands.disarmAll' && state.val === true) {
+        await this.disarmAll();
+        await this.setStateAsync(local, false, true);
       }
-      if (localId === 'commands.armPerimeterZone' && state.val === true) {
-        await this.setZoneArmed('perimeter', true);
-        await this.setStateAsync('commands.armPerimeterZone', false, true);
-        return;
+      if (local === 'commands.armPerimeterZone' && state.val === true) {
+        await this.armZone('perimeter');
+        await this.setStateAsync(local, false, true);
       }
-      if (localId === 'commands.armAussenhautZone' && state.val === true) {
-        await this.setZoneArmed('aussenhaut', true);
-        await this.setStateAsync('commands.armAussenhautZone', false, true);
-        return;
+      if (local === 'commands.armAussenhautZone' && state.val === true) {
+        await this.armZone('aussenhaut');
+        await this.setStateAsync(local, false, true);
       }
-      if (localId === 'commands.armInnenraumZone' && state.val === true) {
-        await this.setZoneArmed('innenraum', true);
-        await this.setStateAsync('commands.armInnenraumZone', false, true);
-        return;
+      if (local === 'commands.armInnenraumZone' && state.val === true) {
+        await this.armZone('innenraum');
+        await this.setStateAsync(local, false, true);
       }
-      if (localId === 'commands.disarmPerimeterZone' && state.val === true) {
-        await this.setZoneArmed('perimeter', false);
-        await this.setStateAsync('commands.disarmPerimeterZone', false, true);
-        return;
+      if (local === 'commands.disarmPerimeterZone' && state.val === true) {
+        await this.disarmZone('perimeter');
+        await this.setStateAsync(local, false, true);
       }
-      if (localId === 'commands.disarmAussenhautZone' && state.val === true) {
-        await this.setZoneArmed('aussenhaut', false);
-        await this.setStateAsync('commands.disarmAussenhautZone', false, true);
-        return;
+      if (local === 'commands.disarmAussenhautZone' && state.val === true) {
+        await this.disarmZone('aussenhaut');
+        await this.setStateAsync(local, false, true);
       }
-      if (localId === 'commands.disarmInnenraumZone' && state.val === true) {
-        await this.setZoneArmed('innenraum', false);
-        await this.setStateAsync('commands.disarmInnenraumZone', false, true);
-        return;
+      if (local === 'commands.disarmInnenraumZone' && state.val === true) {
+        await this.disarmZone('innenraum');
+        await this.setStateAsync(local, false, true);
+      }
+      if (local === 'commands.ackActiveCase' && state.val === true) {
+        await this.ackActiveCase();
+        await this.setStateAsync(local, false, true);
+      }
+      if (local === 'runtime.simulationMode') {
+        this.cfg.simulationMode = state.val === true;
       }
       return;
     }
 
+    this.lastSeen.set(id, Date.now());
+
     if (id === this.cfg.armStateId && state.val === true) {
-      await this.setZoneArmed('perimeter', true);
-      await this.setZoneArmed('aussenhaut', true);
-      await this.setZoneArmed('innenraum', true);
+      await this.armZone('perimeter');
+      await this.armZone('aussenhaut');
+      await this.armZone('innenraum');
       return;
     }
     if (id === this.cfg.perimeterStateId && state.val === true) {
-      await this.setZoneArmed('perimeter', true);
+      await this.armZone('perimeter');
       return;
     }
 
     const s = this.cfg.sensors.find(x => x.id === id);
     if (s) {
       const active = this.matchesAny(state.val, s.activeValues);
-      this.activeById.set(s.id, active);
-      await this.recomputeIndicators();
-      if (active && this.isZoneArmed(s.zone) && this.allowEvent(s.id)) {
-        await this.startCountdown(s.label, s.zone);
+      if (active && this.zoneArmed[s.zone] && this.allowEvent(id)) {
+        await this.handleZoneTrigger(s.label, s.zone);
       }
       return;
     }
 
     const p = this.cfg.personDetections.find(x => x.id === id);
     if (p) {
-      const active = this.matchesPersonDetection(state.val, p);
-      this.activeById.set(p.id, active);
-      if (active && this.isZoneArmed(p.zone) && this.allowEvent(p.id)) {
-        await this.startCountdown(p.label, p.zone);
+      const active = this.matchesPerson(state.val, p);
+      if (active && this.zoneArmed[p.zone] && this.allowEvent(id)) {
+        await this.handleZoneTrigger(p.label, p.zone);
       }
       return;
     }
 
-    for (const cam of this.cfg.cameras) {
-      if (cam.personDetectionDp && id === cam.personDetectionDp) {
-        const active = state.val === true || state.val === 'human detected';
-        if (active && this.allowEvent(cam.personDetectionDp)) {
-          await this.triggerCameraOutputs(cam);
-        }
+    const cam = this.cfg.cameras.find(c => c.personDetectionDp === id);
+    if (cam) {
+      const active = state.val === true || state.val === 'human detected';
+      if (active && this.allowEvent(id)) {
+        await this.triggerCamera(cam);
       }
     }
   }
 
-  private async triggerCameraOutputs(cam: CameraDef): Promise<void> {
-    if (cam.alarmDatapoint) await this.setForeignStateSafe(cam.alarmDatapoint, 1);
+  private async armZone(zone: Zone): Promise<void> {
+    const exitMs = this.cfg.zoneDelays[zone].exitDelaySec * 1000;
+    this.zoneExitTimers[zone] && this.clearTimeout(this.zoneExitTimers[zone] as ioBroker.Timeout);
+    await this.logEvent('info', 'zone_arm_requested', `Zone ${zone} arming requested (exit ${this.cfg.zoneDelays[zone].exitDelaySec}s)`);
+
+    this.zoneExitTimers[zone] = this.setTimeout(async () => {
+      this.zoneArmed[zone] = true;
+      await this.setStateAsync(`zones.${zone}.armed`, true, true);
+      await this.updateModeState();
+      await this.logEvent('info', 'zone_armed', `Zone ${zone} armed`);
+    }, exitMs) ?? null as any;
+  }
+
+  private async disarmZone(zone: Zone): Promise<void> {
+    this.zoneExitTimers[zone] && this.clearTimeout(this.zoneExitTimers[zone] as ioBroker.Timeout);
+    this.zoneArmed[zone] = false;
+    await this.setStateAsync(`zones.${zone}.armed`, false, true);
+    await this.updateModeState();
+    await this.logEvent('info', 'zone_disarmed', `Zone ${zone} disarmed`);
+  }
+
+  private async disarmAll(): Promise<void> {
+    await this.disarmZone('perimeter');
+    await this.disarmZone('aussenhaut');
+    await this.disarmZone('innenraum');
+    await this.abortCountdown();
+    await this.setOutput(this.cfg.sirenStateId, false);
+  }
+
+  private async updateModeState(): Promise<void> {
+    const any = this.zoneArmed.perimeter || this.zoneArmed.aussenhaut || this.zoneArmed.innenraum;
+    await this.setStateAsync('runtime.mode', any ? 'armed' : 'disarmed', true);
+  }
+
+  private async handleZoneTrigger(label: string, zone: Zone): Promise<void> {
+    const entrySec = this.cfg.zoneDelays[zone].entryDelaySec;
+    const caseId = `CASE-${Date.now()}`;
+    this.activeCaseId = caseId;
+    await this.setStateAsync('runtime.activeCaseId', caseId, true);
+    await this.setStateAsync('runtime.lastTrigger', `${label} (${zone})`, true);
+    await this.setForeignStateSafe(this.cfg.triggerStateId, `${label} (${zone})`);
+    await this.logEvent('alarm', 'zone_trigger', `Trigger ${label} in zone ${zone}`, caseId);
+
+    if (this.countdownTimer) return;
+
+    await this.setOutput(this.cfg.displayId, '  Finger auflegen!  ');
+    await this.setStateAsync('runtime.mode', 'countdown', true);
+    await this.setStateAsync('runtime.countdownRemainingSec', entrySec, true);
+
+    const tick = this.setInterval(async () => {
+      const cur = (await this.getStateAsync('runtime.countdownRemainingSec'))?.val as number;
+      const next = Math.max(0, Number(cur || 0) - 1);
+      await this.setStateAsync('runtime.countdownRemainingSec', next, true);
+      if (next > 0 && next % 3 === 0) await this.setOutput(this.cfg.buzzerId, 'beep long 2x');
+      if (next === 0) this.clearInterval(tick as ioBroker.Interval);
+    }, 1000);
+
+    this.countdownTimer = this.setTimeout(async () => {
+      this.countdownTimer = null;
+      await this.setStateAsync('runtime.mode', 'alarm', true);
+      await this.setOutput(this.cfg.sirenStateId, true);
+      await this.sendTelegramText(`🚨 Alarm ausgelöst: ${label} (${zone}) | ${caseId}`);
+      await this.logEvent('alarm', 'alarm_activated', `Alarm activated (${label}/${zone})`, caseId);
+    }, entrySec * 1000) ?? null;
+  }
+
+  private async abortCountdown(): Promise<void> {
+    if (this.countdownTimer) this.clearTimeout(this.countdownTimer);
+    this.countdownTimer = null;
+    await this.setStateAsync('runtime.countdownRemainingSec', 0, true);
+    await this.updateModeState();
+  }
+
+  private async ackActiveCase(): Promise<void> {
+    if (!this.activeCaseId) return;
+    const cid = this.activeCaseId;
+    this.eventLog = this.eventLog.map(e => e.caseId === cid ? { ...e, acked: true } : e);
+    await this.setStateAsync('diagnostics.eventsJson', JSON.stringify(this.eventLog), true);
+    await this.logEvent('info', 'case_acked', `Case acknowledged: ${cid}`, cid);
+    this.activeCaseId = '';
+    await this.setStateAsync('runtime.activeCaseId', '', true);
+    await this.disarmAll();
+  }
+
+  private async triggerCamera(cam: CameraDef): Promise<void> {
+    await this.setOutput(cam.alarmDatapoint, 1);
     if (cam.ledDatapoint) {
-      await this.setForeignStateSafe(cam.ledDatapoint, true);
-      this.setTimeout(() => void this.setForeignStateSafe(cam.ledDatapoint as string, false), 10000);
+      await this.setOutput(cam.ledDatapoint, true);
+      this.setTimeout(() => void this.setOutput(cam.ledDatapoint, false), 10000);
     }
-    if (!cam.snapshotUrl) return;
 
-    const snapshotUrl = this.applyCameraCredentials(cam.snapshotUrl, cam.username, cam.password);
-
+    const url = this.applyCredentials(cam.snapshotUrl, cam.username, cam.password);
     for (let i = 0; i < this.cfg.snapshotBurstCount; i++) {
-      const wait = this.cfg.snapshotDelayMs + i * this.cfg.snapshotBurstIntervalMs;
-      this.setTimeout(() => void this.sendSnapshot(snapshotUrl, cam.label, i + 1), wait);
+      const delay = this.cfg.snapshotDelayMs + i * this.cfg.snapshotBurstIntervalMs;
+      this.setTimeout(() => void this.sendSnapshot(url, cam.label, i + 1), delay);
     }
   }
 
@@ -368,79 +473,34 @@ class AlarmSystemAdapter extends utils.Adapter {
     try {
       const res = await axios.get(url, { responseType: 'arraybuffer', timeout: 8000, validateStatus: s => s < 500 });
       if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
-      const file = path.join(os.tmpdir(), `alarmsystem_${Date.now()}_${idx}.jpg`);
+      const file = path.join(os.tmpdir(), `alarm_${Date.now()}_${idx}.jpg`);
       await fs.writeFile(file, Buffer.from(res.data));
-      await this.sendTelegramPhoto(file, `AlarmSystem: ${label}`);
+      await this.sendTelegramPhoto(file, `AlarmSystem ${label}`);
     } catch (e) {
-      await this.sendTelegramText(`Snapshot Fehler (${label}): ${String(e)}`);
+      await this.logEvent('warn', 'snapshot_error', `Snapshot failed for ${label}: ${String(e)}`);
     }
   }
 
-  private applyCameraCredentials(tpl: string, user?: string, pass?: string): string {
-    return tpl
-      .split('{username}').join(encodeURIComponent(user || '<USERNAME>'))
-      .split('{password}').join(encodeURIComponent(pass || '<PASSWORD>'));
+  private applyCredentials(url: string, user?: string, pass?: string): string {
+    return url.split('{username}').join(encodeURIComponent(user || '<USERNAME>')).split('{password}').join(encodeURIComponent(pass || '<PASSWORD>'));
   }
 
-  private async startCountdown(label: string, zone: Zone): Promise<void> {
-    if (this.countdownTimer) return;
-
-    this.lastTrigger = `${label} (${zone})`;
-    await this.setStateAsync('runtime.lastTrigger', this.lastTrigger, true);
-    await this.setForeignStateSafe(this.cfg.triggerStateId, this.lastTrigger);
-    await this.setForeignStateSafe(this.cfg.displayId, '  Finger auflegen!  ');
-
-    this.countdownRemaining = this.cfg.countdownSec;
-    await this.setStateAsync('runtime.mode', 'countdown', true);
-    await this.setStateAsync('runtime.countdownRemainingSec', this.countdownRemaining, true);
-
-    this.countdownTick = this.setInterval(async () => {
-      this.countdownRemaining = Math.max(0, this.countdownRemaining - 1);
-      await this.setStateAsync('runtime.countdownRemainingSec', this.countdownRemaining, true);
-      if (this.countdownRemaining > 0 && this.countdownRemaining % 3 === 0) {
-        await this.setForeignStateSafe(this.cfg.buzzerId, 'beep long 2x');
-      }
-    }, 1000) ?? null;
-
-    this.countdownTimer = this.setTimeout(async () => {
-      this.countdownTimer = null;
-      if (this.countdownTick) this.clearInterval(this.countdownTick);
-      this.countdownTick = null;
-      await this.setForeignStateSafe(this.cfg.sirenStateId, true);
-      await this.setStateAsync('runtime.mode', 'alarm', true);
-      await this.sendTelegramText(`🚨 Alarm: ${this.lastTrigger}`);
-    }, this.cfg.countdownSec * 1000) ?? null;
+  private async setOutput(id: string | undefined, val: ioBroker.StateValue): Promise<void> {
+    if (!id) return;
+    if (this.cfg.simulationMode) {
+      await this.logEvent('info', 'simulation_output', `SIM: ${id} = ${String(val)}`);
+      return;
+    }
+    await this.setForeignStateSafe(id, val);
   }
 
-  private async abortCountdown(): Promise<void> {
-    if (this.countdownTimer) this.clearTimeout(this.countdownTimer);
-    this.countdownTimer = null;
-    if (this.countdownTick) this.clearInterval(this.countdownTick);
-    this.countdownTick = null;
-    this.countdownRemaining = 0;
-    await this.setStateAsync('runtime.countdownRemainingSec', 0, true);
-    await this.setStateAsync('runtime.mode', 'disarmed', true);
+  private matchesAny(val: ioBroker.StateValue, list: Array<string | boolean | number>): boolean {
+    return list.some(x => x === val);
   }
 
-  private async recomputeIndicators(): Promise<void> {
-    const contactsOpen = this.cfg.sensors.filter(s => s.sensorType === 'contact' && this.activeById.get(s.id));
-    const pirActive = this.cfg.sensors.filter(s => s.sensorType === 'pir' && this.activeById.get(s.id));
-    await this.setForeignStateSafe(this.cfg.ledRedId, contactsOpen.length > 0);
-    await this.setForeignStateSafe(this.cfg.ledYellowId, pirActive.length > 0);
-  }
-
-  private async setZoneArmed(zone: Zone, armed: boolean): Promise<void> {
-    this.zoneState[zone] = armed;
-    await this.setStateAsync(`zones.${zone}.armed`, armed, true);
-    await this.setStateAsync('runtime.mode', this.anyZoneArmed() ? 'armed' : 'disarmed', true);
-  }
-
-  private isZoneArmed(zone: Zone): boolean {
-    return this.zoneState[zone] === true;
-  }
-
-  private anyZoneArmed(): boolean {
-    return this.zoneState.perimeter || this.zoneState.aussenhaut || this.zoneState.innenraum;
+  private matchesPerson(val: ioBroker.StateValue, p: PersonDetectionDef): boolean {
+    if (p.mode === 'boolean') return val === true;
+    return typeof val === 'string' && val === (p.detectValue || 'human detected');
   }
 
   private allowEvent(key: string): boolean {
@@ -451,13 +511,34 @@ class AlarmSystemAdapter extends utils.Adapter {
     return true;
   }
 
-  private matchesAny(val: ioBroker.StateValue, expected: Array<string | boolean | number>): boolean {
-    return expected.some(x => val === x);
+  private async logEvent(level: 'info' | 'warn' | 'alarm', type: string, message: string, caseId?: string): Promise<void> {
+    const e: EventEntry = { ts: Date.now(), level, type, message, caseId, acked: false };
+    this.eventLog.unshift(e);
+    this.eventLog = this.eventLog.slice(0, 200);
+    await this.setStateAsync('diagnostics.eventsJson', JSON.stringify(this.eventLog), true);
+    if (level === 'warn') this.log.warn(message);
+    else if (level === 'alarm') this.log.error(message);
+    else this.log.info(message);
   }
 
-  private matchesPersonDetection(val: ioBroker.StateValue, def: PersonDetectionDef): boolean {
-    if (def.mode === 'boolean') return val === true;
-    return typeof val === 'string' && val === (def.detectValue || 'human detected');
+  private async setForeignStateSafe(id: string, val: ioBroker.StateValue): Promise<void> {
+    try { await this.setForeignStateAsync(id, val as any); } catch {}
+  }
+
+  private async sendTelegramText(text: string): Promise<void> {
+    for (const inst of this.cfg.telegramInstances) {
+      const targets = this.cfg.telegramTargets.filter(t => t.instance === inst.instance);
+      if (targets.length === 0) await this.sendToAsync(inst.instance, 'send', { text });
+      else for (const t of targets) await this.sendToAsync(inst.instance, 'send', { user: t.chatId, text });
+    }
+  }
+
+  private async sendTelegramPhoto(file: string, caption: string): Promise<void> {
+    for (const inst of this.cfg.telegramInstances) {
+      const targets = this.cfg.telegramTargets.filter(t => t.instance === inst.instance);
+      if (targets.length === 0) await this.sendToAsync(inst.instance, 'send', { text: file, type: 'photo', caption });
+      else for (const t of targets) await this.sendToAsync(inst.instance, 'send', { user: t.chatId, text: file, type: 'photo', caption });
+    }
   }
 
   private parseScalar(v: string): string | boolean | number {
@@ -466,49 +547,6 @@ class AlarmSystemAdapter extends utils.Adapter {
     const n = Number(v);
     if (String(n) === v && Number.isFinite(n)) return n;
     return v;
-  }
-
-  private async setForeignStateSafe(id: string, val: ioBroker.StateValue): Promise<void> {
-    try {
-      await this.setForeignStateAsync(id, val as any);
-    } catch {
-      // ignore missing datapoints during migration
-    }
-  }
-
-  private async sendTelegramText(text: string): Promise<void> {
-    for (const inst of this.cfg.telegramInstances) {
-      const targets = this.cfg.telegramTargets.filter(t => t.instance === inst.instance);
-      if (targets.length === 0) {
-        await this.sendToAsync(inst.instance, 'send', { text });
-        continue;
-      }
-      for (const t of targets) {
-        await this.sendToAsync(inst.instance, 'send', { user: t.chatId, text });
-      }
-    }
-  }
-
-  private async sendTelegramPhoto(file: string, caption: string): Promise<void> {
-    for (const inst of this.cfg.telegramInstances) {
-      const targets = this.cfg.telegramTargets.filter(t => t.instance === inst.instance);
-      if (targets.length === 0) {
-        await this.sendToAsync(inst.instance, 'send', { text: file, type: 'photo', caption });
-        continue;
-      }
-      for (const t of targets) {
-        await this.sendToAsync(inst.instance, 'send', { user: t.chatId, text: file, type: 'photo', caption });
-      }
-    }
-  }
-
-  private tryJson<T>(raw: unknown, fallback: T): T {
-    try {
-      if (typeof raw !== 'string' || raw.trim() === '') return fallback;
-      return JSON.parse(raw) as T;
-    } catch {
-      return fallback;
-    }
   }
 
   private toNumber(v: unknown, fallback: number): number {
