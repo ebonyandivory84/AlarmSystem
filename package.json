@@ -1,6 +1,6 @@
 {
   "name": "iobroker.alarmsystem",
-  "version": "0.0.1",
+  "version": "0.2.0",
   "description": "Custom modular alarm system adapter for ioBroker",
   "main": "build/main.js",
   "scripts": {
@@ -11,9 +11,11 @@
   "author": "ebonyandivory84",
   "license": "MIT",
   "dependencies": {
-    "@iobroker/adapter-core": "^3.2.3"
+    "@iobroker/adapter-core": "^3.2.3",
+    "axios": "^1.9.0"
   },
   "devDependencies": {
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "@types/node": "^22.10.2"
   }
 }

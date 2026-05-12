@@ -1,11 +1,11 @@
 {
   "common": {
     "name": "alarmsystem",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "news": {
-      "0.1.0": {
-        "en": "Core functionality integrated from scripts with configurable sensors/cameras and secret-free defaults",
-        "de": "Kernfunktionalität aus Skripten integriert mit konfigurierbaren Sensoren/Kameras und secret-freien Defaults"
+      "0.2.0": {
+        "en": "Expanded config tabs, snapshot photo sending and legacy compatibility mirroring",
+        "de": "Erweiterte Konfig-Reiter, Snapshot-Fotoversand und Legacy-Kompatibilitäts-Mirroring"
       }
     },
     "titleLang": {
@@ -16,8 +16,13 @@
       "en": "Custom modular alarm adapter",
       "de": "Eigener modularer Alarm-Adapter"
     },
-    "authors": ["ebonyandivory84"],
-    "licenseInformation": { "license": "MIT", "type": "free" },
+    "authors": [
+      "ebonyandivory84"
+    ],
+    "licenseInformation": {
+      "license": "MIT",
+      "type": "free"
+    },
     "platform": "Javascript/Node.js",
     "mode": "daemon",
     "icon": "alarm.png",
@@ -29,20 +34,24 @@
     "compact": true,
     "connectionType": "local",
     "dataSource": "push",
-    "adminUI": { "config": "json" },
-    "dependencies": [{ "js-controller": ">=5.0.19" }]
+    "adminUI": {
+      "config": "json"
+    },
+    "dependencies": [
+      {
+        "js-controller": ">=5.0.19"
+      }
+    ]
   },
   "native": {
     "debugLevel": "info",
     "defaultCountdownSec": 20,
     "eventDedupeMs": 1000,
-
     "armStateId": "mqtt.1.AlarmCenter.AlarmSystemArmed",
     "perimeterStateId": "mqtt.1.AlarmCenter.PerimeterProtection",
     "countdownStateId": "mqtt.1.AlarmCenter.ActivateAlarmCountdown",
     "sirenStateId": "mqtt.1.AlarmCenter.ActivateSiren",
     "triggerStateId": "mqtt.1.AlarmCenter.AlarmTrigger",
-
     "displayId": "mqtt.1.AlarmCenter.Display",
     "clearDisplayId": "mqtt.1.AlarmCenter.ClearDisplay",
     "buzzerId": "mqtt.1.AlarmCenter.Buzzer",
@@ -50,54 +59,193 @@
     "ledYellowId": "mqtt.1.AlarmCenter.LEDRingYellow",
     "standbyId": "mqtt.1.AlarmCenter.StandBy",
     "motionSensorId": "mqtt.1.AlarmCenter.MotionSensor",
-
     "panicStateId": "0_userdata.0.AlarmSystem.panic",
     "speakId": "alexa2.0.Echo-Devices.90F0081872670ASA.Commands.speak",
-
     "garageDoorCommandId": "hmip.0.devices.3014F711A000241F29970E70.channels.1.doorCommand",
     "garageOpenValue": 0,
     "garageCloseValue": 2,
-
     "pdlcId": "tuya.0.bf2bb23b342877f2e1maqy.1",
     "pdlcOpenValue": true,
     "pdlcCloseValue": false,
-
     "fingerprintStateId": "mqtt.1.fingerprintDoorbell.lastLogMessage",
     "fingerprintUsersCsv": "Sebastian R1,Teresa R1,Catharina R1,Rita R1,Lukas R1,Florian R1,Monika R1,Michelle L1,Marie R1,Julia R1",
-
     "presenceIdsJson": "[\"0_userdata.0.presence_geofence.Sebastian\",\"0_userdata.0.presence_geofence.Teresa\",\"0_userdata.0.presence_at_home.Sebastian\",\"0_userdata.0.presence_at_home.Teresa\"]",
     "autoArmDelaySec": 60,
-
     "cameraDefaultUsername": "",
     "cameraDefaultPassword": "",
-
     "telegram": {
       "enabled": false,
       "instance": "telegram.1",
       "botToken": "",
       "chatIdsCsv": ""
     },
-
     "pinCommandsJson": "[{\"sequence\":\"*1\",\"action\":\"garageOpen\"},{\"sequence\":\"*2\",\"action\":\"garageClose\"},{\"sequence\":\"*4\",\"action\":\"pdlcOpen\"},{\"sequence\":\"*5\",\"action\":\"pdlcClose\"}]",
-
     "sensorsJson": "[{\"key\":\"entrance\",\"id\":\"mqtt.1.entrance_door_status\",\"label\":\"Haustuer\",\"group\":\"doors\",\"activeValues\":[\"open\"],\"perimeterRelevant\":true},{\"key\":\"sideEntrance\",\"id\":\"mqtt.1.side_entrance_door_status\",\"label\":\"Nebeneingang\",\"group\":\"doors\",\"activeValues\":[\"open\"],\"perimeterRelevant\":true},{\"key\":\"terrace\",\"id\":\"mqtt.1.terrace_door_status\",\"label\":\"Terrassentuer\",\"group\":\"doors\",\"activeValues\":[\"open\"],\"perimeterRelevant\":true},{\"key\":\"shed\",\"id\":\"mqtt.1.Garage.shedDoorStatus\",\"label\":\"Schuppentuer\",\"group\":\"doors\",\"activeValues\":[\"open\"],\"perimeterRelevant\":true},{\"key\":\"wcWindow\",\"id\":\"mqtt.1.WC_children.windowStatus\",\"label\":\"Fenster KiBa\",\"group\":\"windows\",\"activeValues\":[\"open\"],\"perimeterRelevant\":true},{\"key\":\"entranceMotion\",\"id\":\"mqtt.1.entrance_motion_sensor\",\"label\":\"Bewegung Eingang\",\"group\":\"motions\",\"activeValues\":[\"motion detected\"]},{\"key\":\"livingMotion\",\"id\":\"mqtt.1.living_motion_sensor\",\"label\":\"Bewegung Wohnzimmer\",\"group\":\"motions\",\"activeValues\":[\"motion detected\"]}]",
-
-    "camerasJson": "[{\"key\":\"balkonySouth\",\"label\":\"Balkony South\",\"humanStateId\":\"mqtt.2.reolink.HumanDetection.CamBalkonySouth\",\"snapshotUrlTemplate\":\"http://192.168.44.37/cgi-bin/api.cgi?cmd=Snap&channel=0&rs=wuuPhkmUCeI9WG7C&user={username}&password={password}\",\"streamUrl\":\"rtsp://{username}:{password}@192.168.44.37:554/h264Preview_01_main\",\"username\":\"\",\"password\":\"\",\"reolinkAlarmId\":\"reolink.3.settings.playAlarm\",\"reolinkAlarmOnValue\":1,\"reolinkAlarmOffValue\":0,\"reolinkFlashlightId\":\"reolink.3.settings.switchLed\",\"flashlightDurationMs\":10000},{\"key\":\"balkonyNorth\",\"label\":\"Balkony North\",\"humanStateId\":\"mqtt.2.HumanDetection.CamBalkonyNorth\",\"snapshotUrlTemplate\":\"http://192.168.44.31:8765/picture/6/current/\",\"streamUrl\":\"rtsp://{username}:{password}@192.168.44.31:554/stream1\",\"username\":\"\",\"password\":\"\"},{\"key\":\"frontyardRight\",\"label\":\"Frontyard Right\",\"humanStateId\":\"mqtt.2.HumanDetection.CamFrontyardRight\",\"snapshotUrlTemplate\":\"http://192.168.44.31:8765/picture/5/current/\",\"streamUrl\":\"rtsp://{username}:{password}@192.168.44.31:554/stream2\",\"username\":\"\",\"password\":\"\"},{\"key\":\"frontyardLeft\",\"label\":\"Frontyard Left\",\"humanStateId\":\"mqtt.2.reolink.HumanDetection.CamFrontyard\",\"snapshotUrlTemplate\":\"http://192.168.44.248/cgi-bin/api.cgi?cmd=Snap&channel=0&rs=wuuPhkmUCeI9WG7C&user={username}&password={password}\",\"streamUrl\":\"rtsp://{username}:{password}@192.168.44.248:554/h264Preview_01_main\",\"username\":\"\",\"password\":\"\",\"reolinkAlarmId\":\"reolink.1.settings.playAlarm\",\"reolinkAlarmOnValue\":1,\"reolinkAlarmOffValue\":0,\"reolinkFlashlightId\":\"reolink.1.settings.switchLed\",\"flashlightDurationMs\":10000},{\"key\":\"backyard\",\"label\":\"Backyard\",\"humanStateId\":\"mqtt.2.reolink.HumanDetection.CamBackyard\",\"snapshotUrlTemplate\":\"http://192.168.44.249/cgi-bin/api.cgi?cmd=Snap&channel=0&rs=wuuPhkmUCeI9WG7C&user={username}&password={password}\",\"streamUrl\":\"rtsp://{username}:{password}@192.168.44.249:554/h264Preview_01_main\",\"username\":\"\",\"password\":\"\",\"reolinkAlarmId\":\"reolink.0.settings.playAlarm\",\"reolinkAlarmOnValue\":1,\"reolinkAlarmOffValue\":0,\"reolinkFlashlightId\":\"reolink.0.settings.switchLed\",\"flashlightDurationMs\":10000},{\"key\":\"terrace\",\"label\":\"Terrace\",\"humanStateId\":\"mqtt.2.reolink.HumanDetection.CamTerrace\",\"snapshotUrlTemplate\":\"http://192.168.44.251/cgi-bin/api.cgi?cmd=Snap&channel=0&rs=wuuPhkmUCeI9WG7C&user={username}&password={password}\",\"streamUrl\":\"rtsp://{username}:{password}@192.168.44.251:554/h264Preview_01_main\",\"username\":\"\",\"password\":\"\",\"reolinkAlarmId\":\"reolink.2.settings.playAlarm\",\"reolinkAlarmOnValue\":1,\"reolinkAlarmOffValue\":0,\"reolinkFlashlightId\":\"reolink.2.settings.switchLed\",\"flashlightDurationMs\":10000}]"
+    "camerasJson": "[{\"key\":\"balkonySouth\",\"label\":\"Balkony South\",\"humanStateId\":\"mqtt.2.reolink.HumanDetection.CamBalkonySouth\",\"snapshotUrlTemplate\":\"http://192.168.44.37/cgi-bin/api.cgi?cmd=Snap&channel=0&rs=wuuPhkmUCeI9WG7C&user={username}&password={password}\",\"streamUrl\":\"rtsp://{username}:{password}@192.168.44.37:554/h264Preview_01_main\",\"username\":\"\",\"password\":\"\",\"reolinkAlarmId\":\"reolink.3.settings.playAlarm\",\"reolinkAlarmOnValue\":1,\"reolinkAlarmOffValue\":0,\"reolinkFlashlightId\":\"reolink.3.settings.switchLed\",\"flashlightDurationMs\":10000},{\"key\":\"balkonyNorth\",\"label\":\"Balkony North\",\"humanStateId\":\"mqtt.2.HumanDetection.CamBalkonyNorth\",\"snapshotUrlTemplate\":\"http://192.168.44.31:8765/picture/6/current/\",\"streamUrl\":\"rtsp://{username}:{password}@192.168.44.31:554/stream1\",\"username\":\"\",\"password\":\"\"},{\"key\":\"frontyardRight\",\"label\":\"Frontyard Right\",\"humanStateId\":\"mqtt.2.HumanDetection.CamFrontyardRight\",\"snapshotUrlTemplate\":\"http://192.168.44.31:8765/picture/5/current/\",\"streamUrl\":\"rtsp://{username}:{password}@192.168.44.31:554/stream2\",\"username\":\"\",\"password\":\"\"},{\"key\":\"frontyardLeft\",\"label\":\"Frontyard Left\",\"humanStateId\":\"mqtt.2.reolink.HumanDetection.CamFrontyard\",\"snapshotUrlTemplate\":\"http://192.168.44.248/cgi-bin/api.cgi?cmd=Snap&channel=0&rs=wuuPhkmUCeI9WG7C&user={username}&password={password}\",\"streamUrl\":\"rtsp://{username}:{password}@192.168.44.248:554/h264Preview_01_main\",\"username\":\"\",\"password\":\"\",\"reolinkAlarmId\":\"reolink.1.settings.playAlarm\",\"reolinkAlarmOnValue\":1,\"reolinkAlarmOffValue\":0,\"reolinkFlashlightId\":\"reolink.1.settings.switchLed\",\"flashlightDurationMs\":10000},{\"key\":\"backyard\",\"label\":\"Backyard\",\"humanStateId\":\"mqtt.2.reolink.HumanDetection.CamBackyard\",\"snapshotUrlTemplate\":\"http://192.168.44.249/cgi-bin/api.cgi?cmd=Snap&channel=0&rs=wuuPhkmUCeI9WG7C&user={username}&password={password}\",\"streamUrl\":\"rtsp://{username}:{password}@192.168.44.249:554/h264Preview_01_main\",\"username\":\"\",\"password\":\"\",\"reolinkAlarmId\":\"reolink.0.settings.playAlarm\",\"reolinkAlarmOnValue\":1,\"reolinkAlarmOffValue\":0,\"reolinkFlashlightId\":\"reolink.0.settings.switchLed\",\"flashlightDurationMs\":10000},{\"key\":\"terrace\",\"label\":\"Terrace\",\"humanStateId\":\"mqtt.2.reolink.HumanDetection.CamTerrace\",\"snapshotUrlTemplate\":\"http://192.168.44.251/cgi-bin/api.cgi?cmd=Snap&channel=0&rs=wuuPhkmUCeI9WG7C&user={username}&password={password}\",\"streamUrl\":\"rtsp://{username}:{password}@192.168.44.251:554/h264Preview_01_main\",\"username\":\"\",\"password\":\"\",\"reolinkAlarmId\":\"reolink.2.settings.playAlarm\",\"reolinkAlarmOnValue\":1,\"reolinkAlarmOffValue\":0,\"reolinkFlashlightId\":\"reolink.2.settings.switchLed\",\"flashlightDurationMs\":10000}]",
+    "compatCctvArmedId": "0_userdata.0.CCTVSystem.alarmSystemArmed",
+    "compatCctvDisarmedId": "0_userdata.0.CCTVSystem.alarmSystemDisarmed",
+    "snapshotSendDelayMs": 0,
+    "snapshotBurstCount": 1,
+    "snapshotBurstIntervalMs": 5000
   },
   "objects": [],
   "instanceObjects": [
-    { "_id": "runtime.mode", "type": "state", "common": { "name": "Mode", "type": "string", "role": "text", "read": true, "write": false, "def": "disarmed" }, "native": {} },
-    { "_id": "runtime.alarmActive", "type": "state", "common": { "name": "Alarm active", "type": "boolean", "role": "indicator.alarm", "read": true, "write": false, "def": false }, "native": {} },
-    { "_id": "runtime.countdownActive", "type": "state", "common": { "name": "Countdown active", "type": "boolean", "role": "indicator", "read": true, "write": false, "def": false }, "native": {} },
-    { "_id": "runtime.countdownRemainingSec", "type": "state", "common": { "name": "Countdown remaining", "type": "number", "role": "value.interval", "unit": "s", "read": true, "write": false, "def": 0 }, "native": {} },
-    { "_id": "runtime.lastTriggerSensor", "type": "state", "common": { "name": "Last trigger sensor", "type": "string", "role": "text", "read": true, "write": false, "def": "" }, "native": {} },
-    { "_id": "runtime.lastTriggerTs", "type": "state", "common": { "name": "Last trigger timestamp", "type": "number", "role": "value.time", "read": true, "write": false, "def": 0 }, "native": {} },
-    { "_id": "runtime.openDoorCount", "type": "state", "common": { "name": "Open door count", "type": "number", "role": "value", "read": true, "write": false, "def": 0 }, "native": {} },
-
-    { "_id": "commands.armFull", "type": "state", "common": { "name": "Arm full", "type": "boolean", "role": "button", "read": false, "write": true, "def": false }, "native": {} },
-    { "_id": "commands.armPerimeter", "type": "state", "common": { "name": "Arm perimeter", "type": "boolean", "role": "button", "read": false, "write": true, "def": false }, "native": {} },
-    { "_id": "commands.disarm", "type": "state", "common": { "name": "Disarm", "type": "boolean", "role": "button", "read": false, "write": true, "def": false }, "native": {} },
-    { "_id": "commands.panicOn", "type": "state", "common": { "name": "Panic ON", "type": "boolean", "role": "button", "read": false, "write": true, "def": false }, "native": {} },
-    { "_id": "commands.panicOff", "type": "state", "common": { "name": "Panic OFF", "type": "boolean", "role": "button", "read": false, "write": true, "def": false }, "native": {} }
+    {
+      "_id": "runtime.mode",
+      "type": "state",
+      "common": {
+        "name": "Mode",
+        "type": "string",
+        "role": "text",
+        "read": true,
+        "write": false,
+        "def": "disarmed"
+      },
+      "native": {}
+    },
+    {
+      "_id": "runtime.alarmActive",
+      "type": "state",
+      "common": {
+        "name": "Alarm active",
+        "type": "boolean",
+        "role": "indicator.alarm",
+        "read": true,
+        "write": false,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "runtime.countdownActive",
+      "type": "state",
+      "common": {
+        "name": "Countdown active",
+        "type": "boolean",
+        "role": "indicator",
+        "read": true,
+        "write": false,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "runtime.countdownRemainingSec",
+      "type": "state",
+      "common": {
+        "name": "Countdown remaining",
+        "type": "number",
+        "role": "value.interval",
+        "unit": "s",
+        "read": true,
+        "write": false,
+        "def": 0
+      },
+      "native": {}
+    },
+    {
+      "_id": "runtime.lastTriggerSensor",
+      "type": "state",
+      "common": {
+        "name": "Last trigger sensor",
+        "type": "string",
+        "role": "text",
+        "read": true,
+        "write": false,
+        "def": ""
+      },
+      "native": {}
+    },
+    {
+      "_id": "runtime.lastTriggerTs",
+      "type": "state",
+      "common": {
+        "name": "Last trigger timestamp",
+        "type": "number",
+        "role": "value.time",
+        "read": true,
+        "write": false,
+        "def": 0
+      },
+      "native": {}
+    },
+    {
+      "_id": "runtime.openDoorCount",
+      "type": "state",
+      "common": {
+        "name": "Open door count",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0
+      },
+      "native": {}
+    },
+    {
+      "_id": "commands.armFull",
+      "type": "state",
+      "common": {
+        "name": "Arm full",
+        "type": "boolean",
+        "role": "button",
+        "read": false,
+        "write": true,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "commands.armPerimeter",
+      "type": "state",
+      "common": {
+        "name": "Arm perimeter",
+        "type": "boolean",
+        "role": "button",
+        "read": false,
+        "write": true,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "commands.disarm",
+      "type": "state",
+      "common": {
+        "name": "Disarm",
+        "type": "boolean",
+        "role": "button",
+        "read": false,
+        "write": true,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "commands.panicOn",
+      "type": "state",
+      "common": {
+        "name": "Panic ON",
+        "type": "boolean",
+        "role": "button",
+        "read": false,
+        "write": true,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "commands.panicOff",
+      "type": "state",
+      "common": {
+        "name": "Panic OFF",
+        "type": "boolean",
+        "role": "button",
+        "read": false,
+        "write": true,
+        "def": false
+      },
+      "native": {}
+    }
   ]
 }

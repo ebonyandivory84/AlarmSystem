@@ -1,4 +1,8 @@
 import * as utils from '@iobroker/adapter-core';
+import axios from 'axios';
+import { promises as fs } from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 
 type AlarmMode = 'disarmed' | 'perimeter' | 'armed' | 'countdown' | 'alarm' | 'panic';
 type SensorGroup = 'doors' | 'windows' | 'motions' | 'cameraHumans';
@@ -35,6 +39,11 @@ interface PinCommand {
 interface AlarmConfig {
   countdownSec: number;
   dedupeMs: number;
+  snapshotSendDelayMs: number;
+  snapshotBurstCount: number;
+  snapshotBurstIntervalMs: number;
+  compatCctvArmedId: string;
+  compatCctvDisarmedId: string;
   armStateId: string;
   perimeterStateId: string;
   countdownStateId: string;
@@ -95,109 +104,28 @@ class AlarmSystemAdapter extends utils.Adapter {
     await this.subscribeForeignInputs();
     await this.refreshSensorStates();
     await this.updateLedAndStatus();
+    await this.updateDisplayRotation();
     this.log.info('AlarmSystem adapter started');
   }
 
   private buildConfig(): AlarmConfig {
     const n = this.config as Record<string, any>;
-
-    const defaultSensors = [
-      { key: 'entrance', id: 'mqtt.1.entrance_door_status', label: 'Haustuer', group: 'doors', activeValues: ['open'], perimeterRelevant: true },
-      { key: 'sideEntrance', id: 'mqtt.1.side_entrance_door_status', label: 'Nebeneingang', group: 'doors', activeValues: ['open'], perimeterRelevant: true },
-      { key: 'terrace', id: 'mqtt.1.terrace_door_status', label: 'Terrassentuer', group: 'doors', activeValues: ['open'], perimeterRelevant: true },
-      { key: 'shed', id: 'mqtt.1.Garage.shedDoorStatus', label: 'Schuppentuer', group: 'doors', activeValues: ['open'], perimeterRelevant: true },
-      { key: 'wcWindow', id: 'mqtt.1.WC_children.windowStatus', label: 'Fenster KiBa', group: 'windows', activeValues: ['open'], perimeterRelevant: true },
-      { key: 'entranceMotion', id: 'mqtt.1.entrance_motion_sensor', label: 'Bewegung Eingang', group: 'motions', activeValues: ['motion detected'] },
-      { key: 'livingMotion', id: 'mqtt.1.living_motion_sensor', label: 'Bewegung Wohnzimmer', group: 'motions', activeValues: ['motion detected'] },
-      { key: 'camBackyard', id: 'mqtt.2.HumanDetection.CamBackyard', label: 'Cam Backyard', group: 'cameraHumans', activeValues: ['human detected', true] },
-      { key: 'camBalkonyNorth', id: 'mqtt.2.HumanDetection.CamBalkonyNorth', label: 'Cam Balkony North', group: 'cameraHumans', activeValues: ['human detected', true] },
-      { key: 'camBalkonySouth', id: 'mqtt.2.HumanDetection.CamBalkonySouth', label: 'Cam Balkony South', group: 'cameraHumans', activeValues: ['human detected', true] },
-      { key: 'camFrontLeft', id: 'mqtt.2.HumanDetection.CamFrontyardLeft', label: 'Cam Frontyard Left', group: 'cameraHumans', activeValues: ['human detected', true] },
-      { key: 'camFrontRight', id: 'mqtt.2.HumanDetection.CamFrontyardRight', label: 'Cam Frontyard Right', group: 'cameraHumans', activeValues: ['human detected', true] },
-      { key: 'camTerrace', id: 'mqtt.2.HumanDetection.CamTerrace', label: 'Cam Terrace', group: 'cameraHumans', activeValues: ['human detected', true] }
-    ] as SensorDef[];
-
-    const defaultCameras = [
-      {
-        key: 'balkonySouth',
-        label: 'Balkony South',
-        humanStateId: 'mqtt.2.reolink.HumanDetection.CamBalkonySouth',
-        snapshotUrlTemplate: 'http://192.168.44.37/cgi-bin/api.cgi?cmd=Snap&channel=0&rs=wuuPhkmUCeI9WG7C&user={username}&password={password}',
-        streamUrl: 'rtsp://{username}:{password}@192.168.44.37:554/h264Preview_01_main',
-        reolinkAlarmId: 'reolink.3.settings.playAlarm',
-        reolinkAlarmOnValue: 1,
-        reolinkAlarmOffValue: 0,
-        reolinkFlashlightId: 'reolink.3.settings.switchLed',
-        flashlightDurationMs: 10000
-      },
-      {
-        key: 'balkonyNorth',
-        label: 'Balkony North',
-        humanStateId: 'mqtt.2.HumanDetection.CamBalkonyNorth',
-        snapshotUrlTemplate: 'http://192.168.44.31:8765/picture/6/current/',
-        streamUrl: 'rtsp://{username}:{password}@192.168.44.31:554/stream1'
-      },
-      {
-        key: 'frontyardRight',
-        label: 'Frontyard Right',
-        humanStateId: 'mqtt.2.HumanDetection.CamFrontyardRight',
-        snapshotUrlTemplate: 'http://192.168.44.31:8765/picture/5/current/',
-        streamUrl: 'rtsp://{username}:{password}@192.168.44.31:554/stream2'
-      },
-      {
-        key: 'frontyardLeft',
-        label: 'Frontyard Left',
-        humanStateId: 'mqtt.2.reolink.HumanDetection.CamFrontyard',
-        snapshotUrlTemplate: 'http://192.168.44.248/cgi-bin/api.cgi?cmd=Snap&channel=0&rs=wuuPhkmUCeI9WG7C&user={username}&password={password}',
-        streamUrl: 'rtsp://{username}:{password}@192.168.44.248:554/h264Preview_01_main',
-        reolinkAlarmId: 'reolink.1.settings.playAlarm',
-        reolinkAlarmOnValue: 1,
-        reolinkAlarmOffValue: 0,
-        reolinkFlashlightId: 'reolink.1.settings.switchLed',
-        flashlightDurationMs: 10000
-      },
-      {
-        key: 'backyard',
-        label: 'Backyard',
-        humanStateId: 'mqtt.2.reolink.HumanDetection.CamBackyard',
-        snapshotUrlTemplate: 'http://192.168.44.249/cgi-bin/api.cgi?cmd=Snap&channel=0&rs=wuuPhkmUCeI9WG7C&user={username}&password={password}',
-        streamUrl: 'rtsp://{username}:{password}@192.168.44.249:554/h264Preview_01_main',
-        reolinkAlarmId: 'reolink.0.settings.playAlarm',
-        reolinkAlarmOnValue: 1,
-        reolinkAlarmOffValue: 0,
-        reolinkFlashlightId: 'reolink.0.settings.switchLed',
-        flashlightDurationMs: 10000
-      },
-      {
-        key: 'terrace',
-        label: 'Terrace',
-        humanStateId: 'mqtt.2.reolink.HumanDetection.CamTerrace',
-        snapshotUrlTemplate: 'http://192.168.44.251/cgi-bin/api.cgi?cmd=Snap&channel=0&rs=wuuPhkmUCeI9WG7C&user={username}&password={password}',
-        streamUrl: 'rtsp://{username}:{password}@192.168.44.251:554/h264Preview_01_main',
-        reolinkAlarmId: 'reolink.2.settings.playAlarm',
-        reolinkAlarmOnValue: 1,
-        reolinkAlarmOffValue: 0,
-        reolinkFlashlightId: 'reolink.2.settings.switchLed',
-        flashlightDurationMs: 10000
-      }
-    ] as CameraDef[];
-
-    const sensors = this.tryJson<SensorDef[]>(n.sensorsJson, defaultSensors);
-    const cameras = this.tryJson<CameraDef[]>(n.camerasJson, defaultCameras).map(c => ({
+    const sensors = this.tryJson<SensorDef[]>(n.sensorsJson, []);
+    const cameras = this.tryJson<CameraDef[]>(n.camerasJson, []).map(c => ({
       ...c,
       username: c.username ?? n.cameraDefaultUsername ?? '',
       password: c.password ?? n.cameraDefaultPassword ?? ''
     }));
-    const pinCommands = this.tryJson<PinCommand[]>(n.pinCommandsJson, [
-      { sequence: '*1', action: 'garageOpen' },
-      { sequence: '*2', action: 'garageClose' },
-      { sequence: '*4', action: 'pdlcOpen' },
-      { sequence: '*5', action: 'pdlcClose' }
-    ]);
+    const pinCommands = this.tryJson<PinCommand[]>(n.pinCommandsJson, []);
 
     return {
       countdownSec: this.toNumber(n.defaultCountdownSec, 20),
       dedupeMs: this.toNumber(n.eventDedupeMs, 1000),
+      snapshotSendDelayMs: this.toNumber(n.snapshotSendDelayMs, 0),
+      snapshotBurstCount: Math.max(1, this.toNumber(n.snapshotBurstCount, 1)),
+      snapshotBurstIntervalMs: Math.max(500, this.toNumber(n.snapshotBurstIntervalMs, 5000)),
+      compatCctvArmedId: n.compatCctvArmedId || '0_userdata.0.CCTVSystem.alarmSystemArmed',
+      compatCctvDisarmedId: n.compatCctvDisarmedId || '0_userdata.0.CCTVSystem.alarmSystemDisarmed',
       armStateId: n.armStateId || 'mqtt.1.AlarmCenter.AlarmSystemArmed',
       perimeterStateId: n.perimeterStateId || 'mqtt.1.AlarmCenter.PerimeterProtection',
       countdownStateId: n.countdownStateId || 'mqtt.1.AlarmCenter.ActivateAlarmCountdown',
@@ -217,15 +145,10 @@ class AlarmSystemAdapter extends utils.Adapter {
       garageCloseValue: this.toNumber(n.garageCloseValue, 2),
       pdlcId: n.pdlcId || 'tuya.0.bf2bb23b342877f2e1maqy.1',
       pdlcOpenValue: n.pdlcOpenValue !== false,
-      pdlcCloseValue: n.pdlcCloseValue === true ? true : false,
+      pdlcCloseValue: n.pdlcCloseValue === true,
       fingerprintStateId: n.fingerprintStateId || 'mqtt.1.fingerprintDoorbell.lastLogMessage',
       fingerprintUsers: String(n.fingerprintUsersCsv || '').split(',').map((s: string) => s.trim()).filter(Boolean),
-      presenceIds: this.tryJson<string[]>(n.presenceIdsJson, [
-        '0_userdata.0.presence_geofence.Sebastian',
-        '0_userdata.0.presence_geofence.Teresa',
-        '0_userdata.0.presence_at_home.Sebastian',
-        '0_userdata.0.presence_at_home.Teresa'
-      ]),
+      presenceIds: this.tryJson<string[]>(n.presenceIdsJson, []),
       autoArmDelaySec: this.toNumber(n.autoArmDelaySec, 60),
       sensors,
       cameras,
@@ -247,31 +170,30 @@ class AlarmSystemAdapter extends utils.Adapter {
       { id: 'runtime.openDoorCount', val: 0 }
     ];
 
-    for (const s of baseStates) {
-      await this.setStateAsync(s.id, s.val, true);
-    }
+    for (const s of baseStates) await this.setStateAsync(s.id, s.val, true);
   }
 
   private async subscribeForeignInputs(): Promise<void> {
-    const ids = new Set<string>();
-    ids.add(this.configParsed.panicStateId);
-    ids.add(this.configParsed.motionSensorId);
-    ids.add(this.configParsed.fingerprintStateId);
-    ids.add('mqtt.1.AlarmCenter.PIN');
+    const ids = new Set<string>([
+      this.configParsed.panicStateId,
+      this.configParsed.motionSensorId,
+      this.configParsed.fingerprintStateId,
+      this.configParsed.armStateId,
+      this.configParsed.perimeterStateId,
+      'mqtt.1.AlarmCenter.PIN'
+    ]);
 
     for (const p of this.configParsed.presenceIds) ids.add(p);
     for (const s of this.configParsed.sensors) ids.add(s.id);
     for (const c of this.configParsed.cameras) ids.add(c.humanStateId);
 
-    for (const id of ids) {
-      await this.subscribeForeignStatesAsync(id);
-    }
+    for (const id of ids) await this.subscribeForeignStatesAsync(id);
   }
 
   private async refreshSensorStates(): Promise<void> {
     for (const s of this.configParsed.sensors) {
       const st = await this.getForeignStateAsync(s.id);
-      this.sensorState.set(s.id, this.isActiveValue(st?.val, s.activeValues));
+      this.sensorState.set(s.id, this.isActiveValue(st?.val ?? null, s.activeValues));
     }
   }
 
@@ -284,66 +206,52 @@ class AlarmSystemAdapter extends utils.Adapter {
       if (localId === 'commands.armFull' && state.val === true) {
         await this.armFull('manual');
         await this.setStateAsync('commands.armFull', false, true);
-        return;
       }
       if (localId === 'commands.armPerimeter' && state.val === true) {
         await this.armPerimeter('manual');
         await this.setStateAsync('commands.armPerimeter', false, true);
-        return;
       }
       if (localId === 'commands.disarm' && state.val === true) {
         await this.disarm('manual');
         await this.setStateAsync('commands.disarm', false, true);
-        return;
       }
       if (localId === 'commands.panicOn' && state.val === true) {
         await this.setPanic(true, 'manual');
         await this.setStateAsync('commands.panicOn', false, true);
-        return;
       }
       if (localId === 'commands.panicOff' && state.val === true) {
         await this.setPanic(false, 'manual');
         await this.setStateAsync('commands.panicOff', false, true);
-        return;
       }
       return;
     }
 
-    if (id === this.configParsed.panicStateId) {
-      await this.setPanic(state.val === true, 'external');
+    if (id === this.configParsed.armStateId && state.val === true && this.mode !== 'armed') {
+      await this.armFull('legacyState');
       return;
+    }
+    if (id === this.configParsed.perimeterStateId && state.val === true && this.mode !== 'perimeter') {
+      await this.armPerimeter('legacyState');
+      return;
+    }
+    if ((id === this.configParsed.armStateId || id === this.configParsed.perimeterStateId) && state.val === false) {
+      if (this.mode === 'armed' || this.mode === 'perimeter') {
+        await this.disarm('legacyState');
+        return;
+      }
     }
 
-    if (id === this.configParsed.motionSensorId) {
-      await this.handleStandbyMotion(state.val);
-      return;
-    }
-
-    if (id === this.configParsed.fingerprintStateId) {
-      await this.handleFingerprint(state.val);
-      return;
-    }
-
-    if (id === 'mqtt.1.AlarmCenter.PIN') {
-      await this.handlePin(state.val);
-      return;
-    }
-
-    if (this.configParsed.presenceIds.includes(id)) {
-      await this.handlePresenceChange();
-      return;
-    }
+    if (id === this.configParsed.panicStateId) return this.setPanic(state.val === true, 'external');
+    if (id === this.configParsed.motionSensorId) return this.handleStandbyMotion(state.val);
+    if (id === this.configParsed.fingerprintStateId) return this.handleFingerprint(state.val);
+    if (id === 'mqtt.1.AlarmCenter.PIN') return this.handlePin(state.val);
+    if (this.configParsed.presenceIds.includes(id)) return this.handlePresenceChange();
 
     const sensor = this.configParsed.sensors.find(s => s.id === id);
-    if (sensor) {
-      await this.handleSensor(sensor, state.val);
-      return;
-    }
+    if (sensor) return this.handleSensor(sensor, state.val);
 
     const camera = this.configParsed.cameras.find(c => c.humanStateId === id);
-    if (camera) {
-      await this.handleCameraEvent(camera, state.val);
-    }
+    if (camera) return this.handleCameraEvent(camera, state.val);
   }
 
   private async handleSensor(sensor: SensorDef, raw: ioBroker.StateValue): Promise<void> {
@@ -352,8 +260,7 @@ class AlarmSystemAdapter extends utils.Adapter {
     await this.updateLedAndStatus();
     await this.updateDisplayRotation();
 
-    if (!active) return;
-    if (!this.shouldDedupe(sensor.id)) return;
+    if (!active || !this.shouldDedupe(sensor.id)) return;
 
     if (this.mode === 'armed' || (this.mode === 'perimeter' && sensor.perimeterRelevant !== false)) {
       await this.triggerCountdown(sensor.label);
@@ -369,16 +276,46 @@ class AlarmSystemAdapter extends utils.Adapter {
     if (!active) return;
 
     if (this.mode === 'armed' || this.mode === 'perimeter' || this.mode === 'alarm' || this.mode === 'panic') {
-      if (camera.reolinkAlarmId) {
-        await this.setForeignStateSafe(camera.reolinkAlarmId, camera.reolinkAlarmOnValue ?? 1);
-      }
+      if (camera.reolinkAlarmId) await this.setForeignStateSafe(camera.reolinkAlarmId, camera.reolinkAlarmOnValue ?? 1);
       if (camera.reolinkFlashlightId) {
         await this.setForeignStateSafe(camera.reolinkFlashlightId, true);
-        const offMs = camera.flashlightDurationMs ?? 10000;
-        this.setTimeout(() => void this.setForeignStateSafe(camera.reolinkFlashlightId as string, false), offMs);
+        this.setTimeout(() => void this.setForeignStateSafe(camera.reolinkFlashlightId as string, false), camera.flashlightDurationMs ?? 10000);
       }
+
       const snapshot = this.buildCameraUrl(camera.snapshotUrlTemplate, camera.username, camera.password);
-      await this.sendTelegram(`🚨 Kamera-Trigger: ${camera.label}\nSnapshot: ${snapshot}`);
+      await this.sendTelegram(`🚨 Kamera-Trigger: ${camera.label}`);
+      await this.sendCameraSnapshots(camera.label, snapshot);
+    }
+  }
+
+  private async sendCameraSnapshots(cameraLabel: string, snapshotUrl: string): Promise<void> {
+    if (!this.configParsed.telegramEnabled || !this.configParsed.telegramInstance) return;
+
+    const run = async (index: number): Promise<void> => {
+      try {
+        const resp = await axios.get(snapshotUrl, { responseType: 'arraybuffer', timeout: 8000, validateStatus: s => s < 500 });
+        if (resp.status !== 200) throw new Error(`HTTP ${resp.status}`);
+        const buf = Buffer.from(resp.data);
+        if (buf.length < 500) throw new Error('snapshot too small');
+
+        const file = path.join(os.tmpdir(), `alarmsystem_${Date.now()}_${index}.jpg`);
+        await fs.writeFile(file, buf);
+
+        if (this.configParsed.telegramChatIds.length === 0) {
+          await this.sendToAsync(this.configParsed.telegramInstance, 'send', { text: file, type: 'photo', caption: cameraLabel });
+        } else {
+          for (const chatId of this.configParsed.telegramChatIds) {
+            await this.sendToAsync(this.configParsed.telegramInstance, 'send', { user: chatId, text: file, type: 'photo', caption: cameraLabel });
+          }
+        }
+      } catch (e) {
+        await this.sendTelegram(`Snapshot-Fehler (${cameraLabel}): ${String(e)}`);
+      }
+    };
+
+    for (let i = 0; i < this.configParsed.snapshotBurstCount; i++) {
+      const delay = this.configParsed.snapshotSendDelayMs + i * this.configParsed.snapshotBurstIntervalMs;
+      this.setTimeout(() => void run(i + 1), delay);
     }
   }
 
@@ -410,37 +347,21 @@ class AlarmSystemAdapter extends utils.Adapter {
   }
 
   private async executePinAction(action: PinCommand['action']): Promise<void> {
-    switch (action) {
-      case 'garageOpen':
-        await this.setForeignStateSafe(this.configParsed.garageDoorCommandId, this.configParsed.garageOpenValue);
-        await this.showTempDisplay('   Tor oeffnet...   ');
-        break;
-      case 'garageClose':
-        await this.setForeignStateSafe(this.configParsed.garageDoorCommandId, this.configParsed.garageCloseValue);
-        await this.showTempDisplay('  Tor schliesst...  ');
-        break;
-      case 'pdlcOpen':
-        await this.setForeignStateSafe(this.configParsed.pdlcId, this.configParsed.pdlcOpenValue);
-        break;
-      case 'pdlcClose':
-        await this.setForeignStateSafe(this.configParsed.pdlcId, this.configParsed.pdlcCloseValue);
-        break;
-      case 'armFull':
-        await this.armFull('pin');
-        break;
-      case 'armPerimeter':
-        await this.armPerimeter('pin');
-        break;
-      case 'disarm':
-        await this.disarm('pin');
-        break;
-      case 'panicOn':
-        await this.setPanic(true, 'pin');
-        break;
-      case 'panicOff':
-        await this.setPanic(false, 'pin');
-        break;
+    if (action === 'garageOpen') {
+      await this.setForeignStateSafe(this.configParsed.garageDoorCommandId, this.configParsed.garageOpenValue);
+      return this.showTempDisplay('   Tor oeffnet...   ');
     }
+    if (action === 'garageClose') {
+      await this.setForeignStateSafe(this.configParsed.garageDoorCommandId, this.configParsed.garageCloseValue);
+      return this.showTempDisplay('  Tor schliesst...  ');
+    }
+    if (action === 'pdlcOpen') return this.setForeignStateSafe(this.configParsed.pdlcId, this.configParsed.pdlcOpenValue);
+    if (action === 'pdlcClose') return this.setForeignStateSafe(this.configParsed.pdlcId, this.configParsed.pdlcCloseValue);
+    if (action === 'armFull') return this.armFull('pin');
+    if (action === 'armPerimeter') return this.armPerimeter('pin');
+    if (action === 'disarm') return this.disarm('pin');
+    if (action === 'panicOn') return this.setPanic(true, 'pin');
+    if (action === 'panicOff') return this.setPanic(false, 'pin');
   }
 
   private async triggerCountdown(triggerLabel: string): Promise<void> {
@@ -453,32 +374,33 @@ class AlarmSystemAdapter extends utils.Adapter {
 
     this.mode = 'countdown';
     this.countdownRemainingSec = this.configParsed.countdownSec;
-
     await this.syncModeStates();
+
     await this.setForeignStateSafe(this.configParsed.countdownStateId, true);
     await this.setForeignStateSafe(this.configParsed.displayId, '  Finger auflegen!  ');
 
-    this.countdownTickTimer && this.clearInterval(this.countdownTickTimer);
+    if (this.countdownTickTimer) this.clearInterval(this.countdownTickTimer);
     this.countdownTickTimer = this.setInterval(async () => {
       this.countdownRemainingSec = Math.max(0, this.countdownRemainingSec - 1);
       await this.setStateAsync('runtime.countdownRemainingSec', this.countdownRemainingSec, true);
       if (this.countdownRemainingSec > 0 && this.countdownRemainingSec % 3 === 0) {
         await this.setForeignStateSafe(this.configParsed.buzzerId, 'beep long 2x');
       }
-    }, 1000);
+    }, 1000) ?? null;
 
-    this.countdownTimer && this.clearTimeout(this.countdownTimer);
+    if (this.countdownTimer) this.clearTimeout(this.countdownTimer);
     this.countdownTimer = this.setTimeout(async () => {
       this.countdownTimer = null;
       await this.activateAlarm();
-    }, this.configParsed.countdownSec * 1000);
+    }, this.configParsed.countdownSec * 1000) ?? null;
   }
 
   private async activateAlarm(): Promise<void> {
     if (this.mode !== 'countdown') return;
     this.mode = 'alarm';
-    this.countdownTickTimer && this.clearInterval(this.countdownTickTimer);
+    if (this.countdownTickTimer) this.clearInterval(this.countdownTickTimer);
     this.countdownTickTimer = null;
+
     await this.syncModeStates();
     await this.setForeignStateSafe(this.configParsed.countdownStateId, false);
     await this.setForeignStateSafe(this.configParsed.sirenStateId, true);
@@ -490,6 +412,8 @@ class AlarmSystemAdapter extends utils.Adapter {
     await this.syncModeStates();
     await this.setForeignStateSafe(this.configParsed.armStateId, true);
     await this.setForeignStateSafe(this.configParsed.perimeterStateId, false);
+    await this.setForeignStateSafe(this.configParsed.compatCctvArmedId, true);
+    await this.setForeignStateSafe(this.configParsed.compatCctvDisarmedId, false);
     await this.sendTelegram(`Alarm scharf (FULL) via ${source}`);
   }
 
@@ -498,6 +422,8 @@ class AlarmSystemAdapter extends utils.Adapter {
     await this.syncModeStates();
     await this.setForeignStateSafe(this.configParsed.armStateId, false);
     await this.setForeignStateSafe(this.configParsed.perimeterStateId, true);
+    await this.setForeignStateSafe(this.configParsed.compatCctvArmedId, true);
+    await this.setForeignStateSafe(this.configParsed.compatCctvDisarmedId, false);
     await this.setForeignStateSafe(this.configParsed.buzzerId, 'confirm');
     await this.showTempDisplay('    Schutz aktiv    ');
     await this.sendTelegram(`Perimeterschutz aktiv via ${source}`);
@@ -505,9 +431,9 @@ class AlarmSystemAdapter extends utils.Adapter {
 
   private async disarm(source: string): Promise<void> {
     this.mode = 'disarmed';
-    this.countdownTimer && this.clearTimeout(this.countdownTimer);
+    if (this.countdownTimer) this.clearTimeout(this.countdownTimer);
     this.countdownTimer = null;
-    this.countdownTickTimer && this.clearInterval(this.countdownTickTimer);
+    if (this.countdownTickTimer) this.clearInterval(this.countdownTickTimer);
     this.countdownTickTimer = null;
     this.countdownRemainingSec = 0;
 
@@ -516,19 +442,23 @@ class AlarmSystemAdapter extends utils.Adapter {
     await this.setForeignStateSafe(this.configParsed.perimeterStateId, false);
     await this.setForeignStateSafe(this.configParsed.countdownStateId, false);
     await this.setForeignStateSafe(this.configParsed.sirenStateId, false);
+    await this.setForeignStateSafe(this.configParsed.compatCctvArmedId, false);
+    await this.setForeignStateSafe(this.configParsed.compatCctvDisarmedId, true);
     await this.setForeignStateSafe(this.configParsed.clearDisplayId, true);
     await this.sendTelegram(`Alarm deaktiviert via ${source}`);
   }
 
   private async setPanic(on: boolean, source: string): Promise<void> {
-    if (on) {
-      this.mode = 'panic';
-      await this.syncModeStates();
-      await this.setForeignStateSafe(this.configParsed.sirenStateId, true);
-      await this.sendTelegram(`PANIC aktiviert via ${source}`);
-    } else {
-      await this.disarm(`panicOff:${source}`);
+    if (!on) return this.disarm(`panicOff:${source}`);
+
+    this.mode = 'panic';
+    await this.syncModeStates();
+    await this.setForeignStateSafe(this.configParsed.sirenStateId, true);
+
+    for (const cam of this.configParsed.cameras) {
+      if (cam.reolinkAlarmId) await this.setForeignStateSafe(cam.reolinkAlarmId, 20);
     }
+    await this.sendTelegram(`PANIC aktiviert via ${source}`);
   }
 
   private async syncModeStates(): Promise<void> {
@@ -539,12 +469,8 @@ class AlarmSystemAdapter extends utils.Adapter {
   }
 
   private async updateLedAndStatus(): Promise<void> {
-    const doors = this.configParsed.sensors.filter(s => s.group === 'doors');
-    const windows = this.configParsed.sensors.filter(s => s.group === 'windows');
-
-    const openDoors = doors.filter(d => this.sensorState.get(d.id));
-    const openWindows = windows.filter(w => this.sensorState.get(w.id));
-
+    const openDoors = this.configParsed.sensors.filter(d => d.group === 'doors' && this.sensorState.get(d.id));
+    const openWindows = this.configParsed.sensors.filter(w => w.group === 'windows' && this.sensorState.get(w.id));
     await this.setStateAsync('runtime.openDoorCount', openDoors.length, true);
     await this.setForeignStateSafe(this.configParsed.ledRedId, openDoors.length > 0);
     await this.setForeignStateSafe(this.configParsed.ledYellowId, openWindows.length > 0);
@@ -552,12 +478,10 @@ class AlarmSystemAdapter extends utils.Adapter {
 
   private async updateDisplayRotation(): Promise<void> {
     const openRelevant = this.configParsed.sensors
-      .filter(s => s.group === 'doors' || s.group === 'windows')
-      .filter(s => this.sensorState.get(s.id))
+      .filter(s => (s.group === 'doors' || s.group === 'windows') && this.sensorState.get(s.id))
       .map(s => `${s.label} offen`);
 
     this.openDisplayQueue = openRelevant;
-
     if (this.displayTimer) {
       this.clearInterval(this.displayTimer);
       this.displayTimer = null;
@@ -570,26 +494,24 @@ class AlarmSystemAdapter extends utils.Adapter {
 
     let idx = 0;
     this.displayTimer = this.setInterval(async () => {
-      if (this.openDisplayQueue.length === 0) return;
-      const text = this.openDisplayQueue[idx % this.openDisplayQueue.length];
+      const text = this.openDisplayQueue[idx % this.openDisplayQueue.length] || '';
       idx++;
       await this.setForeignStateSafe(this.configParsed.displayId, text.padEnd(20, ' ').slice(0, 20));
-    }, 2000);
+    }, 2000) ?? null;
   }
 
   private async handleStandbyMotion(raw: ioBroker.StateValue): Promise<void> {
-    const noMotion = raw === 'no motion';
-    if (!noMotion) {
-      this.standbyTimer && this.clearTimeout(this.standbyTimer);
+    if (raw !== 'no motion') {
+      if (this.standbyTimer) this.clearTimeout(this.standbyTimer);
       this.standbyTimer = null;
       await this.setForeignStateSafe(this.configParsed.standbyId, false);
       return;
     }
 
-    this.standbyTimer && this.clearTimeout(this.standbyTimer);
+    if (this.standbyTimer) this.clearTimeout(this.standbyTimer);
     this.standbyTimer = this.setTimeout(async () => {
       await this.setForeignStateSafe(this.configParsed.standbyId, true);
-    }, 20000);
+    }, 20000) ?? null;
   }
 
   private async handlePresenceChange(): Promise<void> {
@@ -597,19 +519,18 @@ class AlarmSystemAdapter extends utils.Adapter {
     const anyoneHome = values.some(v => v?.val === true);
 
     if (anyoneHome) {
-      this.autoArmTimer && this.clearTimeout(this.autoArmTimer);
+      if (this.autoArmTimer) this.clearTimeout(this.autoArmTimer);
       this.autoArmTimer = null;
       return;
     }
 
-    if (this.mode !== 'disarmed') return;
-    if (this.autoArmTimer) return;
+    if (this.mode !== 'disarmed' || this.autoArmTimer) return;
 
     await this.sendTelegram(`Niemand ist zu Hause. Alarmanlage wird in ${this.configParsed.autoArmDelaySec}s scharfgeschaltet...`);
     this.autoArmTimer = this.setTimeout(async () => {
       this.autoArmTimer = null;
       await this.armFull('autoAway');
-    }, this.configParsed.autoArmDelaySec * 1000);
+    }, this.configParsed.autoArmDelaySec * 1000) ?? null;
   }
 
   private async showTempDisplay(text: string): Promise<void> {
@@ -619,13 +540,12 @@ class AlarmSystemAdapter extends utils.Adapter {
 
   private buildCameraUrl(template: string, username?: string, password?: string): string {
     return template
-      .replaceAll('{username}', encodeURIComponent(username || '<USERNAME>'))
-      .replaceAll('{password}', encodeURIComponent(password || '<PASSWORD>'));
+      .split('{username}').join(encodeURIComponent(username || '<USERNAME>'))
+      .split('{password}').join(encodeURIComponent(password || '<PASSWORD>')); 
   }
 
   private async sendTelegram(text: string): Promise<void> {
-    if (!this.configParsed.telegramEnabled) return;
-    if (!this.configParsed.telegramInstance) return;
+    if (!this.configParsed.telegramEnabled || !this.configParsed.telegramInstance) return;
 
     if (this.configParsed.telegramChatIds.length === 0) {
       await this.sendToAsync(this.configParsed.telegramInstance, 'send', { text });
@@ -633,7 +553,7 @@ class AlarmSystemAdapter extends utils.Adapter {
     }
 
     for (const chatId of this.configParsed.telegramChatIds) {
-      await this.sendToAsync(this.configParsed.telegramInstance, 'send', { text, user: chatId });
+      await this.sendToAsync(this.configParsed.telegramInstance, 'send', { user: chatId, text });
     }
   }
 

@@ -1,6 +1,14 @@
 {
   "type": "tabs",
   "items": {
+    "overview": {
+      "type": "panel",
+      "label": "Overview",
+      "items": {
+        "_ov1": { "type": "staticText", "text": "AlarmSystem Adapter: zentrale FSM + konfigurierbare Sensor-/Kamera-/Triggerlogik" },
+        "_ov2": { "type": "staticText", "text": "Hinweis: Credentials nie im Code, nur hier in den Einstellungen" }
+      }
+    },
     "general": {
       "type": "panel",
       "label": "General",
@@ -10,16 +18,17 @@
         "eventDedupeMs": { "type": "number", "label": "Event dedupe (ms)", "min": 0, "max": 10000 }
       }
     },
-    "datapoints": {
+    "fsm": {
       "type": "panel",
-      "label": "Core Datapoints",
+      "label": "FSM / Trigger",
       "items": {
         "armStateId": { "type": "text", "label": "Alarm armed state" },
         "perimeterStateId": { "type": "text", "label": "Perimeter state" },
         "countdownStateId": { "type": "text", "label": "Countdown state" },
         "sirenStateId": { "type": "text", "label": "Siren state" },
         "triggerStateId": { "type": "text", "label": "Trigger reason state" },
-        "panicStateId": { "type": "text", "label": "Panic state" }
+        "panicStateId": { "type": "text", "label": "Panic state" },
+        "sensorsJson": { "type": "textarea", "label": "Sensors JSON", "rows": 20, "help": "Unbegrenzt erweiterbar: doors/windows/motions/cameraHumans." }
       }
     },
     "alarmcenter": {
@@ -34,18 +43,6 @@
         "standbyId": { "type": "text", "label": "Standby state" },
         "motionSensorId": { "type": "text", "label": "Motion sensor state" },
         "speakId": { "type": "text", "label": "Alexa speak datapoint" }
-      }
-    },
-    "sensors": {
-      "type": "panel",
-      "label": "Sensors",
-      "items": {
-        "sensorsJson": {
-          "type": "textarea",
-          "label": "Sensors JSON",
-          "rows": 20,
-          "help": "Add unlimited doors/windows/motions/cameraHumans with ids and active values."
-        }
       }
     },
     "auth": {
@@ -65,16 +62,8 @@
         "garageOpenValue": { "type": "number", "label": "Garage open value" },
         "garageCloseValue": { "type": "number", "label": "Garage close value" },
         "pdlcId": { "type": "text", "label": "PDLC datapoint" },
-        "pdlcOpenValue": { "type": "checkbox", "label": "PDLC open value (true/false)" },
-        "pdlcCloseValue": { "type": "checkbox", "label": "PDLC close value (true/false)" }
-      }
-    },
-    "presence": {
-      "type": "panel",
-      "label": "Presence/AutoArm",
-      "items": {
-        "presenceIdsJson": { "type": "textarea", "label": "Presence IDs JSON", "rows": 8 },
-        "autoArmDelaySec": { "type": "number", "label": "Auto-arm delay (sec)", "min": 5, "max": 3600 }
+        "pdlcOpenValue": { "type": "checkbox", "label": "PDLC open value" },
+        "pdlcCloseValue": { "type": "checkbox", "label": "PDLC close value" }
       }
     },
     "cameras": {
@@ -83,22 +72,41 @@
       "items": {
         "cameraDefaultUsername": { "type": "text", "label": "Default camera username" },
         "cameraDefaultPassword": { "type": "password", "label": "Default camera password" },
+        "snapshotSendDelayMs": { "type": "number", "label": "Snapshot delay after trigger (ms)", "min": 0, "max": 60000 },
+        "snapshotBurstCount": { "type": "number", "label": "Snapshot burst count", "min": 1, "max": 10 },
+        "snapshotBurstIntervalMs": { "type": "number", "label": "Burst interval (ms)", "min": 500, "max": 60000 },
         "camerasJson": {
           "type": "textarea",
           "label": "Cameras JSON",
-          "rows": 24,
-          "help": "Keep IP/url templates as default and set credentials per camera or via default username/password."
+          "rows": 26,
+          "help": "Behalte IP-/URL-Grundgerüst, trage nur Credentials ein. Snapshot- und Stream-URLs pro Kamera anpassbar."
         }
       }
     },
-    "telegram": {
+    "notifications": {
       "type": "panel",
-      "label": "Telegram",
+      "label": "Notifications",
       "items": {
         "telegram.enabled": { "type": "checkbox", "label": "Enable Telegram" },
         "telegram.instance": { "type": "text", "label": "Telegram instance" },
         "telegram.botToken": { "type": "password", "label": "Bot token (optional)" },
         "telegram.chatIdsCsv": { "type": "text", "label": "Chat IDs CSV" }
+      }
+    },
+    "automation": {
+      "type": "panel",
+      "label": "Automation",
+      "items": {
+        "presenceIdsJson": { "type": "textarea", "label": "Presence IDs JSON", "rows": 8 },
+        "autoArmDelaySec": { "type": "number", "label": "Auto-arm delay (sec)", "min": 5, "max": 3600 }
+      }
+    },
+    "compatibility": {
+      "type": "panel",
+      "label": "Compatibility",
+      "items": {
+        "compatCctvArmedId": { "type": "text", "label": "Legacy CCTV armed datapoint" },
+        "compatCctvDisarmedId": { "type": "text", "label": "Legacy CCTV disarmed datapoint" }
       }
     }
   }
