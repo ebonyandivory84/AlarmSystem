@@ -149,76 +149,74 @@
       {
         "key": "balkonySouth",
         "label": "Balkony South",
-        "humanStateId": "mqtt.2.reolink.HumanDetection.CamBalkonySouth",
-        "snapshotUrlTemplate": "http://192.168.44.37/cgi-bin/api.cgi?cmd=Snap&channel=0&rs=wuuPhkmUCeI9WG7C&user={username}&password={password}",
+        "ip": "192.168.44.37",
         "streamUrl": "rtsp://{username}:{password}@192.168.44.37:554/h264Preview_01_main",
+        "snapshotUrl": "http://192.168.44.37/cgi-bin/api.cgi?cmd=Snap&channel=0&rs=wuuPhkmUCeI9WG7C&user={username}&password={password}",
+        "alarmDatapoint": "reolink.3.settings.playAlarm",
+        "ledDatapoint": "reolink.3.settings.switchLed",
+        "personDetectionDp": "mqtt.2.reolink.HumanDetection.CamBalkonySouth",
         "username": "",
-        "password": "",
-        "reolinkAlarmId": "reolink.3.settings.playAlarm",
-        "reolinkAlarmOnValue": 1,
-        "reolinkAlarmOffValue": 0,
-        "reolinkFlashlightId": "reolink.3.settings.switchLed",
-        "flashlightDurationMs": 10000
+        "password": ""
       },
       {
         "key": "balkonyNorth",
         "label": "Balkony North",
-        "humanStateId": "mqtt.2.HumanDetection.CamBalkonyNorth",
-        "snapshotUrlTemplate": "http://192.168.44.31:8765/picture/6/current/",
+        "ip": "192.168.44.31",
         "streamUrl": "rtsp://{username}:{password}@192.168.44.31:554/stream1",
+        "snapshotUrl": "http://192.168.44.31:8765/picture/6/current/",
+        "alarmDatapoint": "",
+        "ledDatapoint": "",
+        "personDetectionDp": "mqtt.2.HumanDetection.CamBalkonyNorth",
         "username": "",
         "password": ""
       },
       {
         "key": "frontyardRight",
         "label": "Frontyard Right",
-        "humanStateId": "mqtt.2.HumanDetection.CamFrontyardRight",
-        "snapshotUrlTemplate": "http://192.168.44.31:8765/picture/5/current/",
+        "ip": "192.168.44.31",
         "streamUrl": "rtsp://{username}:{password}@192.168.44.31:554/stream2",
+        "snapshotUrl": "http://192.168.44.31:8765/picture/5/current/",
+        "alarmDatapoint": "",
+        "ledDatapoint": "",
+        "personDetectionDp": "mqtt.2.HumanDetection.CamFrontyardRight",
         "username": "",
         "password": ""
       },
       {
         "key": "frontyardLeft",
         "label": "Frontyard Left",
-        "humanStateId": "mqtt.2.reolink.HumanDetection.CamFrontyard",
-        "snapshotUrlTemplate": "http://192.168.44.248/cgi-bin/api.cgi?cmd=Snap&channel=0&rs=wuuPhkmUCeI9WG7C&user={username}&password={password}",
+        "ip": "192.168.44.248",
         "streamUrl": "rtsp://{username}:{password}@192.168.44.248:554/h264Preview_01_main",
+        "snapshotUrl": "http://192.168.44.248/cgi-bin/api.cgi?cmd=Snap&channel=0&rs=wuuPhkmUCeI9WG7C&user={username}&password={password}",
+        "alarmDatapoint": "reolink.1.settings.playAlarm",
+        "ledDatapoint": "reolink.1.settings.switchLed",
+        "personDetectionDp": "mqtt.2.reolink.HumanDetection.CamFrontyard",
         "username": "",
-        "password": "",
-        "reolinkAlarmId": "reolink.1.settings.playAlarm",
-        "reolinkAlarmOnValue": 1,
-        "reolinkAlarmOffValue": 0,
-        "reolinkFlashlightId": "reolink.1.settings.switchLed",
-        "flashlightDurationMs": 10000
+        "password": ""
       },
       {
         "key": "backyard",
         "label": "Backyard",
-        "humanStateId": "mqtt.2.reolink.HumanDetection.CamBackyard",
-        "snapshotUrlTemplate": "http://192.168.44.249/cgi-bin/api.cgi?cmd=Snap&channel=0&rs=wuuPhkmUCeI9WG7C&user={username}&password={password}",
+        "ip": "192.168.44.249",
         "streamUrl": "rtsp://{username}:{password}@192.168.44.249:554/h264Preview_01_main",
+        "snapshotUrl": "http://192.168.44.249/cgi-bin/api.cgi?cmd=Snap&channel=0&rs=wuuPhkmUCeI9WG7C&user={username}&password={password}",
+        "alarmDatapoint": "reolink.0.settings.playAlarm",
+        "ledDatapoint": "reolink.0.settings.switchLed",
+        "personDetectionDp": "mqtt.2.reolink.HumanDetection.CamBackyard",
         "username": "",
-        "password": "",
-        "reolinkAlarmId": "reolink.0.settings.playAlarm",
-        "reolinkAlarmOnValue": 1,
-        "reolinkAlarmOffValue": 0,
-        "reolinkFlashlightId": "reolink.0.settings.switchLed",
-        "flashlightDurationMs": 10000
+        "password": ""
       },
       {
         "key": "terrace",
         "label": "Terrace",
-        "humanStateId": "mqtt.2.reolink.HumanDetection.CamTerrace",
-        "snapshotUrlTemplate": "http://192.168.44.251/cgi-bin/api.cgi?cmd=Snap&channel=0&rs=wuuPhkmUCeI9WG7C&user={username}&password={password}",
+        "ip": "192.168.44.251",
         "streamUrl": "rtsp://{username}:{password}@192.168.44.251:554/h264Preview_01_main",
+        "snapshotUrl": "http://192.168.44.251/cgi-bin/api.cgi?cmd=Snap&channel=0&rs=wuuPhkmUCeI9WG7C&user={username}&password={password}",
+        "alarmDatapoint": "reolink.2.settings.playAlarm",
+        "ledDatapoint": "reolink.2.settings.switchLed",
+        "personDetectionDp": "mqtt.2.reolink.HumanDetection.CamTerrace",
         "username": "",
-        "password": "",
-        "reolinkAlarmId": "reolink.2.settings.playAlarm",
-        "reolinkAlarmOnValue": 1,
-        "reolinkAlarmOffValue": 0,
-        "reolinkFlashlightId": "reolink.2.settings.switchLed",
-        "flashlightDurationMs": 10000
+        "password": ""
       }
     ],
     "pinCommandsTable": [
@@ -253,18 +251,289 @@
         "id": "0_userdata.0.presence_at_home.Teresa"
       }
     ],
-    "pirSensorsTable": [],
-    "contactSensorsTable": [],
-    "presenceSensorsTable": [],
-    "personDetectionTable": [],
-    "actuatorsTable": [],
+    "pirSensorsTable": [
+      {
+        "key": "entranceMotion",
+        "label": "Bewegung Eingang",
+        "id": "mqtt.1.entrance_motion_sensor",
+        "zone": "innenraum",
+        "activeValuesCsv": "motion detected"
+      },
+      {
+        "key": "livingMotion",
+        "label": "Bewegung Wohnzimmer",
+        "id": "mqtt.1.living_motion_sensor",
+        "zone": "innenraum",
+        "activeValuesCsv": "motion detected"
+      },
+      {
+        "key": "alarmCenterMotion",
+        "label": "Bewegung AlarmCenter",
+        "id": "mqtt.1.AlarmCenter.MotionSensor",
+        "zone": "innenraum",
+        "activeValuesCsv": "motion detected"
+      }
+    ],
+    "contactSensorsTable": [
+      {
+        "key": "entranceDoor",
+        "label": "Haustuer",
+        "id": "mqtt.1.entrance_door_status",
+        "zone": "aussenhaut",
+        "activeValuesCsv": "open"
+      },
+      {
+        "key": "sideEntranceDoor",
+        "label": "Nebeneingang",
+        "id": "mqtt.1.side_entrance_door_status",
+        "zone": "aussenhaut",
+        "activeValuesCsv": "open"
+      },
+      {
+        "key": "terraceDoor",
+        "label": "Terrassentuer",
+        "id": "mqtt.1.terrace_door_status",
+        "zone": "aussenhaut",
+        "activeValuesCsv": "open"
+      },
+      {
+        "key": "shedDoor",
+        "label": "Schuppentuer",
+        "id": "mqtt.1.Garage.shedDoorStatus",
+        "zone": "aussenhaut",
+        "activeValuesCsv": "open"
+      },
+      {
+        "key": "wcWindow",
+        "label": "Fenster KiBa",
+        "id": "mqtt.1.WC_children.windowStatus",
+        "zone": "aussenhaut",
+        "activeValuesCsv": "open"
+      },
+      {
+        "key": "garageDoor3",
+        "label": "Garagentor",
+        "id": "mqtt.1.Garage.door3Status",
+        "zone": "aussenhaut",
+        "activeValuesCsv": "open"
+      }
+    ],
+    "presenceSensorsTable": [
+      {
+        "key": "presenceHomeSebastian",
+        "label": "Sebastian zuhause",
+        "id": "0_userdata.0.presence_at_home.Sebastian",
+        "zone": "perimeter",
+        "activeValuesCsv": "true"
+      },
+      {
+        "key": "presenceHomeTeresa",
+        "label": "Teresa zuhause",
+        "id": "0_userdata.0.presence_at_home.Teresa",
+        "zone": "perimeter",
+        "activeValuesCsv": "true"
+      },
+      {
+        "key": "presenceGeoSebastian",
+        "label": "Sebastian Geofence",
+        "id": "0_userdata.0.presence_geofence.Sebastian",
+        "zone": "perimeter",
+        "activeValuesCsv": "true"
+      },
+      {
+        "key": "presenceGeoTeresa",
+        "label": "Teresa Geofence",
+        "id": "0_userdata.0.presence_geofence.Teresa",
+        "zone": "perimeter",
+        "activeValuesCsv": "true"
+      }
+    ],
+    "personDetectionTable": [
+      {
+        "key": "camBackyardPD",
+        "label": "Cam Backyard Person",
+        "id": "mqtt.2.HumanDetection.CamBackyard",
+        "zone": "perimeter",
+        "mode": "string",
+        "detectValue": "human detected"
+      },
+      {
+        "key": "camBalkonyNorthPD",
+        "label": "Cam Balkony North Person",
+        "id": "mqtt.2.HumanDetection.CamBalkonyNorth",
+        "zone": "perimeter",
+        "mode": "string",
+        "detectValue": "human detected"
+      },
+      {
+        "key": "camBalkonySouthPD",
+        "label": "Cam Balkony South Person",
+        "id": "mqtt.2.HumanDetection.CamBalkonySouth",
+        "zone": "perimeter",
+        "mode": "string",
+        "detectValue": "human detected"
+      },
+      {
+        "key": "camDrivewayPD",
+        "label": "Cam Driveway Person",
+        "id": "mqtt.2.HumanDetection.CamDriveway",
+        "zone": "perimeter",
+        "mode": "string",
+        "detectValue": "human detected"
+      },
+      {
+        "key": "camFrontLeftPD",
+        "label": "Cam Frontyard Left Person",
+        "id": "mqtt.2.HumanDetection.CamFrontyardLeft",
+        "zone": "perimeter",
+        "mode": "string",
+        "detectValue": "human detected"
+      },
+      {
+        "key": "camFrontRightPD",
+        "label": "Cam Frontyard Right Person",
+        "id": "mqtt.2.HumanDetection.CamFrontyardRight",
+        "zone": "perimeter",
+        "mode": "string",
+        "detectValue": "human detected"
+      },
+      {
+        "key": "camTerracePD",
+        "label": "Cam Terrace Person",
+        "id": "mqtt.2.HumanDetection.CamTerrace",
+        "zone": "perimeter",
+        "mode": "string",
+        "detectValue": "human detected"
+      },
+      {
+        "key": "reolinkBackyardPD",
+        "label": "Reolink Backyard Person",
+        "id": "mqtt.2.reolink.HumanDetection.CamBackyard",
+        "zone": "perimeter",
+        "mode": "boolean",
+        "detectValue": ""
+      },
+      {
+        "key": "reolinkBalkonySouthPD",
+        "label": "Reolink Balkony South Person",
+        "id": "mqtt.2.reolink.HumanDetection.CamBalkonySouth",
+        "zone": "perimeter",
+        "mode": "boolean",
+        "detectValue": ""
+      },
+      {
+        "key": "reolinkFrontyardPD",
+        "label": "Reolink Frontyard Person",
+        "id": "mqtt.2.reolink.HumanDetection.CamFrontyard",
+        "zone": "perimeter",
+        "mode": "boolean",
+        "detectValue": ""
+      },
+      {
+        "key": "reolinkTerracePD",
+        "label": "Reolink Terrace Person",
+        "id": "mqtt.2.reolink.HumanDetection.CamTerrace",
+        "zone": "perimeter",
+        "mode": "boolean",
+        "detectValue": ""
+      }
+    ],
+    "actuatorsTable": [
+      {
+        "key": "alarmSiren",
+        "id": "mqtt.1.AlarmCenter.ActivateSiren",
+        "onValue": "true",
+        "offValue": "false"
+      },
+      {
+        "key": "alarmCountdown",
+        "id": "mqtt.1.AlarmCenter.ActivateAlarmCountdown",
+        "onValue": "true",
+        "offValue": "false"
+      },
+      {
+        "key": "alarmArmed",
+        "id": "mqtt.1.AlarmCenter.AlarmSystemArmed",
+        "onValue": "true",
+        "offValue": "false"
+      },
+      {
+        "key": "perimeterProtection",
+        "id": "mqtt.1.AlarmCenter.PerimeterProtection",
+        "onValue": "true",
+        "offValue": "false"
+      },
+      {
+        "key": "alarmTriggerText",
+        "id": "mqtt.1.AlarmCenter.AlarmTrigger",
+        "onValue": "",
+        "offValue": ""
+      },
+      {
+        "key": "display",
+        "id": "mqtt.1.AlarmCenter.Display",
+        "onValue": "",
+        "offValue": ""
+      },
+      {
+        "key": "clearDisplay",
+        "id": "mqtt.1.AlarmCenter.ClearDisplay",
+        "onValue": "true",
+        "offValue": "false"
+      },
+      {
+        "key": "buzzer",
+        "id": "mqtt.1.AlarmCenter.Buzzer",
+        "onValue": "beep 2x",
+        "offValue": "off"
+      },
+      {
+        "key": "ledRed",
+        "id": "mqtt.1.AlarmCenter.LEDRingRed",
+        "onValue": "true",
+        "offValue": "false"
+      },
+      {
+        "key": "ledYellow",
+        "id": "mqtt.1.AlarmCenter.LEDRingYellow",
+        "onValue": "true",
+        "offValue": "false"
+      },
+      {
+        "key": "standby",
+        "id": "mqtt.1.AlarmCenter.StandBy",
+        "onValue": "true",
+        "offValue": "false"
+      },
+      {
+        "key": "garageDoorCmd",
+        "id": "hmip.0.devices.3014F711A000241F29970E70.channels.1.doorCommand",
+        "onValue": "0",
+        "offValue": "2"
+      },
+      {
+        "key": "pdlc",
+        "id": "tuya.0.bf2bb23b342877f2e1maqy.1",
+        "onValue": "true",
+        "offValue": "false"
+      }
+    ],
     "telegramInstancesTable": [
       {
         "instance": "telegram.1",
         "token": ""
       }
     ],
-    "telegramTargetsTable": [],
+    "telegramTargetsTable": [
+      {
+        "instance": "telegram.1",
+        "chatId": "<REDACTED_CHAT_ID_1>"
+      },
+      {
+        "instance": "telegram.1",
+        "chatId": "<REDACTED_CHAT_ID_2>"
+      }
+    ],
     "defaultEntryDelaySec": 20,
     "defaultExitDelaySec": 10,
     "heartbeatTimeoutSec": 180,
