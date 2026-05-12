@@ -4,92 +4,93 @@ import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
-type AlarmMode = 'disarmed' | 'perimeter' | 'armed' | 'countdown' | 'alarm' | 'panic';
-type SensorGroup = 'doors' | 'windows' | 'motions' | 'cameraHumans';
+type Zone = 'perimeter' | 'aussenhaut' | 'innenraum';
+type SensorType = 'pir' | 'contact' | 'presence' | 'personDetection';
+
+type DetectionMode = 'boolean' | 'string';
 
 interface SensorDef {
   key: string;
   id: string;
   label: string;
-  group: SensorGroup;
+  sensorType: SensorType;
+  zone: Zone;
   activeValues: Array<string | boolean | number>;
-  perimeterRelevant?: boolean;
+}
+
+interface PersonDetectionDef {
+  key: string;
+  id: string;
+  label: string;
+  zone: Zone;
+  mode: DetectionMode;
+  detectValue?: string;
 }
 
 interface CameraDef {
   key: string;
   label: string;
-  humanStateId: string;
-  snapshotUrlTemplate: string;
-  streamUrl?: string;
+  ip: string;
+  streamUrl: string;
+  snapshotUrl: string;
+  alarmDatapoint?: string;
+  ledDatapoint?: string;
   username?: string;
   password?: string;
-  reolinkAlarmId?: string;
-  reolinkAlarmOnValue?: number;
-  reolinkAlarmOffValue?: number;
-  reolinkFlashlightId?: string;
-  flashlightDurationMs?: number;
+  personDetectionDp?: string;
 }
 
-interface PinCommand {
-  sequence: string;
-  action: 'garageOpen' | 'garageClose' | 'pdlcOpen' | 'pdlcClose' | 'armFull' | 'armPerimeter' | 'disarm' | 'panicOn' | 'panicOff';
+interface ActuatorDef {
+  key: string;
+  id: string;
+  onValue?: string;
+  offValue?: string;
 }
 
-interface AlarmConfig {
+interface TelegramInstanceDef {
+  instance: string;
+  token?: string;
+}
+
+interface TelegramTargetDef {
+  instance: string;
+  chatId: string;
+}
+
+interface Config {
   countdownSec: number;
   dedupeMs: number;
-  snapshotSendDelayMs: number;
+  snapshotDelayMs: number;
   snapshotBurstCount: number;
   snapshotBurstIntervalMs: number;
-  compatCctvArmedId: string;
-  compatCctvDisarmedId: string;
   armStateId: string;
   perimeterStateId: string;
-  countdownStateId: string;
-  sirenStateId: string;
   triggerStateId: string;
+  sirenStateId: string;
   displayId: string;
   clearDisplayId: string;
   buzzerId: string;
+  motionSensorId: string;
   ledRedId: string;
   ledYellowId: string;
   standbyId: string;
-  motionSensorId: string;
-  panicStateId: string;
-  speakId: string;
-  garageDoorCommandId: string;
-  garageOpenValue: number;
-  garageCloseValue: number;
-  pdlcId: string;
-  pdlcOpenValue: boolean;
-  pdlcCloseValue: boolean;
-  fingerprintStateId: string;
-  fingerprintUsers: string[];
-  presenceIds: string[];
-  autoArmDelaySec: number;
   sensors: SensorDef[];
+  personDetections: PersonDetectionDef[];
   cameras: CameraDef[];
-  pinCommands: PinCommand[];
-  telegramEnabled: boolean;
-  telegramInstance: string;
-  telegramChatIds: string[];
+  actuators: ActuatorDef[];
+  telegramInstances: TelegramInstanceDef[];
+  telegramTargets: TelegramTargetDef[];
 }
 
 class AlarmSystemAdapter extends utils.Adapter {
-  private mode: AlarmMode = 'disarmed';
-  private configParsed!: AlarmConfig;
-  private sensorState = new Map<string, boolean>();
+  private cfg!: Config;
+  private activeById = new Map<string, boolean>();
   private dedupe = new Map<string, number>();
-  private countdownTimer: ioBroker.Timeout | null = null;
-  private countdownTickTimer: ioBroker.Interval | null = null;
-  private countdownRemainingSec = 0;
-  private standbyTimer: ioBroker.Timeout | null = null;
-  private autoArmTimer: ioBroker.Timeout | null = null;
-  private displayTimer: ioBroker.Interval | null = null;
-  private openDisplayQueue: string[] = [];
-  private pinBuffer = '';
   private lastTrigger = '';
+  private zoneState: Record<Zone, boolean> = { perimeter: false, aussenhaut: false, innenraum: false };
+  private countdownRemaining = 0;
+  private countdownTimer: ioBroker.Timeout | null = null;
+  private countdownTick: ioBroker.Interval | null = null;
 
   public constructor(options: Partial<utils.AdapterOptions> = {}) {
     super({ ...options, name: 'alarmsystem' });
@@ -98,170 +99,155 @@ class AlarmSystemAdapter extends utils.Adapter {
   }
 
   private async onReady(): Promise<void> {
-    this.configParsed = this.buildConfig();
-    await this.initRuntimeStates();
+    this.cfg = this.buildConfig();
+
     await this.subscribeStates('*');
     await this.subscribeForeignInputs();
-    await this.refreshSensorStates();
-    await this.updateLedAndStatus();
-    await this.updateDisplayRotation();
-    this.log.info('AlarmSystem adapter started');
+
+    await this.ensureRuntimeStates();
+    await this.refreshAllInputs();
+    await this.recomputeIndicators();
+
+    this.log.info('AlarmSystem started with zone-based logic');
   }
 
-  private buildConfig(): AlarmConfig {
+  private buildConfig(): Config {
     const n = this.config as Record<string, any>;
 
-    const sensorsFromTable = this.parseSensorsTable(n.sensorsTable);
-    const camerasFromTable = this.parseCamerasTable(n.camerasTable, n.cameraDefaultUsername ?? '', n.cameraDefaultPassword ?? '');
-    const pinFromTable = this.parsePinCommandsTable(n.pinCommandsTable);
-    const presenceFromTable = this.parsePresenceTable(n.presenceTable);
+    const fromTableSensors = this.parseSensorTable(n.pirSensorsTable, 'pir')
+      .concat(this.parseSensorTable(n.contactSensorsTable, 'contact'))
+      .concat(this.parseSensorTable(n.presenceSensorsTable, 'presence'));
+    const fromTablePd = this.parsePersonDetectionTable(n.personDetectionTable);
 
-    const sensors = sensorsFromTable.length > 0 ? sensorsFromTable : this.tryJson<SensorDef[]>(n.sensorsJson, []);
-    const cameras = (camerasFromTable.length > 0 ? camerasFromTable : this.tryJson<CameraDef[]>(n.camerasJson, [])).map(c => ({
-      ...c,
-      username: c.username ?? n.cameraDefaultUsername ?? '',
-      password: c.password ?? n.cameraDefaultPassword ?? ''
+    const sensors = fromTableSensors.length > 0 ? fromTableSensors : this.tryJson<SensorDef[]>(n.sensorsJson, []);
+    const personDetections = fromTablePd.length > 0 ? fromTablePd : this.tryJson<PersonDetectionDef[]>(n.personDetectionJson, []);
+
+    const cameras = (Array.isArray(n.camerasTable) ? n.camerasTable : this.tryJson<CameraDef[]>(n.camerasJson, [])).map((c: any) => ({
+      key: String(c.key || c.ip || c.label || ''),
+      label: String(c.label || c.key || c.ip || ''),
+      ip: String(c.ip || ''),
+      streamUrl: String(c.streamUrl || ''),
+      snapshotUrl: String(c.snapshotUrl || ''),
+      alarmDatapoint: c.alarmDatapoint ? String(c.alarmDatapoint) : undefined,
+      ledDatapoint: c.ledDatapoint ? String(c.ledDatapoint) : undefined,
+      username: c.username ? String(c.username) : undefined,
+      password: c.password ? String(c.password) : undefined,
+      personDetectionDp: c.personDetectionDp ? String(c.personDetectionDp) : undefined
     }));
-    const pinCommands = pinFromTable.length > 0 ? pinFromTable : this.tryJson<PinCommand[]>(n.pinCommandsJson, []);
-    const presenceIds = presenceFromTable.length > 0 ? presenceFromTable : this.tryJson<string[]>(n.presenceIdsJson, []);
+
+    const actuators = (Array.isArray(n.actuatorsTable) ? n.actuatorsTable : this.tryJson<ActuatorDef[]>(n.actuatorsJson, [])).map((a: any) => ({
+      key: String(a.key || a.id || ''),
+      id: String(a.id || ''),
+      onValue: a.onValue !== undefined && a.onValue !== '' ? String(a.onValue) : undefined,
+      offValue: a.offValue !== undefined && a.offValue !== '' ? String(a.offValue) : undefined
+    })).filter((a: ActuatorDef) => a.id);
+
+    const telegramInstances = (Array.isArray(n.telegramInstancesTable) ? n.telegramInstancesTable : this.tryJson<TelegramInstanceDef[]>(n.telegramInstancesJson, [])).map((x: any) => ({
+      instance: String(x.instance || '').trim(),
+      token: x.token ? String(x.token) : undefined
+    })).filter((x: TelegramInstanceDef) => x.instance);
+
+    const telegramTargets = (Array.isArray(n.telegramTargetsTable) ? n.telegramTargetsTable : this.tryJson<TelegramTargetDef[]>(n.telegramTargetsJson, [])).map((x: any) => ({
+      instance: String(x.instance || '').trim(),
+      chatId: String(x.chatId || '').trim()
+    })).filter((x: TelegramTargetDef) => x.instance && x.chatId);
 
     return {
       countdownSec: this.toNumber(n.defaultCountdownSec, 20),
       dedupeMs: this.toNumber(n.eventDedupeMs, 1000),
-      snapshotSendDelayMs: this.toNumber(n.snapshotSendDelayMs, 0),
+      snapshotDelayMs: this.toNumber(n.snapshotSendDelayMs, 0),
       snapshotBurstCount: Math.max(1, this.toNumber(n.snapshotBurstCount, 1)),
       snapshotBurstIntervalMs: Math.max(500, this.toNumber(n.snapshotBurstIntervalMs, 5000)),
-      compatCctvArmedId: n.compatCctvArmedId || '0_userdata.0.CCTVSystem.alarmSystemArmed',
-      compatCctvDisarmedId: n.compatCctvDisarmedId || '0_userdata.0.CCTVSystem.alarmSystemDisarmed',
       armStateId: n.armStateId || 'mqtt.1.AlarmCenter.AlarmSystemArmed',
       perimeterStateId: n.perimeterStateId || 'mqtt.1.AlarmCenter.PerimeterProtection',
-      countdownStateId: n.countdownStateId || 'mqtt.1.AlarmCenter.ActivateAlarmCountdown',
-      sirenStateId: n.sirenStateId || 'mqtt.1.AlarmCenter.ActivateSiren',
       triggerStateId: n.triggerStateId || 'mqtt.1.AlarmCenter.AlarmTrigger',
+      sirenStateId: n.sirenStateId || 'mqtt.1.AlarmCenter.ActivateSiren',
       displayId: n.displayId || 'mqtt.1.AlarmCenter.Display',
       clearDisplayId: n.clearDisplayId || 'mqtt.1.AlarmCenter.ClearDisplay',
       buzzerId: n.buzzerId || 'mqtt.1.AlarmCenter.Buzzer',
+      motionSensorId: n.motionSensorId || 'mqtt.1.AlarmCenter.MotionSensor',
       ledRedId: n.ledRedId || 'mqtt.1.AlarmCenter.LEDRingRed',
       ledYellowId: n.ledYellowId || 'mqtt.1.AlarmCenter.LEDRingYellow',
       standbyId: n.standbyId || 'mqtt.1.AlarmCenter.StandBy',
-      motionSensorId: n.motionSensorId || 'mqtt.1.AlarmCenter.MotionSensor',
-      panicStateId: n.panicStateId || '0_userdata.0.AlarmSystem.panic',
-      speakId: n.speakId || 'alexa2.0.Echo-Devices.90F0081872670ASA.Commands.speak',
-      garageDoorCommandId: n.garageDoorCommandId || 'hmip.0.devices.3014F711A000241F29970E70.channels.1.doorCommand',
-      garageOpenValue: this.toNumber(n.garageOpenValue, 0),
-      garageCloseValue: this.toNumber(n.garageCloseValue, 2),
-      pdlcId: n.pdlcId || 'tuya.0.bf2bb23b342877f2e1maqy.1',
-      pdlcOpenValue: n.pdlcOpenValue !== false,
-      pdlcCloseValue: n.pdlcCloseValue === true,
-      fingerprintStateId: n.fingerprintStateId || 'mqtt.1.fingerprintDoorbell.lastLogMessage',
-      fingerprintUsers: String(n.fingerprintUsersCsv || '').split(',').map((x: string) => x.trim()).filter(Boolean),
-      presenceIds,
-      autoArmDelaySec: this.toNumber(n.autoArmDelaySec, 60),
       sensors,
+      personDetections,
       cameras,
-      pinCommands,
-      telegramEnabled: !!n.telegram?.enabled,
-      telegramInstance: n.telegram?.instance || 'telegram.1',
-      telegramChatIds: String(n.telegram?.chatIdsCsv || '').split(',').map((x: string) => x.trim()).filter(Boolean)
+      actuators,
+      telegramInstances,
+      telegramTargets
     };
   }
 
-  private parseSensorsTable(rows: any): SensorDef[] {
+  private parseSensorTable(rows: any, sensorType: SensorType): SensorDef[] {
     if (!Array.isArray(rows)) return [];
     return rows
-      .filter(r => r && r.id && r.group)
-      .map(r => ({
+      .filter(r => r && r.id)
+      .map((r: any) => ({
         key: String(r.key || r.id),
         id: String(r.id),
         label: String(r.label || r.key || r.id),
-        group: (['doors', 'windows', 'motions', 'cameraHumans'].includes(String(r.group)) ? String(r.group) : 'doors') as SensorGroup,
-        activeValues: String(r.activeValuesCsv || '')
-          .split(',')
-          .map((v: string) => v.trim())
-          .filter(Boolean)
-          .map((v: string) => this.parseScalar(v)),
-        perimeterRelevant: r.perimeterRelevant !== false
-      }))
-      .map(s => ({ ...s, activeValues: s.activeValues.length > 0 ? s.activeValues : ['open'] }));
-  }
-
-  private parseCamerasTable(rows: any, defaultUser: string, defaultPass: string): CameraDef[] {
-    if (!Array.isArray(rows)) return [];
-    return rows
-      .filter(r => r && r.humanStateId && r.snapshotUrlTemplate)
-      .map(r => ({
-        key: String(r.key || r.humanStateId),
-        label: String(r.label || r.key || r.humanStateId),
-        humanStateId: String(r.humanStateId),
-        snapshotUrlTemplate: String(r.snapshotUrlTemplate),
-        streamUrl: r.streamUrl ? String(r.streamUrl) : undefined,
-        username: r.username !== undefined && r.username !== '' ? String(r.username) : defaultUser,
-        password: r.password !== undefined && r.password !== '' ? String(r.password) : defaultPass,
-        reolinkAlarmId: r.reolinkAlarmId ? String(r.reolinkAlarmId) : undefined,
-        reolinkAlarmOnValue: r.reolinkAlarmOnValue !== undefined && r.reolinkAlarmOnValue !== '' ? Number(r.reolinkAlarmOnValue) : undefined,
-        reolinkAlarmOffValue: r.reolinkAlarmOffValue !== undefined && r.reolinkAlarmOffValue !== '' ? Number(r.reolinkAlarmOffValue) : undefined,
-        reolinkFlashlightId: r.reolinkFlashlightId ? String(r.reolinkFlashlightId) : undefined,
-        flashlightDurationMs: r.flashlightDurationMs !== undefined && r.flashlightDurationMs !== '' ? Number(r.flashlightDurationMs) : undefined
+        sensorType,
+        zone: this.parseZone(r.zone),
+        activeValues: String(r.activeValuesCsv || 'open').split(',').map((x: string) => x.trim()).filter(Boolean).map((x: string) => this.parseScalar(x))
       }));
   }
 
-  private parsePinCommandsTable(rows: any): PinCommand[] {
+  private parsePersonDetectionTable(rows: any): PersonDetectionDef[] {
     if (!Array.isArray(rows)) return [];
-    const allowed = new Set(['garageOpen', 'garageClose', 'pdlcOpen', 'pdlcClose', 'armFull', 'armPerimeter', 'disarm', 'panicOn', 'panicOff']);
     return rows
-      .filter(r => r && r.sequence && r.action && allowed.has(String(r.action)))
-      .map(r => ({ sequence: String(r.sequence), action: String(r.action) as PinCommand['action'] }));
+      .filter(r => r && r.id)
+      .map((r: any) => ({
+        key: String(r.key || r.id),
+        id: String(r.id),
+        label: String(r.label || r.key || r.id),
+        zone: this.parseZone(r.zone),
+        mode: (r.mode === 'string' ? 'string' : 'boolean'),
+        detectValue: r.detectValue ? String(r.detectValue) : undefined
+      }));
   }
 
-  private parsePresenceTable(rows: any): string[] {
-    if (!Array.isArray(rows)) return [];
-    return rows.map(r => String(r?.id || '').trim()).filter(Boolean);
-  }
-
-  private parseScalar(v: string): string | boolean | number {
-    const x = v.trim();
-    if (x === 'true') return true;
-    if (x === 'false') return false;
-    const n = Number(x);
-    if (x !== '' && Number.isFinite(n) && String(n) === x) return n;
-    return x;
-  }
-
-  private async initRuntimeStates(): Promise<void> {
-    const baseStates: Array<{ id: string; val: ioBroker.StateValue }> = [
-      { id: 'runtime.mode', val: this.mode },
-      { id: 'runtime.alarmActive', val: false },
-      { id: 'runtime.countdownActive', val: false },
-      { id: 'runtime.countdownRemainingSec', val: 0 },
-      { id: 'runtime.lastTriggerSensor', val: '' },
-      { id: 'runtime.lastTriggerTs', val: 0 },
-      { id: 'runtime.openDoorCount', val: 0 }
-    ];
-
-    for (const s of baseStates) await this.setStateAsync(s.id, s.val, true);
+  private parseZone(v: any): Zone {
+    const z = String(v || '').toLowerCase();
+    if (z === 'innenraum') return 'innenraum';
+    if (z === 'aussenhaut') return 'aussenhaut';
+    return 'perimeter';
   }
 
   private async subscribeForeignInputs(): Promise<void> {
     const ids = new Set<string>([
-      this.configParsed.panicStateId,
-      this.configParsed.motionSensorId,
-      this.configParsed.fingerprintStateId,
-      this.configParsed.armStateId,
-      this.configParsed.perimeterStateId,
-      'mqtt.1.AlarmCenter.PIN'
+      this.cfg.armStateId,
+      this.cfg.perimeterStateId,
+      this.cfg.motionSensorId
     ]);
 
-    for (const p of this.configParsed.presenceIds) ids.add(p);
-    for (const s of this.configParsed.sensors) ids.add(s.id);
-    for (const c of this.configParsed.cameras) ids.add(c.humanStateId);
+    for (const s of this.cfg.sensors) ids.add(s.id);
+    for (const p of this.cfg.personDetections) ids.add(p.id);
+    for (const c of this.cfg.cameras) {
+      if (c.personDetectionDp) ids.add(c.personDetectionDp);
+      if (c.alarmDatapoint) ids.add(c.alarmDatapoint);
+      if (c.ledDatapoint) ids.add(c.ledDatapoint);
+    }
 
     for (const id of ids) await this.subscribeForeignStatesAsync(id);
   }
 
-  private async refreshSensorStates(): Promise<void> {
-    for (const s of this.configParsed.sensors) {
+  private async ensureRuntimeStates(): Promise<void> {
+    await this.setStateAsync('runtime.mode', 'disarmed', true);
+    await this.setStateAsync('runtime.lastTrigger', '', true);
+    await this.setStateAsync('runtime.countdownRemainingSec', 0, true);
+    await this.setStateAsync('zones.perimeter.armed', false, true);
+    await this.setStateAsync('zones.aussenhaut.armed', false, true);
+    await this.setStateAsync('zones.innenraum.armed', false, true);
+  }
+
+  private async refreshAllInputs(): Promise<void> {
+    for (const s of this.cfg.sensors) {
       const st = await this.getForeignStateAsync(s.id);
-      this.sensorState.set(s.id, this.isActiveValue(st?.val ?? null, s.activeValues));
+      this.activeById.set(s.id, this.matchesAny(st?.val ?? null, s.activeValues));
+    }
+    for (const p of this.cfg.personDetections) {
+      const st = await this.getForeignStateAsync(p.id);
+      this.activeById.set(p.id, this.matchesPersonDetection(st?.val ?? null, p));
     }
   }
 
@@ -271,377 +257,248 @@ class AlarmSystemAdapter extends utils.Adapter {
     const localId = id.startsWith(this.namespace + '.') ? id.slice(this.namespace.length + 1) : '';
 
     if (localId && !state.ack) {
-      if (localId === 'commands.armFull' && state.val === true) {
-        await this.armFull('manual');
-        await this.setStateAsync('commands.armFull', false, true);
-      }
-      if (localId === 'commands.armPerimeter' && state.val === true) {
-        await this.armPerimeter('manual');
-        await this.setStateAsync('commands.armPerimeter', false, true);
-      }
-      if (localId === 'commands.disarm' && state.val === true) {
-        await this.disarm('manual');
-        await this.setStateAsync('commands.disarm', false, true);
-      }
-      if (localId === 'commands.panicOn' && state.val === true) {
-        await this.setPanic(true, 'manual');
-        await this.setStateAsync('commands.panicOn', false, true);
-      }
-      if (localId === 'commands.panicOff' && state.val === true) {
-        await this.setPanic(false, 'manual');
-        await this.setStateAsync('commands.panicOff', false, true);
-      }
-      return;
-    }
-
-    if (id === this.configParsed.armStateId && state.val === true && this.mode !== 'armed') {
-      await this.armFull('legacyState');
-      return;
-    }
-    if (id === this.configParsed.perimeterStateId && state.val === true && this.mode !== 'perimeter') {
-      await this.armPerimeter('legacyState');
-      return;
-    }
-    if ((id === this.configParsed.armStateId || id === this.configParsed.perimeterStateId) && state.val === false) {
-      if (this.mode === 'armed' || this.mode === 'perimeter') {
-        await this.disarm('legacyState');
+      if (localId === 'commands.armAll' && state.val === true) {
+        await this.setZoneArmed('perimeter', true);
+        await this.setZoneArmed('aussenhaut', true);
+        await this.setZoneArmed('innenraum', true);
+        await this.setStateAsync('commands.armAll', false, true);
         return;
       }
-    }
-
-    if (id === this.configParsed.panicStateId) return this.setPanic(state.val === true, 'external');
-    if (id === this.configParsed.motionSensorId) return this.handleStandbyMotion(state.val);
-    if (id === this.configParsed.fingerprintStateId) return this.handleFingerprint(state.val);
-    if (id === 'mqtt.1.AlarmCenter.PIN') return this.handlePin(state.val);
-    if (this.configParsed.presenceIds.includes(id)) return this.handlePresenceChange();
-
-    const sensor = this.configParsed.sensors.find(s => s.id === id);
-    if (sensor) return this.handleSensor(sensor, state.val);
-
-    const camera = this.configParsed.cameras.find(c => c.humanStateId === id);
-    if (camera) return this.handleCameraEvent(camera, state.val);
-  }
-
-  private async handleSensor(sensor: SensorDef, raw: ioBroker.StateValue): Promise<void> {
-    const active = this.isActiveValue(raw, sensor.activeValues);
-    this.sensorState.set(sensor.id, active);
-    await this.updateLedAndStatus();
-    await this.updateDisplayRotation();
-
-    if (!active || !this.shouldDedupe(sensor.id)) return;
-
-    if (this.mode === 'armed' || (this.mode === 'perimeter' && sensor.perimeterRelevant !== false)) {
-      await this.triggerCountdown(sensor.label);
-    }
-
-    if (sensor.group === 'doors' && (this.mode === 'disarmed' || this.mode === 'perimeter')) {
-      await this.setForeignStateSafe(this.configParsed.buzzerId, 'beep 2x');
-    }
-  }
-
-  private async handleCameraEvent(camera: CameraDef, raw: ioBroker.StateValue): Promise<void> {
-    const active = raw === true || raw === 'human detected';
-    if (!active) return;
-
-    if (this.mode === 'armed' || this.mode === 'perimeter' || this.mode === 'alarm' || this.mode === 'panic') {
-      if (camera.reolinkAlarmId) await this.setForeignStateSafe(camera.reolinkAlarmId, camera.reolinkAlarmOnValue ?? 1);
-      if (camera.reolinkFlashlightId) {
-        await this.setForeignStateSafe(camera.reolinkFlashlightId, true);
-        this.setTimeout(() => void this.setForeignStateSafe(camera.reolinkFlashlightId as string, false), camera.flashlightDurationMs ?? 10000);
+      if (localId === 'commands.disarmAll' && state.val === true) {
+        await this.setZoneArmed('perimeter', false);
+        await this.setZoneArmed('aussenhaut', false);
+        await this.setZoneArmed('innenraum', false);
+        await this.abortCountdown();
+        await this.setForeignStateSafe(this.cfg.sirenStateId, false);
+        await this.setStateAsync('commands.disarmAll', false, true);
+        return;
       }
-
-      const snapshot = this.buildCameraUrl(camera.snapshotUrlTemplate, camera.username, camera.password);
-      await this.sendTelegram(`🚨 Kamera-Trigger: ${camera.label}`);
-      await this.sendCameraSnapshots(camera.label, snapshot);
+      if (localId === 'commands.armPerimeterZone' && state.val === true) {
+        await this.setZoneArmed('perimeter', true);
+        await this.setStateAsync('commands.armPerimeterZone', false, true);
+        return;
+      }
+      if (localId === 'commands.armAussenhautZone' && state.val === true) {
+        await this.setZoneArmed('aussenhaut', true);
+        await this.setStateAsync('commands.armAussenhautZone', false, true);
+        return;
+      }
+      if (localId === 'commands.armInnenraumZone' && state.val === true) {
+        await this.setZoneArmed('innenraum', true);
+        await this.setStateAsync('commands.armInnenraumZone', false, true);
+        return;
+      }
+      if (localId === 'commands.disarmPerimeterZone' && state.val === true) {
+        await this.setZoneArmed('perimeter', false);
+        await this.setStateAsync('commands.disarmPerimeterZone', false, true);
+        return;
+      }
+      if (localId === 'commands.disarmAussenhautZone' && state.val === true) {
+        await this.setZoneArmed('aussenhaut', false);
+        await this.setStateAsync('commands.disarmAussenhautZone', false, true);
+        return;
+      }
+      if (localId === 'commands.disarmInnenraumZone' && state.val === true) {
+        await this.setZoneArmed('innenraum', false);
+        await this.setStateAsync('commands.disarmInnenraumZone', false, true);
+        return;
+      }
+      return;
     }
-  }
 
-  private async sendCameraSnapshots(cameraLabel: string, snapshotUrl: string): Promise<void> {
-    if (!this.configParsed.telegramEnabled || !this.configParsed.telegramInstance) return;
+    if (id === this.cfg.armStateId && state.val === true) {
+      await this.setZoneArmed('perimeter', true);
+      await this.setZoneArmed('aussenhaut', true);
+      await this.setZoneArmed('innenraum', true);
+      return;
+    }
+    if (id === this.cfg.perimeterStateId && state.val === true) {
+      await this.setZoneArmed('perimeter', true);
+      return;
+    }
 
-    const run = async (index: number): Promise<void> => {
-      try {
-        const resp = await axios.get(snapshotUrl, { responseType: 'arraybuffer', timeout: 8000, validateStatus: s => s < 500 });
-        if (resp.status !== 200) throw new Error(`HTTP ${resp.status}`);
-        const buf = Buffer.from(resp.data);
-        if (buf.length < 500) throw new Error('snapshot too small');
+    const s = this.cfg.sensors.find(x => x.id === id);
+    if (s) {
+      const active = this.matchesAny(state.val, s.activeValues);
+      this.activeById.set(s.id, active);
+      await this.recomputeIndicators();
+      if (active && this.isZoneArmed(s.zone) && this.allowEvent(s.id)) {
+        await this.startCountdown(s.label, s.zone);
+      }
+      return;
+    }
 
-        const file = path.join(os.tmpdir(), `alarmsystem_${Date.now()}_${index}.jpg`);
-        await fs.writeFile(file, buf);
+    const p = this.cfg.personDetections.find(x => x.id === id);
+    if (p) {
+      const active = this.matchesPersonDetection(state.val, p);
+      this.activeById.set(p.id, active);
+      if (active && this.isZoneArmed(p.zone) && this.allowEvent(p.id)) {
+        await this.startCountdown(p.label, p.zone);
+      }
+      return;
+    }
 
-        if (this.configParsed.telegramChatIds.length === 0) {
-          await this.sendToAsync(this.configParsed.telegramInstance, 'send', { text: file, type: 'photo', caption: cameraLabel });
-        } else {
-          for (const chatId of this.configParsed.telegramChatIds) {
-            await this.sendToAsync(this.configParsed.telegramInstance, 'send', { user: chatId, text: file, type: 'photo', caption: cameraLabel });
-          }
+    for (const cam of this.cfg.cameras) {
+      if (cam.personDetectionDp && id === cam.personDetectionDp) {
+        const active = state.val === true || state.val === 'human detected';
+        if (active && this.allowEvent(cam.personDetectionDp)) {
+          await this.triggerCameraOutputs(cam);
         }
-      } catch (e) {
-        await this.sendTelegram(`Snapshot-Fehler (${cameraLabel}): ${String(e)}`);
-      }
-    };
-
-    for (let i = 0; i < this.configParsed.snapshotBurstCount; i++) {
-      const delay = this.configParsed.snapshotSendDelayMs + i * this.configParsed.snapshotBurstIntervalMs;
-      this.setTimeout(() => void run(i + 1), delay);
-    }
-  }
-
-  private async handleFingerprint(raw: ioBroker.StateValue): Promise<void> {
-    if (typeof raw !== 'string') return;
-    const text = raw.trim().toLowerCase();
-    if (!text) return;
-
-    for (const user of this.configParsed.fingerprintUsers) {
-      if (text.includes(user.toLowerCase())) {
-        await this.disarm(`fingerprint:${user}`);
-        await this.sendTelegram(`${user} erkannt – Alarm deaktiviert`);
-        return;
       }
     }
   }
 
-  private async handlePin(raw: ioBroker.StateValue): Promise<void> {
-    if (raw === null || raw === undefined) return;
-    const s = String(raw).trim();
-    if (!s) return;
+  private async triggerCameraOutputs(cam: CameraDef): Promise<void> {
+    if (cam.alarmDatapoint) await this.setForeignStateSafe(cam.alarmDatapoint, 1);
+    if (cam.ledDatapoint) {
+      await this.setForeignStateSafe(cam.ledDatapoint, true);
+      this.setTimeout(() => void this.setForeignStateSafe(cam.ledDatapoint as string, false), 10000);
+    }
+    if (!cam.snapshotUrl) return;
 
-    for (const ch of s.replace(/[^\d*#]/g, '')) {
-      this.pinBuffer = (this.pinBuffer + ch).slice(-2);
-      const cmd = this.configParsed.pinCommands.find(p => p.sequence === this.pinBuffer);
-      if (cmd) await this.executePinAction(cmd.action);
-      if (ch === '#') this.pinBuffer = '';
+    const snapshotUrl = this.applyCameraCredentials(cam.snapshotUrl, cam.username, cam.password);
+
+    for (let i = 0; i < this.cfg.snapshotBurstCount; i++) {
+      const wait = this.cfg.snapshotDelayMs + i * this.cfg.snapshotBurstIntervalMs;
+      this.setTimeout(() => void this.sendSnapshot(snapshotUrl, cam.label, i + 1), wait);
     }
   }
 
-  private async executePinAction(action: PinCommand['action']): Promise<void> {
-    if (action === 'garageOpen') {
-      await this.setForeignStateSafe(this.configParsed.garageDoorCommandId, this.configParsed.garageOpenValue);
-      return this.showTempDisplay('   Tor oeffnet...   ');
+  private async sendSnapshot(url: string, label: string, idx: number): Promise<void> {
+    try {
+      const res = await axios.get(url, { responseType: 'arraybuffer', timeout: 8000, validateStatus: s => s < 500 });
+      if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
+      const file = path.join(os.tmpdir(), `alarmsystem_${Date.now()}_${idx}.jpg`);
+      await fs.writeFile(file, Buffer.from(res.data));
+      await this.sendTelegramPhoto(file, `AlarmSystem: ${label}`);
+    } catch (e) {
+      await this.sendTelegramText(`Snapshot Fehler (${label}): ${String(e)}`);
     }
-    if (action === 'garageClose') {
-      await this.setForeignStateSafe(this.configParsed.garageDoorCommandId, this.configParsed.garageCloseValue);
-      return this.showTempDisplay('  Tor schliesst...  ');
-    }
-    if (action === 'pdlcOpen') return this.setForeignStateSafe(this.configParsed.pdlcId, this.configParsed.pdlcOpenValue);
-    if (action === 'pdlcClose') return this.setForeignStateSafe(this.configParsed.pdlcId, this.configParsed.pdlcCloseValue);
-    if (action === 'armFull') return this.armFull('pin');
-    if (action === 'armPerimeter') return this.armPerimeter('pin');
-    if (action === 'disarm') return this.disarm('pin');
-    if (action === 'panicOn') return this.setPanic(true, 'pin');
-    if (action === 'panicOff') return this.setPanic(false, 'pin');
   }
 
-  private async triggerCountdown(triggerLabel: string): Promise<void> {
-    if (this.mode === 'countdown' || this.mode === 'alarm' || this.mode === 'panic') return;
+  private applyCameraCredentials(tpl: string, user?: string, pass?: string): string {
+    return tpl
+      .split('{username}').join(encodeURIComponent(user || '<USERNAME>'))
+      .split('{password}').join(encodeURIComponent(pass || '<PASSWORD>'));
+  }
 
-    this.lastTrigger = triggerLabel;
-    await this.setForeignStateSafe(this.configParsed.triggerStateId, triggerLabel);
-    await this.setStateAsync('runtime.lastTriggerSensor', triggerLabel, true);
-    await this.setStateAsync('runtime.lastTriggerTs', Date.now(), true);
+  private async startCountdown(label: string, zone: Zone): Promise<void> {
+    if (this.countdownTimer) return;
 
-    this.mode = 'countdown';
-    this.countdownRemainingSec = this.configParsed.countdownSec;
-    await this.syncModeStates();
+    this.lastTrigger = `${label} (${zone})`;
+    await this.setStateAsync('runtime.lastTrigger', this.lastTrigger, true);
+    await this.setForeignStateSafe(this.cfg.triggerStateId, this.lastTrigger);
+    await this.setForeignStateSafe(this.cfg.displayId, '  Finger auflegen!  ');
 
-    await this.setForeignStateSafe(this.configParsed.countdownStateId, true);
-    await this.setForeignStateSafe(this.configParsed.displayId, '  Finger auflegen!  ');
+    this.countdownRemaining = this.cfg.countdownSec;
+    await this.setStateAsync('runtime.mode', 'countdown', true);
+    await this.setStateAsync('runtime.countdownRemainingSec', this.countdownRemaining, true);
 
-    if (this.countdownTickTimer) this.clearInterval(this.countdownTickTimer);
-    this.countdownTickTimer = this.setInterval(async () => {
-      this.countdownRemainingSec = Math.max(0, this.countdownRemainingSec - 1);
-      await this.setStateAsync('runtime.countdownRemainingSec', this.countdownRemainingSec, true);
-      if (this.countdownRemainingSec > 0 && this.countdownRemainingSec % 3 === 0) {
-        await this.setForeignStateSafe(this.configParsed.buzzerId, 'beep long 2x');
+    this.countdownTick = this.setInterval(async () => {
+      this.countdownRemaining = Math.max(0, this.countdownRemaining - 1);
+      await this.setStateAsync('runtime.countdownRemainingSec', this.countdownRemaining, true);
+      if (this.countdownRemaining > 0 && this.countdownRemaining % 3 === 0) {
+        await this.setForeignStateSafe(this.cfg.buzzerId, 'beep long 2x');
       }
     }, 1000) ?? null;
 
-    if (this.countdownTimer) this.clearTimeout(this.countdownTimer);
     this.countdownTimer = this.setTimeout(async () => {
       this.countdownTimer = null;
-      await this.activateAlarm();
-    }, this.configParsed.countdownSec * 1000) ?? null;
+      if (this.countdownTick) this.clearInterval(this.countdownTick);
+      this.countdownTick = null;
+      await this.setForeignStateSafe(this.cfg.sirenStateId, true);
+      await this.setStateAsync('runtime.mode', 'alarm', true);
+      await this.sendTelegramText(`🚨 Alarm: ${this.lastTrigger}`);
+    }, this.cfg.countdownSec * 1000) ?? null;
   }
 
-  private async activateAlarm(): Promise<void> {
-    if (this.mode !== 'countdown') return;
-    this.mode = 'alarm';
-    if (this.countdownTickTimer) this.clearInterval(this.countdownTickTimer);
-    this.countdownTickTimer = null;
-
-    await this.syncModeStates();
-    await this.setForeignStateSafe(this.configParsed.countdownStateId, false);
-    await this.setForeignStateSafe(this.configParsed.sirenStateId, true);
-    await this.sendTelegram(`🚨 Alarm!!! Trigger: ${this.lastTrigger || 'unbekannt'}`);
-  }
-
-  private async armFull(source: string): Promise<void> {
-    this.mode = 'armed';
-    await this.syncModeStates();
-    await this.setForeignStateSafe(this.configParsed.armStateId, true);
-    await this.setForeignStateSafe(this.configParsed.perimeterStateId, false);
-    await this.setForeignStateSafe(this.configParsed.compatCctvArmedId, true);
-    await this.setForeignStateSafe(this.configParsed.compatCctvDisarmedId, false);
-    await this.sendTelegram(`Alarm scharf (FULL) via ${source}`);
-  }
-
-  private async armPerimeter(source: string): Promise<void> {
-    this.mode = 'perimeter';
-    await this.syncModeStates();
-    await this.setForeignStateSafe(this.configParsed.armStateId, false);
-    await this.setForeignStateSafe(this.configParsed.perimeterStateId, true);
-    await this.setForeignStateSafe(this.configParsed.compatCctvArmedId, true);
-    await this.setForeignStateSafe(this.configParsed.compatCctvDisarmedId, false);
-    await this.setForeignStateSafe(this.configParsed.buzzerId, 'confirm');
-    await this.showTempDisplay('    Schutz aktiv    ');
-    await this.sendTelegram(`Perimeterschutz aktiv via ${source}`);
-  }
-
-  private async disarm(source: string): Promise<void> {
-    this.mode = 'disarmed';
+  private async abortCountdown(): Promise<void> {
     if (this.countdownTimer) this.clearTimeout(this.countdownTimer);
     this.countdownTimer = null;
-    if (this.countdownTickTimer) this.clearInterval(this.countdownTickTimer);
-    this.countdownTickTimer = null;
-    this.countdownRemainingSec = 0;
-
-    await this.syncModeStates();
-    await this.setForeignStateSafe(this.configParsed.armStateId, false);
-    await this.setForeignStateSafe(this.configParsed.perimeterStateId, false);
-    await this.setForeignStateSafe(this.configParsed.countdownStateId, false);
-    await this.setForeignStateSafe(this.configParsed.sirenStateId, false);
-    await this.setForeignStateSafe(this.configParsed.compatCctvArmedId, false);
-    await this.setForeignStateSafe(this.configParsed.compatCctvDisarmedId, true);
-    await this.setForeignStateSafe(this.configParsed.clearDisplayId, true);
-    await this.sendTelegram(`Alarm deaktiviert via ${source}`);
+    if (this.countdownTick) this.clearInterval(this.countdownTick);
+    this.countdownTick = null;
+    this.countdownRemaining = 0;
+    await this.setStateAsync('runtime.countdownRemainingSec', 0, true);
+    await this.setStateAsync('runtime.mode', 'disarmed', true);
   }
 
-  private async setPanic(on: boolean, source: string): Promise<void> {
-    if (!on) return this.disarm(`panicOff:${source}`);
-
-    this.mode = 'panic';
-    await this.syncModeStates();
-    await this.setForeignStateSafe(this.configParsed.sirenStateId, true);
-
-    for (const cam of this.configParsed.cameras) {
-      if (cam.reolinkAlarmId) await this.setForeignStateSafe(cam.reolinkAlarmId, 20);
-    }
-    await this.sendTelegram(`PANIC aktiviert via ${source}`);
+  private async recomputeIndicators(): Promise<void> {
+    const contactsOpen = this.cfg.sensors.filter(s => s.sensorType === 'contact' && this.activeById.get(s.id));
+    const pirActive = this.cfg.sensors.filter(s => s.sensorType === 'pir' && this.activeById.get(s.id));
+    await this.setForeignStateSafe(this.cfg.ledRedId, contactsOpen.length > 0);
+    await this.setForeignStateSafe(this.cfg.ledYellowId, pirActive.length > 0);
   }
 
-  private async syncModeStates(): Promise<void> {
-    await this.setStateAsync('runtime.mode', this.mode, true);
-    await this.setStateAsync('runtime.alarmActive', this.mode === 'alarm' || this.mode === 'panic', true);
-    await this.setStateAsync('runtime.countdownActive', this.mode === 'countdown', true);
-    await this.setStateAsync('runtime.countdownRemainingSec', this.countdownRemainingSec, true);
+  private async setZoneArmed(zone: Zone, armed: boolean): Promise<void> {
+    this.zoneState[zone] = armed;
+    await this.setStateAsync(`zones.${zone}.armed`, armed, true);
+    await this.setStateAsync('runtime.mode', this.anyZoneArmed() ? 'armed' : 'disarmed', true);
   }
 
-  private async updateLedAndStatus(): Promise<void> {
-    const openDoors = this.configParsed.sensors.filter(d => d.group === 'doors' && this.sensorState.get(d.id));
-    const openWindows = this.configParsed.sensors.filter(w => w.group === 'windows' && this.sensorState.get(w.id));
-    await this.setStateAsync('runtime.openDoorCount', openDoors.length, true);
-    await this.setForeignStateSafe(this.configParsed.ledRedId, openDoors.length > 0);
-    await this.setForeignStateSafe(this.configParsed.ledYellowId, openWindows.length > 0);
+  private isZoneArmed(zone: Zone): boolean {
+    return this.zoneState[zone] === true;
   }
 
-  private async updateDisplayRotation(): Promise<void> {
-    const openRelevant = this.configParsed.sensors
-      .filter(s => (s.group === 'doors' || s.group === 'windows') && this.sensorState.get(s.id))
-      .map(s => `${s.label} offen`);
-
-    this.openDisplayQueue = openRelevant;
-    if (this.displayTimer) {
-      this.clearInterval(this.displayTimer);
-      this.displayTimer = null;
-    }
-
-    if (openRelevant.length === 0) {
-      await this.setForeignStateSafe(this.configParsed.clearDisplayId, true);
-      return;
-    }
-
-    let idx = 0;
-    this.displayTimer = this.setInterval(async () => {
-      const text = this.openDisplayQueue[idx % this.openDisplayQueue.length] || '';
-      idx++;
-      await this.setForeignStateSafe(this.configParsed.displayId, text.padEnd(20, ' ').slice(0, 20));
-    }, 2000) ?? null;
+  private anyZoneArmed(): boolean {
+    return this.zoneState.perimeter || this.zoneState.aussenhaut || this.zoneState.innenraum;
   }
 
-  private async handleStandbyMotion(raw: ioBroker.StateValue): Promise<void> {
-    if (raw !== 'no motion') {
-      if (this.standbyTimer) this.clearTimeout(this.standbyTimer);
-      this.standbyTimer = null;
-      await this.setForeignStateSafe(this.configParsed.standbyId, false);
-      return;
-    }
-
-    if (this.standbyTimer) this.clearTimeout(this.standbyTimer);
-    this.standbyTimer = this.setTimeout(async () => {
-      await this.setForeignStateSafe(this.configParsed.standbyId, true);
-    }, 20000) ?? null;
-  }
-
-  private async handlePresenceChange(): Promise<void> {
-    const values = await Promise.all(this.configParsed.presenceIds.map(id => this.getForeignStateAsync(id)));
-    const anyoneHome = values.some(v => v?.val === true);
-
-    if (anyoneHome) {
-      if (this.autoArmTimer) this.clearTimeout(this.autoArmTimer);
-      this.autoArmTimer = null;
-      return;
-    }
-
-    if (this.mode !== 'disarmed' || this.autoArmTimer) return;
-
-    await this.sendTelegram(`Niemand ist zu Hause. Alarmanlage wird in ${this.configParsed.autoArmDelaySec}s scharfgeschaltet...`);
-    this.autoArmTimer = this.setTimeout(async () => {
-      this.autoArmTimer = null;
-      await this.armFull('autoAway');
-    }, this.configParsed.autoArmDelaySec * 1000) ?? null;
-  }
-
-  private async showTempDisplay(text: string): Promise<void> {
-    await this.setForeignStateSafe(this.configParsed.displayId, text);
-    this.setTimeout(() => void this.setForeignStateSafe(this.configParsed.clearDisplayId, true), 4000);
-  }
-
-  private buildCameraUrl(template: string, username?: string, password?: string): string {
-    return template
-      .split('{username}').join(encodeURIComponent(username || '<USERNAME>'))
-      .split('{password}').join(encodeURIComponent(password || '<PASSWORD>')); 
-  }
-
-  private async sendTelegram(text: string): Promise<void> {
-    if (!this.configParsed.telegramEnabled || !this.configParsed.telegramInstance) return;
-
-    if (this.configParsed.telegramChatIds.length === 0) {
-      await this.sendToAsync(this.configParsed.telegramInstance, 'send', { text });
-      return;
-    }
-
-    for (const chatId of this.configParsed.telegramChatIds) {
-      await this.sendToAsync(this.configParsed.telegramInstance, 'send', { user: chatId, text });
-    }
-  }
-
-  private shouldDedupe(key: string): boolean {
+  private allowEvent(key: string): boolean {
     const now = Date.now();
-    const last = this.dedupe.get(key) || 0;
-    if (now - last < this.configParsed.dedupeMs) return false;
+    const prev = this.dedupe.get(key) || 0;
+    if (now - prev < this.cfg.dedupeMs) return false;
     this.dedupe.set(key, now);
     return true;
   }
 
-  private isActiveValue(raw: ioBroker.StateValue, activeValues: Array<string | boolean | number>): boolean {
-    return activeValues.some(v => raw === v);
+  private matchesAny(val: ioBroker.StateValue, expected: Array<string | boolean | number>): boolean {
+    return expected.some(x => val === x);
+  }
+
+  private matchesPersonDetection(val: ioBroker.StateValue, def: PersonDetectionDef): boolean {
+    if (def.mode === 'boolean') return val === true;
+    return typeof val === 'string' && val === (def.detectValue || 'human detected');
+  }
+
+  private parseScalar(v: string): string | boolean | number {
+    if (v === 'true') return true;
+    if (v === 'false') return false;
+    const n = Number(v);
+    if (String(n) === v && Number.isFinite(n)) return n;
+    return v;
   }
 
   private async setForeignStateSafe(id: string, val: ioBroker.StateValue): Promise<void> {
     try {
       await this.setForeignStateAsync(id, val as any);
-    } catch (e) {
-      this.log.debug(`setForeignState failed for ${id}: ${String(e)}`);
+    } catch {
+      // ignore missing datapoints during migration
+    }
+  }
+
+  private async sendTelegramText(text: string): Promise<void> {
+    for (const inst of this.cfg.telegramInstances) {
+      const targets = this.cfg.telegramTargets.filter(t => t.instance === inst.instance);
+      if (targets.length === 0) {
+        await this.sendToAsync(inst.instance, 'send', { text });
+        continue;
+      }
+      for (const t of targets) {
+        await this.sendToAsync(inst.instance, 'send', { user: t.chatId, text });
+      }
+    }
+  }
+
+  private async sendTelegramPhoto(file: string, caption: string): Promise<void> {
+    for (const inst of this.cfg.telegramInstances) {
+      const targets = this.cfg.telegramTargets.filter(t => t.instance === inst.instance);
+      if (targets.length === 0) {
+        await this.sendToAsync(inst.instance, 'send', { text: file, type: 'photo', caption });
+        continue;
+      }
+      for (const t of targets) {
+        await this.sendToAsync(inst.instance, 'send', { user: t.chatId, text: file, type: 'photo', caption });
+      }
     }
   }
 
@@ -654,8 +511,8 @@ class AlarmSystemAdapter extends utils.Adapter {
     }
   }
 
-  private toNumber(raw: unknown, fallback: number): number {
-    const n = Number(raw);
+  private toNumber(v: unknown, fallback: number): number {
+    const n = Number(v);
     return Number.isFinite(n) ? n : fallback;
   }
 }

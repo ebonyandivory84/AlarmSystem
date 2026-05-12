@@ -1,11 +1,11 @@
 {
   "common": {
     "name": "alarmsystem",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "news": {
-      "0.2.0": {
-        "en": "Expanded config tabs, snapshot photo sending and legacy compatibility mirroring",
-        "de": "Erweiterte Konfig-Reiter, Snapshot-Fotoversand und Legacy-Kompatibilitäts-Mirroring"
+      "0.3.0": {
+        "en": "Zone-based arming, expandable list-based config for sensors/actuators/cameras/person-detection/telegram",
+        "de": "Zonenbasierte Scharfschaltung, erweiterbare Listen-Konfiguration für Sensoren/Aktoren/Kameras/Person-Detection/Telegram"
       }
     },
     "titleLang": {
@@ -252,7 +252,19 @@
       {
         "id": "0_userdata.0.presence_at_home.Teresa"
       }
-    ]
+    ],
+    "pirSensorsTable": [],
+    "contactSensorsTable": [],
+    "presenceSensorsTable": [],
+    "personDetectionTable": [],
+    "actuatorsTable": [],
+    "telegramInstancesTable": [
+      {
+        "instance": "telegram.1",
+        "token": ""
+      }
+    ],
+    "telegramTargetsTable": []
   },
   "objects": [],
   "instanceObjects": [
@@ -270,28 +282,15 @@
       "native": {}
     },
     {
-      "_id": "runtime.alarmActive",
+      "_id": "runtime.lastTrigger",
       "type": "state",
       "common": {
-        "name": "Alarm active",
-        "type": "boolean",
-        "role": "indicator.alarm",
+        "name": "Last trigger",
+        "type": "string",
+        "role": "text",
         "read": true,
         "write": false,
-        "def": false
-      },
-      "native": {}
-    },
-    {
-      "_id": "runtime.countdownActive",
-      "type": "state",
-      "common": {
-        "name": "Countdown active",
-        "type": "boolean",
-        "role": "indicator",
-        "read": true,
-        "write": false,
-        "def": false
+        "def": ""
       },
       "native": {}
     },
@@ -310,49 +309,49 @@
       "native": {}
     },
     {
-      "_id": "runtime.lastTriggerSensor",
+      "_id": "zones.perimeter.armed",
       "type": "state",
       "common": {
-        "name": "Last trigger sensor",
-        "type": "string",
-        "role": "text",
+        "name": "Zone Perimeter armed",
+        "type": "boolean",
+        "role": "switch",
         "read": true,
         "write": false,
-        "def": ""
+        "def": false
       },
       "native": {}
     },
     {
-      "_id": "runtime.lastTriggerTs",
+      "_id": "zones.aussenhaut.armed",
       "type": "state",
       "common": {
-        "name": "Last trigger timestamp",
-        "type": "number",
-        "role": "value.time",
+        "name": "Zone Aussenhaut armed",
+        "type": "boolean",
+        "role": "switch",
         "read": true,
         "write": false,
-        "def": 0
+        "def": false
       },
       "native": {}
     },
     {
-      "_id": "runtime.openDoorCount",
+      "_id": "zones.innenraum.armed",
       "type": "state",
       "common": {
-        "name": "Open door count",
-        "type": "number",
-        "role": "value",
+        "name": "Zone Innenraum armed",
+        "type": "boolean",
+        "role": "switch",
         "read": true,
         "write": false,
-        "def": 0
+        "def": false
       },
       "native": {}
     },
     {
-      "_id": "commands.armFull",
+      "_id": "commands.armAll",
       "type": "state",
       "common": {
-        "name": "Arm full",
+        "name": "Arm all zones",
         "type": "boolean",
         "role": "button",
         "read": false,
@@ -362,10 +361,10 @@
       "native": {}
     },
     {
-      "_id": "commands.armPerimeter",
+      "_id": "commands.disarmAll",
       "type": "state",
       "common": {
-        "name": "Arm perimeter",
+        "name": "Disarm all zones",
         "type": "boolean",
         "role": "button",
         "read": false,
@@ -375,10 +374,10 @@
       "native": {}
     },
     {
-      "_id": "commands.disarm",
+      "_id": "commands.armPerimeterZone",
       "type": "state",
       "common": {
-        "name": "Disarm",
+        "name": "Arm perimeter zone",
         "type": "boolean",
         "role": "button",
         "read": false,
@@ -388,10 +387,10 @@
       "native": {}
     },
     {
-      "_id": "commands.panicOn",
+      "_id": "commands.disarmPerimeterZone",
       "type": "state",
       "common": {
-        "name": "Panic ON",
+        "name": "Disarm perimeter zone",
         "type": "boolean",
         "role": "button",
         "read": false,
@@ -401,10 +400,49 @@
       "native": {}
     },
     {
-      "_id": "commands.panicOff",
+      "_id": "commands.armAussenhautZone",
       "type": "state",
       "common": {
-        "name": "Panic OFF",
+        "name": "Arm aussenhaut zone",
+        "type": "boolean",
+        "role": "button",
+        "read": false,
+        "write": true,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "commands.disarmAussenhautZone",
+      "type": "state",
+      "common": {
+        "name": "Disarm aussenhaut zone",
+        "type": "boolean",
+        "role": "button",
+        "read": false,
+        "write": true,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "commands.armInnenraumZone",
+      "type": "state",
+      "common": {
+        "name": "Arm innenraum zone",
+        "type": "boolean",
+        "role": "button",
+        "read": false,
+        "write": true,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "commands.disarmInnenraumZone",
+      "type": "state",
+      "common": {
+        "name": "Disarm innenraum zone",
         "type": "boolean",
         "role": "button",
         "read": false,

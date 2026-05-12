@@ -1,79 +1,116 @@
 {
   "type": "tabs",
   "items": {
-    "overview": {
-      "type": "panel",
-      "label": "Overview",
-      "items": {
-        "_ov1": { "type": "staticText", "text": "AlarmSystem Adapter: zentrale FSM + konfigurierbare Sensor-/Kamera-/Triggerlogik" },
-        "_ov2": { "type": "staticText", "text": "Empfohlen: Sensoren/Kameras/PIN/Presence über die Tabellen pflegen (Add/Remove)." }
-      }
-    },
     "general": {
       "type": "panel",
       "label": "General",
       "items": {
         "debugLevel": { "type": "select", "label": "Debug level", "options": ["error", "warn", "info", "debug"] },
         "defaultCountdownSec": { "type": "number", "label": "Default countdown (sec)", "min": 5, "max": 300 },
-        "eventDedupeMs": { "type": "number", "label": "Event dedupe (ms)", "min": 0, "max": 10000 }
+        "eventDedupeMs": { "type": "number", "label": "Event dedupe (ms)", "min": 0, "max": 10000 },
+        "snapshotSendDelayMs": { "type": "number", "label": "Snapshot delay after trigger (ms)", "min": 0, "max": 60000 },
+        "snapshotBurstCount": { "type": "number", "label": "Snapshot burst count", "min": 1, "max": 10 },
+        "snapshotBurstIntervalMs": { "type": "number", "label": "Burst interval (ms)", "min": 500, "max": 60000 }
       }
     },
-    "fsm": {
+    "zones": {
       "type": "panel",
-      "label": "FSM / Trigger",
+      "label": "Alarm Zones",
       "items": {
-        "armStateId": { "type": "text", "label": "Alarm armed state" },
-        "perimeterStateId": { "type": "text", "label": "Perimeter state" },
-        "countdownStateId": { "type": "text", "label": "Countdown state" },
-        "sirenStateId": { "type": "text", "label": "Siren state" },
-        "triggerStateId": { "type": "text", "label": "Trigger reason state" },
-        "panicStateId": { "type": "text", "label": "Panic state" },
-        "sensorsTable": {
-          "newLine": true,
+        "_z": { "type": "staticText", "text": "Sensoren/Detections erhalten pro Zeile eine Zone: perimeter, aussenhaut, innenraum." },
+        "armStateId": { "type": "text", "label": "Legacy arm state datapoint" },
+        "perimeterStateId": { "type": "text", "label": "Legacy perimeter state datapoint" },
+        "triggerStateId": { "type": "text", "label": "Trigger text datapoint" },
+        "sirenStateId": { "type": "text", "label": "Siren datapoint" }
+      }
+    },
+    "sensors_pir": {
+      "type": "panel",
+      "label": "Sensors PIR",
+      "items": {
+        "pirSensorsTable": {
           "type": "table",
-          "label": "Sensors (Add/Remove)",
-          "xs": 12,
-          "sm": 12,
-          "md": 12,
-          "lg": 12,
+          "label": "PIR sensors (Add/Remove)",
           "items": [
             { "type": "text", "attr": "key", "title": "Key" },
             { "type": "text", "attr": "label", "title": "Label" },
-            { "type": "select", "attr": "group", "title": "Group", "options": ["doors", "windows", "motions", "cameraHumans"] },
             { "type": "text", "attr": "id", "title": "Datapoint ID" },
-            { "type": "text", "attr": "activeValuesCsv", "title": "Active Values CSV" },
-            { "type": "checkbox", "attr": "perimeterRelevant", "title": "Perimeter Relevant" }
+            { "type": "select", "attr": "zone", "title": "Zone", "options": ["perimeter", "aussenhaut", "innenraum"] },
+            { "type": "text", "attr": "activeValuesCsv", "title": "Active Values CSV" }
           ]
         }
       }
     },
-    "alarmcenter": {
+    "sensors_contacts": {
       "type": "panel",
-      "label": "AlarmCenter HMI",
+      "label": "Sensors Door/Window",
       "items": {
-        "displayId": { "type": "text", "label": "Display state" },
-        "clearDisplayId": { "type": "text", "label": "Clear display state" },
-        "buzzerId": { "type": "text", "label": "Buzzer state" },
-        "ledRedId": { "type": "text", "label": "LED red" },
-        "ledYellowId": { "type": "text", "label": "LED yellow" },
-        "standbyId": { "type": "text", "label": "Standby state" },
-        "motionSensorId": { "type": "text", "label": "Motion sensor state" },
-        "speakId": { "type": "text", "label": "Alexa speak datapoint" }
+        "contactSensorsTable": {
+          "type": "table",
+          "label": "Door/Window contacts (Add/Remove)",
+          "items": [
+            { "type": "text", "attr": "key", "title": "Key" },
+            { "type": "text", "attr": "label", "title": "Label" },
+            { "type": "text", "attr": "id", "title": "Datapoint ID" },
+            { "type": "select", "attr": "zone", "title": "Zone", "options": ["perimeter", "aussenhaut", "innenraum"] },
+            { "type": "text", "attr": "activeValuesCsv", "title": "Active Values CSV" }
+          ]
+        }
       }
     },
-    "auth": {
+    "sensors_presence": {
       "type": "panel",
-      "label": "Auth & PIN",
+      "label": "Sensors Presence",
       "items": {
-        "fingerprintStateId": { "type": "text", "label": "Fingerprint log datapoint" },
-        "fingerprintUsersCsv": { "type": "text", "label": "Fingerprint users CSV" },
-        "pinCommandsTable": {
-          "newLine": true,
+        "presenceSensorsTable": {
           "type": "table",
-          "label": "PIN Commands (Add/Remove)",
+          "label": "Presence sensors (Add/Remove)",
           "items": [
-            { "type": "text", "attr": "sequence", "title": "Sequence" },
-            { "type": "select", "attr": "action", "title": "Action", "options": ["garageOpen", "garageClose", "pdlcOpen", "pdlcClose", "armFull", "armPerimeter", "disarm", "panicOn", "panicOff"] }
+            { "type": "text", "attr": "key", "title": "Key" },
+            { "type": "text", "attr": "label", "title": "Label" },
+            { "type": "text", "attr": "id", "title": "Datapoint ID" },
+            { "type": "select", "attr": "zone", "title": "Zone", "options": ["perimeter", "aussenhaut", "innenraum"] },
+            { "type": "text", "attr": "activeValuesCsv", "title": "Active Values CSV" }
+          ]
+        }
+      }
+    },
+    "person_detection": {
+      "type": "panel",
+      "label": "Person Detection",
+      "items": {
+        "personDetectionTable": {
+          "type": "table",
+          "label": "Person detection datapoints (Add/Remove)",
+          "items": [
+            { "type": "text", "attr": "key", "title": "Key" },
+            { "type": "text", "attr": "label", "title": "Label" },
+            { "type": "text", "attr": "id", "title": "Datapoint ID" },
+            { "type": "select", "attr": "zone", "title": "Zone", "options": ["perimeter", "aussenhaut", "innenraum"] },
+            { "type": "select", "attr": "mode", "title": "Type", "options": ["boolean", "string"] },
+            { "type": "text", "attr": "detectValue", "title": "Detect value (for string mode)" }
+          ]
+        }
+      }
+    },
+    "cameras": {
+      "type": "panel",
+      "label": "Cameras",
+      "items": {
+        "camerasTable": {
+          "type": "table",
+          "label": "Cameras (Add/Remove)",
+          "items": [
+            { "type": "text", "attr": "key", "title": "Key" },
+            { "type": "text", "attr": "label", "title": "Label" },
+            { "type": "text", "attr": "ip", "title": "IP" },
+            { "type": "text", "attr": "streamUrl", "title": "Stream URL" },
+            { "type": "text", "attr": "snapshotUrl", "title": "Snapshot URL" },
+            { "type": "text", "attr": "alarmDatapoint", "title": "Alarm datapoint" },
+            { "type": "text", "attr": "ledDatapoint", "title": "LED datapoint" },
+            { "type": "text", "attr": "personDetectionDp", "title": "Person detection datapoint" },
+            { "type": "text", "attr": "username", "title": "Username" },
+            { "type": "password", "attr": "password", "title": "Password" }
           ]
         }
       }
@@ -82,85 +119,57 @@
       "type": "panel",
       "label": "Actuators",
       "items": {
-        "garageDoorCommandId": { "type": "text", "label": "Garage command datapoint" },
-        "garageOpenValue": { "type": "number", "label": "Garage open value" },
-        "garageCloseValue": { "type": "number", "label": "Garage close value" },
-        "pdlcId": { "type": "text", "label": "PDLC datapoint" },
-        "pdlcOpenValue": { "type": "checkbox", "label": "PDLC open value" },
-        "pdlcCloseValue": { "type": "checkbox", "label": "PDLC close value" }
-      }
-    },
-    "cameras": {
-      "type": "panel",
-      "label": "Cameras",
-      "items": {
-        "cameraDefaultUsername": { "type": "text", "label": "Default camera username" },
-        "cameraDefaultPassword": { "type": "password", "label": "Default camera password" },
-        "snapshotSendDelayMs": { "type": "number", "label": "Snapshot delay after trigger (ms)", "min": 0, "max": 60000 },
-        "snapshotBurstCount": { "type": "number", "label": "Snapshot burst count", "min": 1, "max": 10 },
-        "snapshotBurstIntervalMs": { "type": "number", "label": "Burst interval (ms)", "min": 500, "max": 60000 },
-        "camerasTable": {
-          "newLine": true,
+        "actuatorsTable": {
           "type": "table",
-          "label": "Cameras (Add/Remove)",
+          "label": "Actuators (Add/Remove)",
           "items": [
             { "type": "text", "attr": "key", "title": "Key" },
-            { "type": "text", "attr": "label", "title": "Label" },
-            { "type": "text", "attr": "humanStateId", "title": "Human State ID" },
-            { "type": "text", "attr": "snapshotUrlTemplate", "title": "Snapshot URL Template" },
-            { "type": "text", "attr": "streamUrl", "title": "Stream URL" },
-            { "type": "text", "attr": "username", "title": "Username" },
-            { "type": "password", "attr": "password", "title": "Password" },
-            { "type": "text", "attr": "reolinkAlarmId", "title": "Reolink Alarm ID" },
-            { "type": "number", "attr": "reolinkAlarmOnValue", "title": "Alarm ON Value" },
-            { "type": "number", "attr": "reolinkAlarmOffValue", "title": "Alarm OFF Value" },
-            { "type": "text", "attr": "reolinkFlashlightId", "title": "Flashlight ID" },
-            { "type": "number", "attr": "flashlightDurationMs", "title": "Flashlight ms" }
-          ]
-        }
-      }
-    },
-    "notifications": {
-      "type": "panel",
-      "label": "Notifications",
-      "items": {
-        "telegram.enabled": { "type": "checkbox", "label": "Enable Telegram" },
-        "telegram.instance": { "type": "text", "label": "Telegram instance" },
-        "telegram.botToken": { "type": "password", "label": "Bot token (optional)" },
-        "telegram.chatIdsCsv": { "type": "text", "label": "Chat IDs CSV" }
-      }
-    },
-    "automation": {
-      "type": "panel",
-      "label": "Automation",
-      "items": {
-        "presenceTable": {
-          "type": "table",
-          "label": "Presence IDs (Add/Remove)",
-          "items": [
-            { "type": "text", "attr": "id", "title": "Datapoint ID" }
+            { "type": "text", "attr": "id", "title": "Datapoint ID" },
+            { "type": "text", "attr": "onValue", "title": "ON value" },
+            { "type": "text", "attr": "offValue", "title": "OFF value" }
           ]
         },
-        "autoArmDelaySec": { "type": "number", "label": "Auto-arm delay (sec)", "min": 5, "max": 3600 }
+        "displayId": { "type": "text", "label": "Display datapoint" },
+        "clearDisplayId": { "type": "text", "label": "Clear display datapoint" },
+        "buzzerId": { "type": "text", "label": "Buzzer datapoint" },
+        "motionSensorId": { "type": "text", "label": "Motion sensor datapoint" },
+        "ledRedId": { "type": "text", "label": "LED red datapoint" },
+        "ledYellowId": { "type": "text", "label": "LED yellow datapoint" },
+        "standbyId": { "type": "text", "label": "Standby datapoint" }
       }
     },
-    "compatibility": {
+    "telegram": {
       "type": "panel",
-      "label": "Compatibility",
+      "label": "Telegram",
       "items": {
-        "compatCctvArmedId": { "type": "text", "label": "Legacy CCTV armed datapoint" },
-        "compatCctvDisarmedId": { "type": "text", "label": "Legacy CCTV disarmed datapoint" }
+        "telegramInstancesTable": {
+          "type": "table",
+          "label": "Telegram instances (Add/Remove)",
+          "items": [
+            { "type": "text", "attr": "instance", "title": "Instance (e.g. telegram.1)" },
+            { "type": "password", "attr": "token", "title": "Token (optional metadata)" }
+          ]
+        },
+        "telegramTargetsTable": {
+          "type": "table",
+          "label": "Telegram targets (Add/Remove)",
+          "items": [
+            { "type": "text", "attr": "instance", "title": "Instance" },
+            { "type": "text", "attr": "chatId", "title": "Chat ID" }
+          ]
+        }
       }
     },
     "advanced": {
       "type": "panel",
       "label": "Advanced JSON (Fallback)",
       "items": {
-        "_adv": { "type": "staticText", "text": "Optional: Nur für Sonderfälle. Wenn Tabellen gefüllt sind, haben sie Vorrang." },
-        "sensorsJson": { "type": "textarea", "label": "Sensors JSON", "rows": 8 },
-        "camerasJson": { "type": "textarea", "label": "Cameras JSON", "rows": 8 },
-        "pinCommandsJson": { "type": "textarea", "label": "PIN Commands JSON", "rows": 6 },
-        "presenceIdsJson": { "type": "textarea", "label": "Presence IDs JSON", "rows": 6 }
+        "sensorsJson": { "type": "textarea", "label": "Legacy sensorsJson", "rows": 6 },
+        "personDetectionJson": { "type": "textarea", "label": "Legacy personDetectionJson", "rows": 6 },
+        "camerasJson": { "type": "textarea", "label": "Legacy camerasJson", "rows": 6 },
+        "actuatorsJson": { "type": "textarea", "label": "Legacy actuatorsJson", "rows": 6 },
+        "telegramInstancesJson": { "type": "textarea", "label": "Legacy telegramInstancesJson", "rows": 6 },
+        "telegramTargetsJson": { "type": "textarea", "label": "Legacy telegramTargetsJson", "rows": 6 }
       }
     }
   }
