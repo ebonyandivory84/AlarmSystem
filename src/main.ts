@@ -110,13 +110,20 @@ class AlarmSystemAdapter extends utils.Adapter {
 
   private buildConfig(): AlarmConfig {
     const n = this.config as Record<string, any>;
-    const sensors = this.tryJson<SensorDef[]>(n.sensorsJson, []);
-    const cameras = this.tryJson<CameraDef[]>(n.camerasJson, []).map(c => ({
+
+    const sensorsFromTable = this.parseSensorsTable(n.sensorsTable);
+    const camerasFromTable = this.parseCamerasTable(n.camerasTable, n.cameraDefaultUsername ?? '', n.cameraDefaultPassword ?? '');
+    const pinFromTable = this.parsePinCommandsTable(n.pinCommandsTable);
+    const presenceFromTable = this.parsePresenceTable(n.presenceTable);
+
+    const sensors = sensorsFromTable.length > 0 ? sensorsFromTable : this.tryJson<SensorDef[]>(n.sensorsJson, []);
+    const cameras = (camerasFromTable.length > 0 ? camerasFromTable : this.tryJson<CameraDef[]>(n.camerasJson, [])).map(c => ({
       ...c,
       username: c.username ?? n.cameraDefaultUsername ?? '',
       password: c.password ?? n.cameraDefaultPassword ?? ''
     }));
-    const pinCommands = this.tryJson<PinCommand[]>(n.pinCommandsJson, []);
+    const pinCommands = pinFromTable.length > 0 ? pinFromTable : this.tryJson<PinCommand[]>(n.pinCommandsJson, []);
+    const presenceIds = presenceFromTable.length > 0 ? presenceFromTable : this.tryJson<string[]>(n.presenceIdsJson, []);
 
     return {
       countdownSec: this.toNumber(n.defaultCountdownSec, 20),
@@ -147,16 +154,77 @@ class AlarmSystemAdapter extends utils.Adapter {
       pdlcOpenValue: n.pdlcOpenValue !== false,
       pdlcCloseValue: n.pdlcCloseValue === true,
       fingerprintStateId: n.fingerprintStateId || 'mqtt.1.fingerprintDoorbell.lastLogMessage',
-      fingerprintUsers: String(n.fingerprintUsersCsv || '').split(',').map((s: string) => s.trim()).filter(Boolean),
-      presenceIds: this.tryJson<string[]>(n.presenceIdsJson, []),
+      fingerprintUsers: String(n.fingerprintUsersCsv || '').split(',').map((x: string) => x.trim()).filter(Boolean),
+      presenceIds,
       autoArmDelaySec: this.toNumber(n.autoArmDelaySec, 60),
       sensors,
       cameras,
       pinCommands,
       telegramEnabled: !!n.telegram?.enabled,
       telegramInstance: n.telegram?.instance || 'telegram.1',
-      telegramChatIds: String(n.telegram?.chatIdsCsv || '').split(',').map((s: string) => s.trim()).filter(Boolean)
+      telegramChatIds: String(n.telegram?.chatIdsCsv || '').split(',').map((x: string) => x.trim()).filter(Boolean)
     };
+  }
+
+  private parseSensorsTable(rows: any): SensorDef[] {
+    if (!Array.isArray(rows)) return [];
+    return rows
+      .filter(r => r && r.id && r.group)
+      .map(r => ({
+        key: String(r.key || r.id),
+        id: String(r.id),
+        label: String(r.label || r.key || r.id),
+        group: (['doors', 'windows', 'motions', 'cameraHumans'].includes(String(r.group)) ? String(r.group) : 'doors') as SensorGroup,
+        activeValues: String(r.activeValuesCsv || '')
+          .split(',')
+          .map((v: string) => v.trim())
+          .filter(Boolean)
+          .map((v: string) => this.parseScalar(v)),
+        perimeterRelevant: r.perimeterRelevant !== false
+      }))
+      .map(s => ({ ...s, activeValues: s.activeValues.length > 0 ? s.activeValues : ['open'] }));
+  }
+
+  private parseCamerasTable(rows: any, defaultUser: string, defaultPass: string): CameraDef[] {
+    if (!Array.isArray(rows)) return [];
+    return rows
+      .filter(r => r && r.humanStateId && r.snapshotUrlTemplate)
+      .map(r => ({
+        key: String(r.key || r.humanStateId),
+        label: String(r.label || r.key || r.humanStateId),
+        humanStateId: String(r.humanStateId),
+        snapshotUrlTemplate: String(r.snapshotUrlTemplate),
+        streamUrl: r.streamUrl ? String(r.streamUrl) : undefined,
+        username: r.username !== undefined && r.username !== '' ? String(r.username) : defaultUser,
+        password: r.password !== undefined && r.password !== '' ? String(r.password) : defaultPass,
+        reolinkAlarmId: r.reolinkAlarmId ? String(r.reolinkAlarmId) : undefined,
+        reolinkAlarmOnValue: r.reolinkAlarmOnValue !== undefined && r.reolinkAlarmOnValue !== '' ? Number(r.reolinkAlarmOnValue) : undefined,
+        reolinkAlarmOffValue: r.reolinkAlarmOffValue !== undefined && r.reolinkAlarmOffValue !== '' ? Number(r.reolinkAlarmOffValue) : undefined,
+        reolinkFlashlightId: r.reolinkFlashlightId ? String(r.reolinkFlashlightId) : undefined,
+        flashlightDurationMs: r.flashlightDurationMs !== undefined && r.flashlightDurationMs !== '' ? Number(r.flashlightDurationMs) : undefined
+      }));
+  }
+
+  private parsePinCommandsTable(rows: any): PinCommand[] {
+    if (!Array.isArray(rows)) return [];
+    const allowed = new Set(['garageOpen', 'garageClose', 'pdlcOpen', 'pdlcClose', 'armFull', 'armPerimeter', 'disarm', 'panicOn', 'panicOff']);
+    return rows
+      .filter(r => r && r.sequence && r.action && allowed.has(String(r.action)))
+      .map(r => ({ sequence: String(r.sequence), action: String(r.action) as PinCommand['action'] }));
+  }
+
+  private parsePresenceTable(rows: any): string[] {
+    if (!Array.isArray(rows)) return [];
+    return rows.map(r => String(r?.id || '').trim()).filter(Boolean);
+  }
+
+  private parseScalar(v: string): string | boolean | number {
+    const x = v.trim();
+    if (x === 'true') return true;
+    if (x === 'false') return false;
+    const n = Number(x);
+    if (x !== '' && Number.isFinite(n) && String(n) === x) return n;
+    return x;
   }
 
   private async initRuntimeStates(): Promise<void> {

@@ -86,7 +86,173 @@
     "compatCctvDisarmedId": "0_userdata.0.CCTVSystem.alarmSystemDisarmed",
     "snapshotSendDelayMs": 0,
     "snapshotBurstCount": 1,
-    "snapshotBurstIntervalMs": 5000
+    "snapshotBurstIntervalMs": 5000,
+    "sensorsTable": [
+      {
+        "key": "entrance",
+        "label": "Haustuer",
+        "group": "doors",
+        "id": "mqtt.1.entrance_door_status",
+        "activeValuesCsv": "open",
+        "perimeterRelevant": true
+      },
+      {
+        "key": "sideEntrance",
+        "label": "Nebeneingang",
+        "group": "doors",
+        "id": "mqtt.1.side_entrance_door_status",
+        "activeValuesCsv": "open",
+        "perimeterRelevant": true
+      },
+      {
+        "key": "terrace",
+        "label": "Terrassentuer",
+        "group": "doors",
+        "id": "mqtt.1.terrace_door_status",
+        "activeValuesCsv": "open",
+        "perimeterRelevant": true
+      },
+      {
+        "key": "shed",
+        "label": "Schuppentuer",
+        "group": "doors",
+        "id": "mqtt.1.Garage.shedDoorStatus",
+        "activeValuesCsv": "open",
+        "perimeterRelevant": true
+      },
+      {
+        "key": "wcWindow",
+        "label": "Fenster KiBa",
+        "group": "windows",
+        "id": "mqtt.1.WC_children.windowStatus",
+        "activeValuesCsv": "open",
+        "perimeterRelevant": true
+      },
+      {
+        "key": "entranceMotion",
+        "label": "Bewegung Eingang",
+        "group": "motions",
+        "id": "mqtt.1.entrance_motion_sensor",
+        "activeValuesCsv": "motion detected",
+        "perimeterRelevant": true
+      },
+      {
+        "key": "livingMotion",
+        "label": "Bewegung Wohnzimmer",
+        "group": "motions",
+        "id": "mqtt.1.living_motion_sensor",
+        "activeValuesCsv": "motion detected",
+        "perimeterRelevant": true
+      }
+    ],
+    "camerasTable": [
+      {
+        "key": "balkonySouth",
+        "label": "Balkony South",
+        "humanStateId": "mqtt.2.reolink.HumanDetection.CamBalkonySouth",
+        "snapshotUrlTemplate": "http://192.168.44.37/cgi-bin/api.cgi?cmd=Snap&channel=0&rs=wuuPhkmUCeI9WG7C&user={username}&password={password}",
+        "streamUrl": "rtsp://{username}:{password}@192.168.44.37:554/h264Preview_01_main",
+        "username": "",
+        "password": "",
+        "reolinkAlarmId": "reolink.3.settings.playAlarm",
+        "reolinkAlarmOnValue": 1,
+        "reolinkAlarmOffValue": 0,
+        "reolinkFlashlightId": "reolink.3.settings.switchLed",
+        "flashlightDurationMs": 10000
+      },
+      {
+        "key": "balkonyNorth",
+        "label": "Balkony North",
+        "humanStateId": "mqtt.2.HumanDetection.CamBalkonyNorth",
+        "snapshotUrlTemplate": "http://192.168.44.31:8765/picture/6/current/",
+        "streamUrl": "rtsp://{username}:{password}@192.168.44.31:554/stream1",
+        "username": "",
+        "password": ""
+      },
+      {
+        "key": "frontyardRight",
+        "label": "Frontyard Right",
+        "humanStateId": "mqtt.2.HumanDetection.CamFrontyardRight",
+        "snapshotUrlTemplate": "http://192.168.44.31:8765/picture/5/current/",
+        "streamUrl": "rtsp://{username}:{password}@192.168.44.31:554/stream2",
+        "username": "",
+        "password": ""
+      },
+      {
+        "key": "frontyardLeft",
+        "label": "Frontyard Left",
+        "humanStateId": "mqtt.2.reolink.HumanDetection.CamFrontyard",
+        "snapshotUrlTemplate": "http://192.168.44.248/cgi-bin/api.cgi?cmd=Snap&channel=0&rs=wuuPhkmUCeI9WG7C&user={username}&password={password}",
+        "streamUrl": "rtsp://{username}:{password}@192.168.44.248:554/h264Preview_01_main",
+        "username": "",
+        "password": "",
+        "reolinkAlarmId": "reolink.1.settings.playAlarm",
+        "reolinkAlarmOnValue": 1,
+        "reolinkAlarmOffValue": 0,
+        "reolinkFlashlightId": "reolink.1.settings.switchLed",
+        "flashlightDurationMs": 10000
+      },
+      {
+        "key": "backyard",
+        "label": "Backyard",
+        "humanStateId": "mqtt.2.reolink.HumanDetection.CamBackyard",
+        "snapshotUrlTemplate": "http://192.168.44.249/cgi-bin/api.cgi?cmd=Snap&channel=0&rs=wuuPhkmUCeI9WG7C&user={username}&password={password}",
+        "streamUrl": "rtsp://{username}:{password}@192.168.44.249:554/h264Preview_01_main",
+        "username": "",
+        "password": "",
+        "reolinkAlarmId": "reolink.0.settings.playAlarm",
+        "reolinkAlarmOnValue": 1,
+        "reolinkAlarmOffValue": 0,
+        "reolinkFlashlightId": "reolink.0.settings.switchLed",
+        "flashlightDurationMs": 10000
+      },
+      {
+        "key": "terrace",
+        "label": "Terrace",
+        "humanStateId": "mqtt.2.reolink.HumanDetection.CamTerrace",
+        "snapshotUrlTemplate": "http://192.168.44.251/cgi-bin/api.cgi?cmd=Snap&channel=0&rs=wuuPhkmUCeI9WG7C&user={username}&password={password}",
+        "streamUrl": "rtsp://{username}:{password}@192.168.44.251:554/h264Preview_01_main",
+        "username": "",
+        "password": "",
+        "reolinkAlarmId": "reolink.2.settings.playAlarm",
+        "reolinkAlarmOnValue": 1,
+        "reolinkAlarmOffValue": 0,
+        "reolinkFlashlightId": "reolink.2.settings.switchLed",
+        "flashlightDurationMs": 10000
+      }
+    ],
+    "pinCommandsTable": [
+      {
+        "sequence": "*1",
+        "action": "garageOpen"
+      },
+      {
+        "sequence": "*2",
+        "action": "garageClose"
+      },
+      {
+        "sequence": "*4",
+        "action": "pdlcOpen"
+      },
+      {
+        "sequence": "*5",
+        "action": "pdlcClose"
+      }
+    ],
+    "presenceTable": [
+      {
+        "id": "0_userdata.0.presence_geofence.Sebastian"
+      },
+      {
+        "id": "0_userdata.0.presence_geofence.Teresa"
+      },
+      {
+        "id": "0_userdata.0.presence_at_home.Sebastian"
+      },
+      {
+        "id": "0_userdata.0.presence_at_home.Teresa"
+      }
+    ]
   },
   "objects": [],
   "instanceObjects": [

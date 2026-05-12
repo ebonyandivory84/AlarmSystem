@@ -6,7 +6,7 @@
       "label": "Overview",
       "items": {
         "_ov1": { "type": "staticText", "text": "AlarmSystem Adapter: zentrale FSM + konfigurierbare Sensor-/Kamera-/Triggerlogik" },
-        "_ov2": { "type": "staticText", "text": "Hinweis: Credentials nie im Code, nur hier in den Einstellungen" }
+        "_ov2": { "type": "staticText", "text": "Empfohlen: Sensoren/Kameras/PIN/Presence über die Tabellen pflegen (Add/Remove)." }
       }
     },
     "general": {
@@ -28,7 +28,23 @@
         "sirenStateId": { "type": "text", "label": "Siren state" },
         "triggerStateId": { "type": "text", "label": "Trigger reason state" },
         "panicStateId": { "type": "text", "label": "Panic state" },
-        "sensorsJson": { "type": "textarea", "label": "Sensors JSON", "rows": 20, "help": "Unbegrenzt erweiterbar: doors/windows/motions/cameraHumans." }
+        "sensorsTable": {
+          "newLine": true,
+          "type": "table",
+          "label": "Sensors (Add/Remove)",
+          "xs": 12,
+          "sm": 12,
+          "md": 12,
+          "lg": 12,
+          "items": [
+            { "type": "text", "attr": "key", "title": "Key" },
+            { "type": "text", "attr": "label", "title": "Label" },
+            { "type": "select", "attr": "group", "title": "Group", "options": ["doors", "windows", "motions", "cameraHumans"] },
+            { "type": "text", "attr": "id", "title": "Datapoint ID" },
+            { "type": "text", "attr": "activeValuesCsv", "title": "Active Values CSV" },
+            { "type": "checkbox", "attr": "perimeterRelevant", "title": "Perimeter Relevant" }
+          ]
+        }
       }
     },
     "alarmcenter": {
@@ -51,7 +67,15 @@
       "items": {
         "fingerprintStateId": { "type": "text", "label": "Fingerprint log datapoint" },
         "fingerprintUsersCsv": { "type": "text", "label": "Fingerprint users CSV" },
-        "pinCommandsJson": { "type": "textarea", "label": "PIN command mapping JSON", "rows": 12 }
+        "pinCommandsTable": {
+          "newLine": true,
+          "type": "table",
+          "label": "PIN Commands (Add/Remove)",
+          "items": [
+            { "type": "text", "attr": "sequence", "title": "Sequence" },
+            { "type": "select", "attr": "action", "title": "Action", "options": ["garageOpen", "garageClose", "pdlcOpen", "pdlcClose", "armFull", "armPerimeter", "disarm", "panicOn", "panicOff"] }
+          ]
+        }
       }
     },
     "actuators": {
@@ -75,11 +99,24 @@
         "snapshotSendDelayMs": { "type": "number", "label": "Snapshot delay after trigger (ms)", "min": 0, "max": 60000 },
         "snapshotBurstCount": { "type": "number", "label": "Snapshot burst count", "min": 1, "max": 10 },
         "snapshotBurstIntervalMs": { "type": "number", "label": "Burst interval (ms)", "min": 500, "max": 60000 },
-        "camerasJson": {
-          "type": "textarea",
-          "label": "Cameras JSON",
-          "rows": 26,
-          "help": "Behalte IP-/URL-Grundgerüst, trage nur Credentials ein. Snapshot- und Stream-URLs pro Kamera anpassbar."
+        "camerasTable": {
+          "newLine": true,
+          "type": "table",
+          "label": "Cameras (Add/Remove)",
+          "items": [
+            { "type": "text", "attr": "key", "title": "Key" },
+            { "type": "text", "attr": "label", "title": "Label" },
+            { "type": "text", "attr": "humanStateId", "title": "Human State ID" },
+            { "type": "text", "attr": "snapshotUrlTemplate", "title": "Snapshot URL Template" },
+            { "type": "text", "attr": "streamUrl", "title": "Stream URL" },
+            { "type": "text", "attr": "username", "title": "Username" },
+            { "type": "password", "attr": "password", "title": "Password" },
+            { "type": "text", "attr": "reolinkAlarmId", "title": "Reolink Alarm ID" },
+            { "type": "number", "attr": "reolinkAlarmOnValue", "title": "Alarm ON Value" },
+            { "type": "number", "attr": "reolinkAlarmOffValue", "title": "Alarm OFF Value" },
+            { "type": "text", "attr": "reolinkFlashlightId", "title": "Flashlight ID" },
+            { "type": "number", "attr": "flashlightDurationMs", "title": "Flashlight ms" }
+          ]
         }
       }
     },
@@ -97,7 +134,13 @@
       "type": "panel",
       "label": "Automation",
       "items": {
-        "presenceIdsJson": { "type": "textarea", "label": "Presence IDs JSON", "rows": 8 },
+        "presenceTable": {
+          "type": "table",
+          "label": "Presence IDs (Add/Remove)",
+          "items": [
+            { "type": "text", "attr": "id", "title": "Datapoint ID" }
+          ]
+        },
         "autoArmDelaySec": { "type": "number", "label": "Auto-arm delay (sec)", "min": 5, "max": 3600 }
       }
     },
@@ -107,6 +150,17 @@
       "items": {
         "compatCctvArmedId": { "type": "text", "label": "Legacy CCTV armed datapoint" },
         "compatCctvDisarmedId": { "type": "text", "label": "Legacy CCTV disarmed datapoint" }
+      }
+    },
+    "advanced": {
+      "type": "panel",
+      "label": "Advanced JSON (Fallback)",
+      "items": {
+        "_adv": { "type": "staticText", "text": "Optional: Nur für Sonderfälle. Wenn Tabellen gefüllt sind, haben sie Vorrang." },
+        "sensorsJson": { "type": "textarea", "label": "Sensors JSON", "rows": 8 },
+        "camerasJson": { "type": "textarea", "label": "Cameras JSON", "rows": 8 },
+        "pinCommandsJson": { "type": "textarea", "label": "PIN Commands JSON", "rows": 6 },
+        "presenceIdsJson": { "type": "textarea", "label": "Presence IDs JSON", "rows": 6 }
       }
     }
   }
