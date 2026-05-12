@@ -690,6 +690,32 @@
       "native": {}
     },
     {
+      "_id": "rules.ifThenJson",
+      "type": "state",
+      "common": {
+        "name": "IF/THEN rules JSON",
+        "type": "string",
+        "role": "json",
+        "read": true,
+        "write": false,
+        "def": "[]"
+      },
+      "native": {}
+    },
+    {
+      "_id": "rules.ifThenText",
+      "type": "state",
+      "common": {
+        "name": "IF/THEN rules text",
+        "type": "string",
+        "role": "text",
+        "read": true,
+        "write": false,
+        "def": ""
+      },
+      "native": {}
+    },
+    {
       "_id": "commands.armAll",
       "type": "state",
       "common": {

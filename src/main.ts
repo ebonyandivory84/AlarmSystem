@@ -116,6 +116,7 @@ class AlarmSystemAdapter extends utils.Adapter {
     await this.subscribeForeignInputs();
     await this.ensureStates();
     await this.refreshInitialSeen();
+    await this.publishRuleView();
     this.startHeartbeatWatchdog();
     await this.logEvent('info', 'system_start', 'AlarmSystem gestartet');
   }
@@ -251,9 +252,65 @@ class AlarmSystemAdapter extends utils.Adapter {
       ['zones.innenraum.armed', false],
       ['diagnostics.eventsJson', '[]'],
       ['diagnostics.lastSabotage', ''],
+      ['rules.ifThenJson', '[]'],
+      ['rules.ifThenText', ''],
       ['commands.ackActiveCase', false]
     ];
     for (const [id, val] of defaults) await this.setStateAsync(id, val, true);
+  }
+
+  private async publishRuleView(): Promise<void> {
+    const rules: Array<{ if: string; then: string }> = [];
+
+    for (const z of ['perimeter', 'aussenhaut', 'innenraum'] as Zone[]) {
+      const zoneSensors = this.cfg.sensors.filter(x => x.zone === z);
+      const zonePds = this.cfg.personDetections.filter(x => x.zone === z);
+      const d = this.cfg.zoneDelays[z];
+
+      if (zoneSensors.length > 0) {
+        rules.push({
+          if: `Zone ${z} aktiv UND ein Sensor in Zone ${z} triggert`,
+          then: `Entry-Countdown ${d.entryDelaySec}s, danach Sirene + Telegram + Case-ID`
+        });
+      }
+
+      if (zonePds.length > 0) {
+        rules.push({
+          if: `Zone ${z} aktiv UND Person-Detection in Zone ${z} triggert`,
+          then: `Entry-Countdown ${d.entryDelaySec}s, danach Sirene + Telegram + Case-ID`
+        });
+      }
+    }
+
+    for (const c of this.cfg.cameras) {
+      if (c.personDetectionDp) {
+        rules.push({
+          if: `Personenerkennung ${c.personDetectionDp} triggert`,
+          then: `Snapshot(s) senden${c.alarmDatapoint ? ', Kamera-Alarm setzen' : ''}${c.ledDatapoint ? ', LED setzen' : ''}`
+        });
+      }
+    }
+
+    rules.push({
+      if: 'commands.ackActiveCase = true',
+      then: 'Aktiven Alarmfall quittieren und alle Zonen unscharf'
+    });
+
+    rules.push({
+      if: `Heartbeat > ${this.cfg.heartbeatTimeoutSec}s ohne Update`,
+      then: 'Sabotage/Offline Warnung in diagnostics.lastSabotage + Eventlog'
+    });
+
+    if (this.cfg.simulationMode) {
+      rules.push({
+        if: 'Simulation Mode aktiv',
+        then: 'Keine realen Aktor-Schreibvorgänge, nur Eventlog-Einträge'
+      });
+    }
+
+    const text = rules.map((r, i) => `${i + 1}. WENN ${r.if} DANN ${r.then}`).join('\n');
+    await this.setStateAsync('rules.ifThenJson', JSON.stringify(rules), true);
+    await this.setStateAsync('rules.ifThenText', text, true);
   }
 
   private async refreshInitialSeen(): Promise<void> {

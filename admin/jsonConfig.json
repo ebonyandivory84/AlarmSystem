@@ -525,6 +525,10 @@
           "type": "staticText",
           "text": "Diagnosehilfe: Ereignisprotokoll, aktive Case-ID und Quittierung. Diese Infos helfen bei Tests und Fehlersuche."
         },
+        "_d_rules": {
+          "type": "staticText",
+          "text": "Regelansicht (WENN...DANN): alarmsystem.0.rules.ifThenText und alarmsystem.0.rules.ifThenJson"
+        },
         "_d1": {
           "type": "staticText",
           "text": "Eventlog liegt in alarmsystem.0.diagnostics.eventsJson"
