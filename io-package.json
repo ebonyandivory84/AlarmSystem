@@ -554,7 +554,22 @@
         "entryDelaySec": 20,
         "exitDelaySec": 10
       }
-    ]
+    ],
+    "statusId": "mqtt.1.AlarmCenter.Status",
+    "checkRedId": "mqtt.1.AlarmCenter.CheckRed",
+    "checkYellowId": "mqtt.1.AlarmCenter.CheckYellow",
+    "pinStateId": "mqtt.1.AlarmCenter.PIN",
+    "bedtimeLightSensorId": "mqtt.1.living_light_sensor",
+    "bedtimePresenceHomeIdsJson": "[\"0_userdata.0.presence_at_home.Sebastian\",\"0_userdata.0.presence_at_home.Teresa\"]",
+    "bedtimeHour": 20,
+    "bedtimeLightThreshold": 30,
+    "cctvArmedId": "0_userdata.0.CCTVSystem.alarmSystemArmed",
+    "cctvDisarmedId": "0_userdata.0.CCTVSystem.alarmSystemDisarmed",
+    "drivewayFlashlightTriggerId": "0_userdata.0.CamDriveway.Human_triggered_flashlight_only_OFF",
+    "resetHumanDetectionIdsJson": "[\"mqtt.2.HumanDetection.CamBackyard\",\"mqtt.2.HumanDetection.CamBalkonyNorth\",\"mqtt.2.HumanDetection.CamBalkonySouth\",\"mqtt.2.HumanDetection.CamDriveway\",\"mqtt.2.HumanDetection.CamFrontyardLeft\",\"mqtt.2.HumanDetection.CamFrontyardRight\",\"mqtt.2.HumanDetection.CamTerrace\"]",
+    "cameraAlarmOnIdsJson": "[\"0_userdata.0.CamBackyard.Alarm_ON\",\"0_userdata.0.CamBalkonyNorth.Alarm_ON\",\"0_userdata.0.CamBalkonySouth.Alarm_ON\",\"0_userdata.0.CamDriveway.Alarm_ON\",\"0_userdata.0.CamFrontyardLeft.Alarm_ON\",\"0_userdata.0.CamFrontyardRight.Alarm_ON\",\"0_userdata.0.CamTerrace.Alarm_ON\"]",
+    "cameraAlarmOffIdsJson": "[\"0_userdata.0.CamBackyard.Alarm_OFF\",\"0_userdata.0.CamBalkonyNorth.Alarm_OFF\",\"0_userdata.0.CamBalkonySouth.Alarm_OFF\",\"0_userdata.0.CamDriveway.Alarm_OFF\",\"0_userdata.0.CamFrontyardLeft.Alarm_OFF\",\"0_userdata.0.CamFrontyardRight.Alarm_OFF\",\"0_userdata.0.CamTerrace.Alarm_OFF\"]",
+    "reolinkSirenIdsJson": "[\"reolink.0.settings.playAlarm\",\"reolink.1.settings.playAlarm\",\"reolink.2.settings.playAlarm\",\"reolink.3.settings.playAlarm\"]"
   },
   "objects": [],
   "instanceObjects": [

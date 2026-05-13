@@ -83,6 +83,30 @@ interface Config {
   buzzerId: string;
   ledRedId: string;
   ledYellowId: string;
+  standbyId: string;
+  motionSensorId: string;
+  statusId: string;
+  checkRedId: string;
+  checkYellowId: string;
+  panicStateId: string;
+  fingerprintStateId: string;
+  knownFingerprints: string[];
+  pinStateId: string;
+  pdlcId: string;
+  garageDoorCommandId: string;
+  autoArmPresenceIds: string[];
+  autoArmDelaySec: number;
+  bedtimeLightSensorId: string;
+  bedtimePresenceHomeIds: string[];
+  bedtimeHour: number;
+  bedtimeLightThreshold: number;
+  cctvArmedId: string;
+  cctvDisarmedId: string;
+  drivewayFlashlightTriggerId: string;
+  resetHumanDetectionIds: string[];
+  cameraAlarmOnIds: string[];
+  cameraAlarmOffIds: string[];
+  reolinkSirenIds: string[];
 
   sensors: SensorDef[];
   personDetections: PersonDetectionDef[];
@@ -99,6 +123,10 @@ class AlarmSystemAdapter extends utils.Adapter {
   private dedupe = new Map<string, number>();
   private lastSeen = new Map<string, number>();
   private heartbeatTimer: ioBroker.Interval | null = null;
+  private autoArmTimer: ioBroker.Timeout | null = null;
+  private lastFingerprintHit = '';
+  private lastFingerprintTs = 0;
+  private pinBuffer = '';
 
   private activeCaseId = '';
   private eventLog: EventEntry[] = [];
@@ -148,6 +176,67 @@ class AlarmSystemAdapter extends utils.Adapter {
       buzzerId: n.buzzerId || 'mqtt.1.AlarmCenter.Buzzer',
       ledRedId: n.ledRedId || 'mqtt.1.AlarmCenter.LEDRingRed',
       ledYellowId: n.ledYellowId || 'mqtt.1.AlarmCenter.LEDRingYellow',
+      standbyId: n.standbyId || 'mqtt.1.AlarmCenter.StandBy',
+      motionSensorId: n.motionSensorId || 'mqtt.1.AlarmCenter.MotionSensor',
+      statusId: n.statusId || 'mqtt.1.AlarmCenter.Status',
+      checkRedId: n.checkRedId || 'mqtt.1.AlarmCenter.CheckRed',
+      checkYellowId: n.checkYellowId || 'mqtt.1.AlarmCenter.CheckYellow',
+      panicStateId: n.panicStateId || '0_userdata.0.AlarmSystem.panic',
+      fingerprintStateId: n.fingerprintStateId || 'mqtt.1.fingerprintDoorbell.lastLogMessage',
+      knownFingerprints: String(n.fingerprintUsersCsv || 'Sebastian R1,Teresa R1,Catharina R1,Rita R1,Lukas R1,Florian R1,Monika R1,Michelle L1,Marie R1,Julia R1').split(',').map((x: string) => x.trim()).filter(Boolean),
+      pinStateId: n.pinStateId || 'mqtt.1.AlarmCenter.PIN',
+      pdlcId: n.pdlcId || 'tuya.0.bf2bb23b342877f2e1maqy.1',
+      garageDoorCommandId: n.garageDoorCommandId || 'hmip.0.devices.3014F711A000241F29970E70.channels.1.doorCommand',
+      autoArmPresenceIds: this.tryJson<string[]>(n.presenceIdsJson, [
+        '0_userdata.0.presence_geofence.Sebastian',
+        '0_userdata.0.presence_geofence.Teresa',
+        '0_userdata.0.presence_at_home.Sebastian',
+        '0_userdata.0.presence_at_home.Teresa'
+      ]),
+      autoArmDelaySec: this.toNumber(n.autoArmDelaySec, 60),
+      bedtimeLightSensorId: n.bedtimeLightSensorId || 'mqtt.1.living_light_sensor',
+      bedtimePresenceHomeIds: this.tryJson<string[]>(n.bedtimePresenceHomeIdsJson, [
+        '0_userdata.0.presence_at_home.Sebastian',
+        '0_userdata.0.presence_at_home.Teresa'
+      ]),
+      bedtimeHour: this.toNumber(n.bedtimeHour, 20),
+      bedtimeLightThreshold: this.toNumber(n.bedtimeLightThreshold, 30),
+      cctvArmedId: n.cctvArmedId || '0_userdata.0.CCTVSystem.alarmSystemArmed',
+      cctvDisarmedId: n.cctvDisarmedId || '0_userdata.0.CCTVSystem.alarmSystemDisarmed',
+      drivewayFlashlightTriggerId: n.drivewayFlashlightTriggerId || '0_userdata.0.CamDriveway.Human_triggered_flashlight_only_OFF',
+      resetHumanDetectionIds: this.tryJson<string[]>(n.resetHumanDetectionIdsJson, [
+        'mqtt.2.HumanDetection.CamBackyard',
+        'mqtt.2.HumanDetection.CamBalkonyNorth',
+        'mqtt.2.HumanDetection.CamBalkonySouth',
+        'mqtt.2.HumanDetection.CamDriveway',
+        'mqtt.2.HumanDetection.CamFrontyardLeft',
+        'mqtt.2.HumanDetection.CamFrontyardRight',
+        'mqtt.2.HumanDetection.CamTerrace'
+      ]),
+      cameraAlarmOnIds: this.tryJson<string[]>(n.cameraAlarmOnIdsJson, [
+        '0_userdata.0.CamBackyard.Alarm_ON',
+        '0_userdata.0.CamBalkonyNorth.Alarm_ON',
+        '0_userdata.0.CamBalkonySouth.Alarm_ON',
+        '0_userdata.0.CamDriveway.Alarm_ON',
+        '0_userdata.0.CamFrontyardLeft.Alarm_ON',
+        '0_userdata.0.CamFrontyardRight.Alarm_ON',
+        '0_userdata.0.CamTerrace.Alarm_ON'
+      ]),
+      cameraAlarmOffIds: this.tryJson<string[]>(n.cameraAlarmOffIdsJson, [
+        '0_userdata.0.CamBackyard.Alarm_OFF',
+        '0_userdata.0.CamBalkonyNorth.Alarm_OFF',
+        '0_userdata.0.CamBalkonySouth.Alarm_OFF',
+        '0_userdata.0.CamDriveway.Alarm_OFF',
+        '0_userdata.0.CamFrontyardLeft.Alarm_OFF',
+        '0_userdata.0.CamFrontyardRight.Alarm_OFF',
+        '0_userdata.0.CamTerrace.Alarm_OFF'
+      ]),
+      reolinkSirenIds: this.tryJson<string[]>(n.reolinkSirenIdsJson, [
+        'reolink.0.settings.playAlarm',
+        'reolink.1.settings.playAlarm',
+        'reolink.2.settings.playAlarm',
+        'reolink.3.settings.playAlarm'
+      ]),
 
       sensors,
       personDetections,
@@ -233,10 +322,21 @@ class AlarmSystemAdapter extends utils.Adapter {
   }
 
   private async subscribeForeignInputs(): Promise<void> {
-    const ids = new Set<string>([this.cfg.armStateId, this.cfg.perimeterStateId]);
+    const ids = new Set<string>([
+      this.cfg.armStateId,
+      this.cfg.perimeterStateId,
+      this.cfg.panicStateId,
+      this.cfg.fingerprintStateId,
+      this.cfg.pinStateId,
+      this.cfg.bedtimeLightSensorId,
+      this.cfg.motionSensorId
+    ]);
     for (const s of this.cfg.sensors) ids.add(s.id);
     for (const p of this.cfg.personDetections) ids.add(p.id);
     for (const c of this.cfg.cameras) if (c.personDetectionDp) ids.add(c.personDetectionDp);
+    for (const p of this.cfg.autoArmPresenceIds) ids.add(p);
+    for (const p of this.cfg.bedtimePresenceHomeIds) ids.add(p);
+    for (const p of this.cfg.resetHumanDetectionIds) ids.add(p);
     for (const id of ids) await this.subscribeForeignStatesAsync(id);
   }
 
@@ -318,6 +418,7 @@ class AlarmSystemAdapter extends utils.Adapter {
     this.cfg.sensors.forEach(s => ids.add(s.id));
     this.cfg.personDetections.forEach(p => ids.add(p.id));
     this.cfg.cameras.forEach(c => c.personDetectionDp && ids.add(c.personDetectionDp));
+    this.cfg.resetHumanDetectionIds.forEach(id => ids.add(id));
     const now = Date.now();
     for (const id of ids) this.lastSeen.set(id, now);
   }
@@ -400,6 +501,24 @@ class AlarmSystemAdapter extends utils.Adapter {
       await this.armZone('perimeter');
       return;
     }
+    if (id === this.cfg.panicStateId) {
+      await this.handlePanic(state.val === true);
+      return;
+    }
+    if (id === this.cfg.fingerprintStateId) {
+      await this.handleFingerprint(state.val);
+      return;
+    }
+    if (id === this.cfg.pinStateId) {
+      await this.handlePin(state.val);
+      return;
+    }
+    if (id === this.cfg.bedtimeLightSensorId || this.cfg.bedtimePresenceHomeIds.includes(id)) {
+      await this.handleBedtimePerimeter();
+    }
+    if (this.cfg.autoArmPresenceIds.includes(id)) {
+      await this.handleAutoArmWhenNobodyHome();
+    }
 
     const s = this.cfg.sensors.find(x => x.id === id);
     if (s) {
@@ -426,6 +545,10 @@ class AlarmSystemAdapter extends utils.Adapter {
         await this.triggerCamera(cam);
       }
     }
+
+    if (this.cfg.resetHumanDetectionIds.includes(id)) {
+      this.setTimeout(() => void this.setOutput(id, '-'), 5500);
+    }
   }
 
   private async armZone(zone: Zone): Promise<void> {
@@ -437,6 +560,11 @@ class AlarmSystemAdapter extends utils.Adapter {
       this.zoneArmed[zone] = true;
       await this.setStateAsync(`zones.${zone}.armed`, true, true);
       await this.updateModeState();
+      if (zone === 'perimeter') {
+        await this.setOutput(this.cfg.buzzerId, 'confirm');
+        await this.setOutput(this.cfg.displayId, '    Schutz aktiv    ');
+        this.setTimeout(() => void this.setOutput(this.cfg.clearDisplayId, true), 5000);
+      }
       await this.logEvent('info', 'zone_armed', `Zone ${zone} armed`);
     }, exitMs) ?? null as any;
   }
@@ -455,11 +583,16 @@ class AlarmSystemAdapter extends utils.Adapter {
     await this.disarmZone('innenraum');
     await this.abortCountdown();
     await this.setOutput(this.cfg.sirenStateId, false);
+    await this.setOutput(this.cfg.cctvArmedId, false);
+    await this.setOutput(this.cfg.cctvDisarmedId, true);
   }
 
   private async updateModeState(): Promise<void> {
     const any = this.zoneArmed.perimeter || this.zoneArmed.aussenhaut || this.zoneArmed.innenraum;
     await this.setStateAsync('runtime.mode', any ? 'armed' : 'disarmed', true);
+    await this.setOutput(this.cfg.cctvArmedId, any);
+    if (!any) await this.setOutput(this.cfg.cctvDisarmedId, true);
+    await this.updateStatusAndChecks();
   }
 
   private async handleZoneTrigger(label: string, zone: Zone): Promise<void> {
@@ -492,6 +625,119 @@ class AlarmSystemAdapter extends utils.Adapter {
       await this.sendTelegramText(`🚨 Alarm ausgelöst: ${label} (${zone}) | ${caseId}`);
       await this.logEvent('alarm', 'alarm_activated', `Alarm activated (${label}/${zone})`, caseId);
     }, entrySec * 1000) ?? null;
+  }
+
+  private async handlePanic(active: boolean): Promise<void> {
+    if (active) {
+      for (const id of this.cfg.cameraAlarmOnIds) await this.setOutput(id, true);
+      for (const id of this.cfg.reolinkSirenIds) await this.setOutput(id, 20);
+      await this.logEvent('alarm', 'panic_on', 'PANIC aktiviert');
+    } else {
+      for (const id of this.cfg.cameraAlarmOffIds) await this.setOutput(id, true);
+      for (const id of this.cfg.reolinkSirenIds) await this.setOutput(id, 0);
+      await this.setOutput(this.cfg.cctvDisarmedId, true);
+      await this.logEvent('warn', 'panic_off', 'PANIC deaktiviert');
+    }
+  }
+
+  private async handleFingerprint(raw: ioBroker.StateValue): Promise<void> {
+    if (typeof raw !== 'string') return;
+    const text = raw.trim().toLowerCase();
+    if (!text) return;
+    for (const n of this.cfg.knownFingerprints) {
+      if (text.includes(n.toLowerCase())) {
+        const now = Date.now();
+        if (this.lastFingerprintHit === n && now - this.lastFingerprintTs < 3000) return;
+        this.lastFingerprintHit = n;
+        this.lastFingerprintTs = now;
+        await this.disarmAll();
+        await this.sendTelegramText(`${n} erkannt – Alarm wird deaktiviert`);
+        return;
+      }
+    }
+  }
+
+  private async handlePin(raw: ioBroker.StateValue): Promise<void> {
+    if (raw === null || raw === undefined) return;
+    const s = String(raw).trim().replace(/[^\d*#]/g, '');
+    if (!s) return;
+    for (const ch of s) {
+      this.pinBuffer = (this.pinBuffer + ch).slice(-2);
+      if (this.pinBuffer === '*1') {
+        await this.setOutput(this.cfg.garageDoorCommandId, 0);
+        await this.setOutput(this.cfg.displayId, '   Tor oeffnet...   ');
+        this.setTimeout(() => void this.setOutput(this.cfg.clearDisplayId, true), 4000);
+      } else if (this.pinBuffer === '*2') {
+        await this.setOutput(this.cfg.garageDoorCommandId, 2);
+        await this.setOutput(this.cfg.displayId, '  Tor schliesst...  ');
+        this.setTimeout(() => void this.setOutput(this.cfg.clearDisplayId, true), 4000);
+      } else if (this.pinBuffer === '*4') {
+        await this.setOutput(this.cfg.pdlcId, true);
+      } else if (this.pinBuffer === '*5') {
+        await this.setOutput(this.cfg.pdlcId, false);
+      }
+      if (ch === '#') this.pinBuffer = '';
+    }
+  }
+
+  private async handleAutoArmWhenNobodyHome(): Promise<void> {
+    const vals = await Promise.all(this.cfg.autoArmPresenceIds.map(id => this.getForeignStateAsync(id)));
+    const someoneHome = vals.some(v => v?.val === true);
+    if (someoneHome) {
+      if (this.autoArmTimer) this.clearTimeout(this.autoArmTimer);
+      this.autoArmTimer = null;
+      return;
+    }
+    if (this.autoArmTimer || this.zoneArmed.perimeter || this.zoneArmed.aussenhaut || this.zoneArmed.innenraum) return;
+    await this.sendTelegramText(`Niemand ist zu Hause. Alarmanlage wird in ${this.cfg.autoArmDelaySec}s scharfgeschaltet...`);
+    this.autoArmTimer = this.setTimeout(async () => {
+      this.autoArmTimer = null;
+      await this.armZone('perimeter');
+      await this.armZone('aussenhaut');
+      await this.armZone('innenraum');
+      await this.sendTelegramText('Alarmanlage ist jetzt scharfgeschaltet!');
+    }, this.cfg.autoArmDelaySec * 1000) ?? null;
+  }
+
+  private async handleBedtimePerimeter(): Promise<void> {
+    const h = new Date().getHours();
+    if (h < this.cfg.bedtimeHour) return;
+    const light = (await this.getForeignStateAsync(this.cfg.bedtimeLightSensorId))?.val;
+    const armed = this.zoneArmed.perimeter || this.zoneArmed.aussenhaut || this.zoneArmed.innenraum;
+    const pres = await Promise.all(this.cfg.bedtimePresenceHomeIds.map(id => this.getForeignStateAsync(id)));
+    const someoneHome = pres.some(v => v?.val === true);
+    if (!armed && someoneHome && typeof light === 'number' && light < this.cfg.bedtimeLightThreshold) {
+      await this.armZone('perimeter');
+      await this.sendTelegramText('Schlafenszeit erkannt! Perimeterschutz wurde aktiviert!');
+    }
+  }
+
+  private async updateStatusAndChecks(): Promise<void> {
+    const open = (id: string): boolean => {
+      const d = this.cfg.sensors.find(s => s.id === id);
+      if (!d) return false;
+      return this.matchesAny((this.getForeignStateAsync(id) as any)?.val, d.activeValues);
+    };
+    const terrace = (await this.getForeignStateAsync('mqtt.1.terrace_door_status'))?.val === 'open';
+    const entrance = (await this.getForeignStateAsync('mqtt.1.entrance_door_status'))?.val === 'open';
+    const side = (await this.getForeignStateAsync('mqtt.1.side_entrance_door_status'))?.val === 'open';
+    const shed = (await this.getForeignStateAsync('mqtt.1.Garage.shedDoorStatus'))?.val === 'open';
+    await this.setOutput(this.cfg.checkRedId, !terrace);
+    await this.setOutput(this.cfg.checkYellowId, !(terrace || entrance || side || shed));
+
+    const lines: string[] = [];
+    if (this.zoneArmed.perimeter || this.zoneArmed.aussenhaut || this.zoneArmed.innenraum) lines.push('AlarmSystem scharf');
+    if (this.zoneArmed.perimeter) lines.push('PerimeterProtection aktiv');
+    const doorSensors = this.cfg.sensors.filter(s => s.sensorType === 'contact');
+    for (const ds of doorSensors) {
+      const v = await this.getForeignStateAsync(ds.id);
+      if (this.matchesAny(v?.val ?? null, ds.activeValues)) lines.push(`${ds.label} offen`);
+    }
+    if (lines.length === 0) lines.push('alle Tueren geschlossen');
+    if (!(this.zoneArmed.perimeter || this.zoneArmed.aussenhaut || this.zoneArmed.innenraum)) {
+      lines[0] = 'AlarmSystem inaktiv - Achtung, kein Schutz!';
+    }
+    await this.setOutput(this.cfg.statusId, lines.join('\n'));
   }
 
   private async abortCountdown(): Promise<void> {
@@ -609,6 +855,15 @@ class AlarmSystemAdapter extends utils.Adapter {
   private toNumber(v: unknown, fallback: number): number {
     const n = Number(v);
     return Number.isFinite(n) ? n : fallback;
+  }
+
+  private tryJson<T>(raw: unknown, fallback: T): T {
+    try {
+      if (typeof raw !== 'string' || raw.trim() === '') return fallback;
+      return JSON.parse(raw) as T;
+    } catch {
+      return fallback;
+    }
   }
 }
 
