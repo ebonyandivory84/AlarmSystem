@@ -131,6 +131,8 @@ class AlarmSystemAdapter extends utils.Adapter {
   private activeCaseId = '';
   private eventLog: EventEntry[] = [];
   private countdownTimer: ioBroker.Timeout | null = null;
+  private standbySafetyTimer: ioBroker.Interval | null = null;
+  private openDoorBeepResetTimer: ioBroker.Timeout | null = null;
 
   public constructor(options: Partial<utils.AdapterOptions> = {}) {
     super({ ...options, name: 'alarmsystem' });
@@ -144,8 +146,10 @@ class AlarmSystemAdapter extends utils.Adapter {
     await this.subscribeForeignInputs();
     await this.ensureStates();
     await this.refreshInitialSeen();
+    await this.initializeHumanDetectionReset();
     await this.publishRuleView();
     this.startHeartbeatWatchdog();
+    this.startStandbySafetyCheck();
     await this.logEvent('info', 'system_start', 'AlarmSystem gestartet');
   }
 
@@ -491,6 +495,8 @@ class AlarmSystemAdapter extends utils.Adapter {
 
     this.lastSeen.set(id, Date.now());
 
+    await this.handleLegacyDoorBuzzers(id, state.val);
+
     if (id === this.cfg.armStateId && state.val === true) {
       await this.armZone('perimeter');
       await this.armZone('aussenhaut');
@@ -548,6 +554,54 @@ class AlarmSystemAdapter extends utils.Adapter {
 
     if (this.cfg.resetHumanDetectionIds.includes(id)) {
       this.setTimeout(() => void this.setOutput(id, '-'), 5500);
+    }
+  }
+
+  private async initializeHumanDetectionReset(): Promise<void> {
+    for (const id of this.cfg.resetHumanDetectionIds) {
+      await this.setOutput(id, '-');
+    }
+  }
+
+  private startStandbySafetyCheck(): void {
+    this.standbySafetyTimer && this.clearInterval(this.standbySafetyTimer);
+    this.standbySafetyTimer = this.setInterval(async () => {
+      const ms = await this.getForeignStateAsync(this.cfg.motionSensorId);
+      if (ms?.val === 'no motion') {
+        await this.setOutput(this.cfg.standbyId, true);
+      }
+    }, 10000) ?? null;
+  }
+
+  private async handleLegacyDoorBuzzers(id: string, val: ioBroker.StateValue): Promise<void> {
+    const entrance = 'mqtt.1.entrance_door_status';
+    const side = 'mqtt.1.side_entrance_door_status';
+    const terrace = 'mqtt.1.terrace_door_status';
+    const shed = 'mqtt.1.Garage.shedDoorStatus';
+    const wcWindow = 'mqtt.1.WC_children.windowStatus';
+
+    const isOpenEvent = val === 'open';
+    if (!isOpenEvent) return;
+
+    // Legacy: short beep when any configured door opens
+    if ([entrance, side, terrace, shed].includes(id)) {
+      await this.setOutput(this.cfg.buzzerId, 'beep 2x');
+      if (this.openDoorBeepResetTimer) this.clearTimeout(this.openDoorBeepResetTimer);
+      this.openDoorBeepResetTimer = this.setTimeout(async () => {
+        await this.setOutput(this.cfg.buzzerId, 'off');
+      }, 1000) ?? null;
+    }
+
+    // Legacy: leaving-house warning when entrance or side opens and another perimeter opening exists
+    if (id === entrance || id === side) {
+      const t = await this.getForeignStateAsync(terrace);
+      const s = await this.getForeignStateAsync(shed);
+      const w = await this.getForeignStateAsync(wcWindow);
+      if (t?.val === 'open' || s?.val === 'open' || w?.val === 'open') {
+        this.setTimeout(async () => {
+          await this.setOutput(this.cfg.buzzerId, 'decline');
+        }, 400);
+      }
     }
   }
 
