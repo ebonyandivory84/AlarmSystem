@@ -7,7 +7,7 @@
       "items": {
         "_desc_general": {
           "type": "staticText",
-          "text": "Grundparameter des Adapters: Entprellung, Delays, Heartbeat-Timeout und Simulationsmodus. Simulationsmodus schreibt keine echten Aktorwerte."
+          "text": "Grundparameter des Adapters: Entprellung, Delays, Heartbeat-Timeout und Simulationsmodus. WENN Simulation aktiv DANN werden Aktoren nicht real geschaltet, sondern nur protokolliert."
         },
         "debugLevel": {
           "type": "select",
@@ -91,7 +91,7 @@
       "items": {
         "_desc_zones": {
           "type": "staticText",
-          "text": "Hier definierst du zentrale Alarm-Datenpunkte und die Verzögerungen pro Zone. Entry Delay = Zeit bis Alarmauslösung nach Trigger, Exit Delay = Zeit bis Zone nach Scharf-Schalten aktiv wird."
+          "text": "Zonenverhalten und Delays: Entry Delay = Zeit vom Trigger bis Alarm, Exit Delay = Verzögerung beim Scharfstellen. WENN Zone scharf UND Trigger aktiv DANN Countdown/Alarm nach Zonenregeln."
         },
         "_z": {
           "type": "staticText",
@@ -140,7 +140,7 @@
       "items": {
         "_desc_pir": {
           "type": "staticText",
-          "text": "PIR-/Bewegungssensoren für Alarm-Trigger. Pro Zeile: Datenpunkt, aktive Werte und zugehörige Zone. Triggern nur, wenn die Zone scharf ist."
+          "text": "PIR-/Bewegungssensoren pro Zone. WENN Wert aus Active Values eintritt UND Zone scharf DANN Trigger."
         },
         "pirSensorsTable": {
           "type": "table",
@@ -195,7 +195,7 @@
       "items": {
         "_desc_contacts": {
           "type": "staticText",
-          "text": "Tür-/Fensterkontakte für Alarm-Trigger. Active Values enthalten den Zustand, der als Alarmereignis zählt (z. B. open)."
+          "text": "Tür-/Fensterkontakte pro Zone. WENN Kontaktzustand aus Active Values eintritt UND Zone scharf DANN Trigger."
         },
         "contactSensorsTable": {
           "type": "table",
@@ -250,7 +250,7 @@
       "items": {
         "_desc_presence": {
           "type": "staticText",
-          "text": "Presence-Sensoren (z. B. Geofence/Anwesenheit), die zonenbasiert ausgewertet werden können. Frei erweiterbar über Add/Remove."
+          "text": "Presence-Sensoren (Geofence/Anwesenheit). Diese Liste dient der Automationslogik (z. B. Auto-Arm, Heimstatus)."
         },
         "presenceSensorsTable": {
           "type": "table",
@@ -305,7 +305,7 @@
       "items": {
         "_desc_pd": {
           "type": "staticText",
-          "text": "Person-Detection-Datenpunkte. Mode boolean: true löst aus. Mode string: nur der eingetragene Detect Value löst aus."
+          "text": "Person-Detection pro Zone. Mode=boolean: true löst aus. Mode=string: nur der eingetragene Detect Value löst aus."
         },
         "personDetectionTable": {
           "type": "table",
@@ -375,7 +375,7 @@
       "items": {
         "_desc_cameras": {
           "type": "staticText",
-          "text": "Kameraliste mit IP, Stream-URL, Snapshot-URL und optionalen Alarm-/LED-Datenpunkten. Credentials können je Kamera gepflegt werden."
+          "text": "Kamera-Definitionen: IP, Stream, Snapshot, Alarm-DP, LED-DP, PersonDetection-DP. WENN PersonDetection triggert DANN Snapshot/Telegram (und optional Alarm/LED)."
         },
         "camerasTable": {
           "type": "table",
@@ -441,7 +441,7 @@
       "items": {
         "_desc_telegram": {
           "type": "staticText",
-          "text": "Mehrere Telegram-Instanzen und beliebig viele Chat-Ziele pro Instanz. Ereignisse/Snapshots werden an die zugeordneten Chats gesendet."
+          "text": "Mehrere Telegram-Instanzen und Chat-Ziele möglich. Nachrichten/Snapshots werden je zugeordnetem Ziel versendet."
         },
         "telegramInstancesTable": {
           "type": "table",
@@ -483,7 +483,7 @@
       "items": {
         "_desc_advanced": {
           "type": "staticText",
-          "text": "Fallback für Sonderfälle: Legacy-JSON-Felder. Normalerweise nur die Tabellen oben verwenden."
+          "text": "Nur für Sonderfälle: Legacy-JSON-Fallback. Normalerweise die Tabellen verwenden."
         },
         "sensorsJson": {
           "type": "textarea",
@@ -523,7 +523,7 @@
       "items": {
         "_desc_diag": {
           "type": "staticText",
-          "text": "Diagnosehilfe: Ereignisprotokoll, aktive Case-ID und Quittierung. Diese Infos helfen bei Tests und Fehlersuche."
+          "text": "Diagnose: Eventlog, aktive Case-ID, Sabotage-Hinweise, Regelansicht (IF/THEN) und Quittierung aktiver Fälle."
         },
         "_d_rules": {
           "type": "staticText",
@@ -549,7 +549,7 @@
       "items": {
         "_desc_alarmcenter_hi": {
           "type": "staticText",
-          "text": "Hardware Interface des AlarmCenter-Terminals (Display, Buzzer, LEDs, Standby und zentrale AlarmCenter-Datenpunkte)."
+          "text": "Hardware-Interface des AlarmCenter-Terminals (Display, Buzzer, LEDs, Standby, zentrale Arm/Perimeter/Trigger/Sirene-DPs)."
         },
         "displayId": {
           "type": "text",
@@ -603,7 +603,7 @@
       "items": {
         "_desc_sonstige_aktoren": {
           "type": "staticText",
-          "text": "Freie, erweiterbare Aktorenliste für zusätzliche Geräte/Funktionen außerhalb des AlarmCenter-Hardwareinterfaces."
+          "text": "Freie Aktorenliste für zusätzliche Geräte außerhalb des AlarmCenter-Terminals."
         },
         "actuatorsTable": {
           "type": "table",
