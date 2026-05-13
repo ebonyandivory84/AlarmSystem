@@ -14,26 +14,90 @@
     "panic": "0_userdata.0.AlarmSystem.panic"
   },
   "profiles": {
-    "full": ["doors", "windows", "motions", "cameraHumans"],
-    "perimeter": ["doors", "windows"]
+    "full": [
+      "doors",
+      "windows",
+      "motions",
+      "cameraHumans"
+    ],
+    "perimeter": [
+      "doors",
+      "windows"
+    ]
   },
   "sensors": {
     "doors": [
-      { "key": "entrance", "id": "mqtt.1.entrance_door_status", "openValues": ["open"] },
-      { "key": "sideEntrance", "id": "mqtt.1.side_entrance_door_status", "openValues": ["open"] },
-      { "key": "terrace", "id": "mqtt.1.terrace_door_status", "openValues": ["open"] },
-      { "key": "shed", "id": "mqtt.1.Garage.shedDoorStatus", "openValues": ["open"] }
+      {
+        "key": "entrance",
+        "id": "mqtt.1.entrance_door_status",
+        "openValues": [
+          "open"
+        ]
+      },
+      {
+        "key": "sideEntrance",
+        "id": "mqtt.1.side_entrance_door_status",
+        "openValues": [
+          "open"
+        ]
+      },
+      {
+        "key": "terrace",
+        "id": "mqtt.1.terrace_door_status",
+        "openValues": [
+          "open"
+        ]
+      },
+      {
+        "key": "shed",
+        "id": "mqtt.1.Garage.shedDoorStatus",
+        "openValues": [
+          "open"
+        ]
+      }
     ],
     "windows": [
-      { "key": "wcChildren", "id": "mqtt.1.WC_children.windowStatus", "openValues": ["open"] }
+      {
+        "key": "wcChildren",
+        "id": "mqtt.1.WC_children.windowStatus",
+        "openValues": [
+          "open"
+        ]
+      }
     ],
     "motions": [
-      { "key": "entranceMotion", "id": "mqtt.1.entrance_motion_sensor", "activeValues": ["motion detected"] },
-      { "key": "livingMotion", "id": "mqtt.1.living_motion_sensor", "activeValues": ["motion detected"] }
+      {
+        "key": "entranceMotion",
+        "id": "mqtt.1.entrance_motion_sensor",
+        "activeValues": [
+          "motion detected"
+        ]
+      },
+      {
+        "key": "livingMotion",
+        "id": "mqtt.1.living_motion_sensor",
+        "activeValues": [
+          "motion detected"
+        ]
+      }
     ],
     "cameraHumans": [
-      { "key": "backyard", "id": "mqtt.2.HumanDetection.CamBackyard", "activeValues": ["human detected", true] },
-      { "key": "terrace", "id": "mqtt.2.HumanDetection.CamTerrace", "activeValues": ["human detected", true] }
+      {
+        "key": "backyard",
+        "id": "mqtt.2.HumanDetection.CamBackyard",
+        "activeValues": [
+          "human detected",
+          true
+        ]
+      },
+      {
+        "key": "terrace",
+        "id": "mqtt.2.HumanDetection.CamTerrace",
+        "activeValues": [
+          "human detected",
+          true
+        ]
+      }
     ]
   },
   "alarmCenter": {
@@ -41,7 +105,10 @@
       "id": "mqtt.1.AlarmCenter.Display",
       "clearId": "mqtt.1.AlarmCenter.ClearDisplay",
       "rotationMs": 2000,
-      "idleSources": ["0_userdata.0.currentDateTime", "sainlogic.0.weather.current.outdoortemp"]
+      "idleSources": [
+        "0_userdata.0.currentDateTime",
+        "sainlogic.0.weather.current.outdoortemp"
+      ]
     },
     "buzzer": {
       "id": "mqtt.1.AlarmCenter.Buzzer",
@@ -62,26 +129,52 @@
   "auth": {
     "fingerprint": {
       "stateId": "mqtt.1.fingerprintDoorbell.lastLogMessage",
-      "knownUsers": ["Sebastian R1", "Teresa R1"],
+      "knownUsers": [
+        "Sebastian R1",
+        "Teresa R1"
+      ],
       "cooldownMs": 3000,
       "disarmOnMatch": true
     },
     "pinCommands": [
-      { "sequence": "*1", "action": "garageOpen" },
-      { "sequence": "*2", "action": "garageClose" },
-      { "sequence": "*4", "action": "pdlcOpen" },
-      { "sequence": "*5", "action": "pdlcClose" }
+      {
+        "sequence": "*1",
+        "action": "garageOpen"
+      },
+      {
+        "sequence": "*2",
+        "action": "garageClose"
+      },
+      {
+        "sequence": "*4",
+        "action": "pdlcOpen"
+      },
+      {
+        "sequence": "*5",
+        "action": "pdlcClose"
+      }
     ]
   },
   "actuators": {
-    "garage": { "doorCommandId": "hmip.0.devices.3014F711A000241F29970E70.channels.1.doorCommand", "openValue": 0, "closeValue": 2 },
-    "pdlc": { "id": "tuya.0.bf2bb23b342877f2e1maqy.1", "openValue": true, "closeValue": false }
+    "garage": {
+      "doorCommandId": "hmip.0.devices.3014F711A000241F29970E70.channels.1.doorCommand",
+      "openValue": 0,
+      "closeValue": 2
+    },
+    "pdlc": {
+      "id": "tuya.0.bf2bb23b342877f2e1maqy.1",
+      "openValue": true,
+      "closeValue": false
+    }
   },
   "notifications": {
     "telegram": {
       "enabled": true,
       "instance": "telegram.1",
-      "chatIds": ["<REDACTED_CHAT_ID_1>", "<REDACTED_CHAT_ID_2>"],
+      "chatIds": [
+        "<CHAT_ID_1>",
+        "<CHAT_ID_2>"
+      ],
       "sendAlarmText": true,
       "sendTriggerReason": true
     },

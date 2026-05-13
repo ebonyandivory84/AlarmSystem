@@ -524,16 +524,7 @@
         "token": ""
       }
     ],
-    "telegramTargetsTable": [
-      {
-        "instance": "telegram.1",
-        "chatId": "<REDACTED_CHAT_ID_1>"
-      },
-      {
-        "instance": "telegram.1",
-        "chatId": "<REDACTED_CHAT_ID_2>"
-      }
-    ],
+    "telegramTargetsTable": [],
     "defaultEntryDelaySec": 20,
     "defaultExitDelaySec": 10,
     "heartbeatTimeoutSec": 180,

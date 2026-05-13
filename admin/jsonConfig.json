@@ -465,7 +465,7 @@
       "items": {
         "_example_telegram": {
           "type": "staticText",
-          "text": "Beispiel Instanz: telegram.1 | Beispiel Target: instance=telegram.1, chatId=<REDACTED_CHAT_ID_1>"
+          "text": "Beispiel Instanz: telegram.1 | Beispiel Target: instance=telegram.1, chatId=<CHAT_ID>"
         },
         "_desc_telegram": {
           "type": "staticText",
