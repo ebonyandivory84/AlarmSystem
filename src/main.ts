@@ -3,6 +3,7 @@ import axios from 'axios';
 import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import SunCalc from 'suncalc';
 
 type Zone = 'perimeter' | 'aussenhaut' | 'innenraum';
 type SensorType = 'pir' | 'contact' | 'presence';
@@ -73,6 +74,8 @@ interface Config {
   snapshotBurstIntervalMs: number;
   heartbeatTimeoutSec: number;
   simulationMode: boolean;
+  cameraNightModeEnabled: boolean;
+  cameraNightModeArmsCameras: boolean;
 
   armStateId: string;
   perimeterStateId: string;
@@ -170,6 +173,8 @@ class AlarmSystemAdapter extends utils.Adapter {
       snapshotBurstIntervalMs: Math.max(500, this.toNumber(n.snapshotBurstIntervalMs, 5000)),
       heartbeatTimeoutSec: this.toNumber(n.heartbeatTimeoutSec, 180),
       simulationMode: n.simulationMode === true,
+      cameraNightModeEnabled: n.cameraNightModeEnabled !== false,
+      cameraNightModeArmsCameras: n.cameraNightModeArmsCameras !== false,
 
       armStateId: n.armStateId || 'mqtt.1.AlarmCenter.AlarmSystemArmed',
       perimeterStateId: n.perimeterStateId || 'mqtt.1.AlarmCenter.PerimeterProtection',
@@ -390,7 +395,7 @@ class AlarmSystemAdapter extends utils.Adapter {
       if (c.personDetectionDp) {
         rules.push({
           if: `Personenerkennung ${c.personDetectionDp} triggert`,
-          then: `Snapshot(s) senden${c.alarmDatapoint ? ', Kamera-Alarm setzen' : ''}${c.ledDatapoint ? ', LED setzen' : ''}`
+          then: `Snapshot(s) senden${c.alarmDatapoint ? ', Kamera-Alarm setzen' : ''}${c.ledDatapoint ? ', LED setzen' : ''} (bei scharfer Zone oder Night-Mode, falls aktiviert)`
         });
       }
     }
@@ -547,7 +552,9 @@ class AlarmSystemAdapter extends utils.Adapter {
     const cam = this.cfg.cameras.find(c => c.personDetectionDp === id);
     if (cam) {
       const active = state.val === true || state.val === 'human detected';
-      if (active && this.allowEvent(id)) {
+      const armed = this.zoneArmed.perimeter || this.zoneArmed.aussenhaut || this.zoneArmed.innenraum;
+      const nightModeArmed = this.cfg.cameraNightModeArmsCameras && this.isNightModeActive();
+      if (active && this.allowEvent(id) && (armed || nightModeArmed)) {
         await this.triggerCamera(cam);
       }
     }
@@ -823,6 +830,21 @@ class AlarmSystemAdapter extends utils.Adapter {
     for (let i = 0; i < this.cfg.snapshotBurstCount; i++) {
       const delay = this.cfg.snapshotDelayMs + i * this.cfg.snapshotBurstIntervalMs;
       this.setTimeout(() => void this.sendSnapshot(url, cam.label, i + 1), delay);
+    }
+  }
+
+  private isNightModeActive(): boolean {
+    if (!this.cfg.cameraNightModeEnabled) return false;
+    const lat = typeof this.latitude === 'number' ? this.latitude : undefined;
+    const lon = typeof this.longitude === 'number' ? this.longitude : undefined;
+    if (lat === undefined || lon === undefined) return false;
+
+    try {
+      const now = new Date();
+      const times = SunCalc.getTimes(now, lat, lon);
+      return now >= times.dusk || now <= times.sunriseEnd;
+    } catch {
+      return false;
     }
   }
 

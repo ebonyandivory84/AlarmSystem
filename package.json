@@ -7,15 +7,22 @@
     "build": "tsc -p tsconfig.json",
     "watch": "tsc -w -p tsconfig.json"
   },
-  "keywords": ["iobroker", "alarm", "security", "adapter"],
+  "keywords": [
+    "iobroker",
+    "alarm",
+    "security",
+    "adapter"
+  ],
   "author": "ebonyandivory84",
   "license": "MIT",
   "dependencies": {
     "@iobroker/adapter-core": "^3.2.3",
-    "axios": "^1.9.0"
+    "@types/suncalc": "^1.9.2",
+    "axios": "^1.9.0",
+    "suncalc": "^1.9.0"
   },
   "devDependencies": {
-    "typescript": "^5.6.3",
-    "@types/node": "^22.10.2"
+    "@types/node": "^22.10.2",
+    "typescript": "^5.6.3"
   }
 }

@@ -47,6 +47,8 @@
     "debugLevel": "info",
     "defaultCountdownSec": 20,
     "eventDedupeMs": 1000,
+    "cameraNightModeEnabled": true,
+    "cameraNightModeArmsCameras": true,
     "armStateId": "mqtt.1.AlarmCenter.AlarmSystemArmed",
     "perimeterStateId": "mqtt.1.AlarmCenter.PerimeterProtection",
     "countdownStateId": "mqtt.1.AlarmCenter.ActivateAlarmCountdown",

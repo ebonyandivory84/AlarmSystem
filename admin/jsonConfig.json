@@ -82,6 +82,14 @@
         "simulationMode": {
           "type": "checkbox",
           "label": "Simulation mode (no real actuator writes)"
+        },
+        "cameraNightModeEnabled": {
+          "type": "checkbox",
+          "label": "Night mode for cameras (astro: dusk -> sunrise end)"
+        },
+        "cameraNightModeArmsCameras": {
+          "type": "checkbox",
+          "label": "Allow camera trigger by person detection in night mode (even if zones are disarmed)"
         }
       }
     },
