@@ -89,6 +89,10 @@
       "type": "panel",
       "label": "Alarm Zones",
       "items": {
+        "_example_zones": {
+          "type": "staticText",
+          "text": "Beispiel ZoneDelay: zone=innenraum, entryDelaySec=20, exitDelaySec=10"
+        },
         "_desc_zones": {
           "type": "staticText",
           "text": "Zonenverhalten und Delays: Entry Delay = Zeit vom Trigger bis Alarm, Exit Delay = Verzögerung beim Scharfstellen. WENN Zone scharf UND Trigger aktiv DANN Countdown/Alarm nach Zonenregeln."
@@ -138,6 +142,10 @@
       "type": "panel",
       "label": "Sensors PIR",
       "items": {
+        "_example_pir": {
+          "type": "staticText",
+          "text": "Beispiel: key=entranceMotion | id=mqtt.1.entrance_motion_sensor | zone=innenraum | activeValuesCsv=motion detected"
+        },
         "_desc_pir": {
           "type": "staticText",
           "text": "PIR-/Bewegungssensoren pro Zone. WENN Wert aus Active Values eintritt UND Zone scharf DANN Trigger."
@@ -193,6 +201,10 @@
       "type": "panel",
       "label": "Sensors Door/Window",
       "items": {
+        "_example_contacts": {
+          "type": "staticText",
+          "text": "Beispiel: key=terraceDoor | id=mqtt.1.terrace_door_status | zone=aussenhaut | activeValuesCsv=open"
+        },
         "_desc_contacts": {
           "type": "staticText",
           "text": "Tür-/Fensterkontakte pro Zone. WENN Kontaktzustand aus Active Values eintritt UND Zone scharf DANN Trigger."
@@ -248,6 +260,10 @@
       "type": "panel",
       "label": "Sensors Presence",
       "items": {
+        "_example_presence": {
+          "type": "staticText",
+          "text": "Beispiel: key=presenceHomeSebastian | id=0_userdata.0.presence_at_home.Sebastian | zone=perimeter | activeValuesCsv=true"
+        },
         "_desc_presence": {
           "type": "staticText",
           "text": "Presence-Sensoren (Geofence/Anwesenheit). Diese Liste dient der Automationslogik (z. B. Auto-Arm, Heimstatus)."
@@ -303,6 +319,10 @@
       "type": "panel",
       "label": "Person Detection",
       "items": {
+        "_example_pd": {
+          "type": "staticText",
+          "text": "Beispiele: boolean -> mode=boolean (detectValue leer). string -> mode=string + detectValue=human detected"
+        },
         "_desc_pd": {
           "type": "staticText",
           "text": "Person-Detection pro Zone. Mode=boolean: true löst aus. Mode=string: nur der eingetragene Detect Value löst aus."
@@ -373,6 +393,10 @@
       "type": "panel",
       "label": "Cameras",
       "items": {
+        "_example_cameras": {
+          "type": "staticText",
+          "text": "Beispiel Snapshot-URL: http://<ip>/...user={username}&password={password} | Stream: rtsp://{username}:{password}@<ip>:554/..."
+        },
         "_desc_cameras": {
           "type": "staticText",
           "text": "Kamera-Definitionen: IP, Stream, Snapshot, Alarm-DP, LED-DP, PersonDetection-DP. WENN PersonDetection triggert DANN Snapshot/Telegram (und optional Alarm/LED)."
@@ -439,6 +463,10 @@
       "type": "panel",
       "label": "Telegram",
       "items": {
+        "_example_telegram": {
+          "type": "staticText",
+          "text": "Beispiel Instanz: telegram.1 | Beispiel Target: instance=telegram.1, chatId=<REDACTED_CHAT_ID_1>"
+        },
         "_desc_telegram": {
           "type": "staticText",
           "text": "Mehrere Telegram-Instanzen und Chat-Ziele möglich. Nachrichten/Snapshots werden je zugeordnetem Ziel versendet."
@@ -601,6 +629,10 @@
       "type": "panel",
       "label": "Sonstige Aktoren",
       "items": {
+        "_example_aktoren": {
+          "type": "staticText",
+          "text": "Beispiel: key=gardenLight | id=mqtt.1.garden.light | onValue=true | offValue=false"
+        },
         "_desc_sonstige_aktoren": {
           "type": "staticText",
           "text": "Freie Aktorenliste für zusätzliche Geräte außerhalb des AlarmCenter-Terminals."
