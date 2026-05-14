@@ -56,7 +56,18 @@
     return rows;
   }
 
-  function setEntity(kind, idx, patch){ if(!Array.isArray(state.config[kind]) || !state.config[kind][idx]) return; Object.assign(state.config[kind][idx], patch); }
+  function setEntity(kind, idx, patch){
+    if(!Array.isArray(state.config[kind]) || !state.config[kind][idx]) return;
+    const row = state.config[kind][idx];
+    const oldZone = String(row.zone || 'pool');
+    const nextZone = typeof patch.zone === 'string' ? patch.zone : oldZone;
+    Object.assign(row, patch);
+    const hasExplicitPos = Object.prototype.hasOwnProperty.call(patch, 'posX') || Object.prototype.hasOwnProperty.call(patch, 'posY');
+    if (!hasExplicitPos && nextZone !== oldZone && nextZone !== 'pool') {
+      delete row.posX;
+      delete row.posY;
+    }
+  }
   function zoneColorClass(zone){ return zone === 'innenraum' ? 'zone-color-innenraum' : zone === 'aussenhaut' ? 'zone-color-aussenhaut' : 'zone-color-perimeter'; }
 
   function ensureEntityPositions(){
