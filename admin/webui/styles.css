@@ -20,8 +20,8 @@ label{display:grid;gap:4px;min-width:220px} input,select,textarea{background:#0f
 .zone.perimeter{background:rgba(244,231,168,.08)}
 .zone.aussenhaut{background:rgba(244,194,143,.12)}
 .zone.innenraum{background:rgba(243,166,166,.16)}
-.dot{position:absolute;width:12px;height:12px;border-radius:50%;border:1px solid rgba(20,20,20,.35);cursor:grab}
-.chip{position:absolute;border-radius:999px;padding:6px 10px;font-size:12px;cursor:grab;user-select:none;border:1px solid rgba(20,20,20,.35);color:#111}
+.dot{position:absolute;width:12px;height:12px;border-radius:50%;border:1px solid rgba(20,20,20,.35);cursor:grab;transform:translate(-50%,-50%)}
+.chip{position:absolute;border-radius:999px;padding:5px 9px;font-size:11px;cursor:grab;user-select:none;border:1px solid rgba(20,20,20,.35);color:#111;transform:translate(-50%,-50%);max-width:210px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dot,.chip{pointer-events:auto}
 .zone-color-innenraum{background:var(--zone-in)}
 .zone-color-aussenhaut{background:var(--zone-out)}

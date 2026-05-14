@@ -39,6 +39,21 @@
   const buildObjectIdCandidates = raw => [...new Set([`system.adapter.${normalizeInstanceId(raw)}`, `system.adapter.${raw}`])];
 
   function ensureTables(){ ['pirSensorsTable','contactSensorsTable','presenceSensorsTable','personDetectionTable','camerasTable'].forEach(k=>{ if(!Array.isArray(state.config[k])) state.config[k]=[]; }); }
+  function normalizeInitialZones(){
+    ensureTables();
+    for (const row of state.config.contactSensorsTable) {
+      if (!row || row.manualZone) continue;
+      row.zone = 'aussenhaut';
+    }
+    for (const row of state.config.personDetectionTable) {
+      if (!row || row.manualZone) continue;
+      row.zone = 'perimeter';
+    }
+    for (const row of state.config.camerasTable) {
+      if (!row || row.manualZone) continue;
+      if (!row.zone || row.zone === 'aussenhaut') row.zone = 'perimeter';
+    }
+  }
 
   function getEntities(){
     ensureTables();
@@ -62,6 +77,7 @@
     const oldZone = String(row.zone || 'pool');
     const nextZone = typeof patch.zone === 'string' ? patch.zone : oldZone;
     Object.assign(row, patch);
+    if (typeof patch.zone === 'string') row.manualZone = true;
     const hasExplicitPos = Object.prototype.hasOwnProperty.call(patch, 'posX') || Object.prototype.hasOwnProperty.call(patch, 'posY');
     if (!hasExplicitPos && nextZone !== oldZone && nextZone !== 'pool') {
       delete row.posX;
@@ -245,6 +261,7 @@
     state.instanceObj=resolved;
     ensureProfiles();
     state.config=clone(state.instanceObj.native);
+    normalizeInitialZones();
     instanceLabel.textContent=`Instanz: ${state.instanceId}`;
     await loadStateIds();
     renderAll();
