@@ -22,17 +22,11 @@
     <section class="card">
       <h2>Konfigurationsprofile</h2>
       <div class="row">
-        <label>
-          Aktives Profil
-          <select id="profileSelect"></select>
-        </label>
+        <label>Aktives Profil<select id="profileSelect"></select></label>
         <button id="loadProfileBtn" class="btn">Profil laden</button>
       </div>
       <div class="row">
-        <label>
-          Neues Profil
-          <input id="newProfileName" type="text" placeholder="z.B. home-night.json" />
-        </label>
+        <label>Neues Profil<input id="newProfileName" type="text" placeholder="z.B. home-night.json" /></label>
         <button id="saveProfileBtn" class="btn">Als Profil speichern</button>
         <button id="deleteProfileBtn" class="btn danger">Profil löschen</button>
       </div>
@@ -41,13 +35,12 @@
 
     <section class="grid2">
       <article class="card">
-        <h2>Zonen-Canvas</h2>
-        <p class="muted">Sensoren/Detections zwischen Palette und Zonen ziehen.</p>
-        <div class="zone-canvas">
-          <div class="zone perimeter" data-zone="perimeter"><span>perimeter</span></div>
-          <div class="zone aussenhaut" data-zone="aussenhaut"><span>aussenhaut</span></div>
-          <div class="zone innenraum" data-zone="innenraum"><span>innenraum</span></div>
+        <div class="canvas-head">
+          <h2>Zonen-Canvas</h2>
+          <button id="openCanvasBtn" class="btn">Maximieren</button>
         </div>
+        <p class="muted">Miniansicht mit Punkten. Hover zeigt Namen.</p>
+        <div id="miniCanvas" class="zone-canvas"></div>
       </article>
 
       <article class="card">
@@ -59,41 +52,30 @@
 
         <h2 class="subhead">Neu hinzufügen</h2>
         <div class="fields">
-          <label>Typ
-            <select id="newType">
-              <option value="pirSensorsTable">PIR</option>
-              <option value="contactSensorsTable">Kontakt</option>
-              <option value="presenceSensorsTable">Presence</option>
-              <option value="personDetectionTable">PersonDetection</option>
-            </select>
-          </label>
+          <label>Typ<select id="newType"><option value="pirSensorsTable">PIR</option><option value="contactSensorsTable">Kontakt</option><option value="presenceSensorsTable">Presence</option><option value="personDetectionTable">PersonDetection</option></select></label>
           <label>Key<input id="newKey" type="text" /></label>
           <label>Label<input id="newLabel" type="text" /></label>
           <label>Datapoint ID<input id="newId" type="text" /></label>
           <label>Active Values CSV<input id="newActive" type="text" placeholder="open / true / motion detected" /></label>
-          <label>Mode (nur PersonDetection)
-            <select id="newMode"><option value="boolean">boolean</option><option value="string">string</option></select>
-          </label>
-          <label>Detect Value (string Mode)<input id="newDetect" type="text" placeholder="human detected" /></label>
+          <label>Mode<select id="newMode"><option value="boolean">boolean</option><option value="string">string</option></select></label>
+          <label>Detect Value<input id="newDetect" type="text" placeholder="human detected" /></label>
         </div>
         <div class="row"><button id="addSensorBtn" class="btn">Element hinzufügen</button></div>
       </article>
     </section>
 
-    <section class="card">
-      <h2>Globale Parameter</h2>
-      <div class="fields" id="globalFields"></div>
-    </section>
+    <section class="card"><h2>Globale Parameter</h2><div class="fields" id="globalFields"></div></section>
+    <section class="card"><h2>AlarmCenter / Kern-Datapoints</h2><div class="fields" id="dpFields"></div></section>
+    <section class="card"><h2>Status</h2><pre id="statusBox" class="status ok">Bereit</pre></section>
+  </div>
 
-    <section class="card">
-      <h2>AlarmCenter / Kern-Datapoints</h2>
-      <div class="fields" id="dpFields"></div>
-    </section>
-
-    <section class="card">
-      <h2>Status</h2>
-      <pre id="statusBox" class="status ok">Bereit</pre>
-    </section>
+  <div id="canvasModal" class="modal hidden">
+    <div class="modal-inner">
+      <button id="closeCanvasBtn" class="modal-close">X</button>
+      <h2>Vollbild Zonen-Canvas</h2>
+      <p class="muted">Verschieben per Drag&Drop, volle Sensornamen sichtbar.</p>
+      <div id="fullCanvas" class="zone-canvas full"></div>
+    </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
