@@ -20,6 +20,18 @@
     </header>
 
     <section class="card">
+      <h2>Manuelle Steuerung</h2>
+      <div class="row">
+        <button id="armAlarmBtn" class="btn" title="Setzt den Alarmzustand auf scharf (armStateId=true).">Alarm scharf</button>
+        <button id="disarmAlarmBtn" class="btn" title="Setzt den Alarmzustand auf unscharf (armStateId=false).">Alarm unscharf</button>
+        <button id="armPerimeterBtn" class="btn" title="Setzt Perimeter-Schutz auf scharf (perimeterStateId=true).">Perimeter scharf</button>
+        <button id="disarmPerimeterBtn" class="btn" title="Setzt Perimeter-Schutz auf unscharf (perimeterStateId=false).">Perimeter unscharf</button>
+        <button id="armCamerasBtn" class="btn" title="Aktiviert Kameraalarme (cameraAlarmOnIdsJson / cctvArmedId).">Kameras scharf</button>
+        <button id="disarmCamerasBtn" class="btn" title="Deaktiviert Kameraalarme (cameraAlarmOffIdsJson / cctvDisarmedId).">Kameras unscharf</button>
+      </div>
+    </section>
+
+    <section class="card">
       <h2>Konfigurationsprofile</h2>
       <div class="row">
         <label>Aktives Profil<select id="profileSelect"></select></label>
@@ -52,13 +64,13 @@
 
         <h2 class="subhead">Neu hinzufügen</h2>
         <div class="fields">
-          <label>Typ<select id="newType"><option value="pirSensorsTable">PIR</option><option value="contactSensorsTable">Kontakt</option><option value="presenceSensorsTable">Presence</option><option value="personDetectionTable">PersonDetection</option></select></label>
-          <label>Key<input id="newKey" type="text" /></label>
-          <label>Label<input id="newLabel" type="text" /></label>
-          <label>Datapoint ID<input id="newId" type="text" /></label>
-          <label>Active Values CSV<input id="newActive" type="text" placeholder="open / true / motion detected" /></label>
-          <label>Mode<select id="newMode"><option value="boolean">boolean</option><option value="string">string</option></select></label>
-          <label>Detect Value<input id="newDetect" type="text" placeholder="human detected" /></label>
+          <label title="Definiert die Tabelle, in die das neue Element gespeichert wird.">Typ<select id="newType"><option value="pirSensorsTable">PIR</option><option value="contactSensorsTable">Kontakt</option><option value="presenceSensorsTable">Presence</option><option value="personDetectionTable">PersonDetection</option></select></label>
+          <label title="Interner stabiler Schlüssel für das Element.">Key<input id="newKey" type="text" /></label>
+          <label title="Anzeigename in der UI.">Label<input id="newLabel" type="text" /></label>
+          <label title="Objektbrowser per Autocomplete: vorhandene State-IDs werden vorgeschlagen.">Datapoint ID<input id="newId" class="state-input" list="stateIds" type="text" /></label>
+          <label title="Werte, die als aktiv gelten, z. B. open,true,motion detected.">Active Values CSV<input id="newActive" type="text" placeholder="open / true / motion detected" /></label>
+          <label title="Nur für PersonDetection relevant.">Mode<select id="newMode"><option value="boolean">boolean</option><option value="string">string</option></select></label>
+          <label title="Vergleichswert im string-Mode, z. B. human detected.">Detect Value<input id="newDetect" type="text" placeholder="human detected" /></label>
         </div>
         <div class="row"><button id="addSensorBtn" class="btn">Element hinzufügen</button></div>
       </article>
@@ -77,6 +89,8 @@
       <div id="fullCanvas" class="zone-canvas full"></div>
     </div>
   </div>
+
+  <datalist id="stateIds"></datalist>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="./app.js"></script>
