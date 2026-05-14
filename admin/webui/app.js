@@ -73,7 +73,11 @@
 
   function renderObjectResults(){
     const q = String(objectSearch.value || '').toLowerCase().trim();
-    const list = state.stateIds.filter(id => !q || id.toLowerCase().includes(q)).slice(0, 800);
+    if (q.length < 2) {
+      objectResults.innerHTML = '<div class="muted">Bitte mindestens 2 Zeichen eingeben.</div>';
+      return;
+    }
+    const list = state.stateIds.filter(id => id.toLowerCase().includes(q)).slice(0, 300);
     objectResults.innerHTML = list.map(id => `<div class="object-item" data-id="${id}">${id}</div>`).join('') || '<div class="muted">Keine Treffer</div>';
   }
 
@@ -82,7 +86,30 @@
 
   function renderFields(){ globalFields.innerHTML=''; dpFields.innerHTML='';
     for(const [k,t,help] of globalSpec){ const w=document.createElement('label'); w.textContent=k; w.title=help; const i=document.createElement(t==='boolean'?'select':'input'); i.dataset.key=k; i.title=help; if(t==='number'){i.type='number'; i.value=String(Number(state.config[k]??0));} else {i.innerHTML='<option value="true">true</option><option value="false">false</option>'; i.value=state.config[k]===true?'true':'false';} w.appendChild(i); globalFields.appendChild(w); }
-    for(const [k,help] of dpSpec){ const w=document.createElement('label'); w.textContent=k; w.title=help; const i=document.createElement('input'); i.type='text'; i.className='state-input'; i.setAttribute('list','stateIds'); i.dataset.key=k; i.title=help; i.value=String(state.config[k]||''); w.appendChild(i); dpFields.appendChild(w); }
+    for(const [k,help] of dpSpec){
+      const w=document.createElement('label');
+      w.textContent=k;
+      w.title=help;
+      const wrap=document.createElement('span');
+      wrap.className='input-wrap';
+      const i=document.createElement('input');
+      i.type='text';
+      i.className='state-input';
+      i.setAttribute('list','stateIds');
+      i.dataset.key=k;
+      i.title=help;
+      i.value=String(state.config[k]||'');
+      const b=document.createElement('button');
+      b.type='button';
+      b.className='icon-btn';
+      b.title='Objektbrowser öffnen';
+      b.textContent='🔎';
+      b.addEventListener('click',()=>openObjectBrowser(i));
+      wrap.appendChild(i);
+      wrap.appendChild(b);
+      w.appendChild(wrap);
+      dpFields.appendChild(w);
+    }
   }
 
   function ensureTables(){ ['pirSensorsTable','contactSensorsTable','presenceSensorsTable','personDetectionTable'].forEach(k=>{ if(!Array.isArray(state.config[k])) state.config[k]=[]; }); }

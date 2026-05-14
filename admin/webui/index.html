@@ -68,8 +68,13 @@
           <label title="Definiert die Tabelle, in die das neue Element gespeichert wird.">Typ<select id="newType"><option value="pirSensorsTable">PIR</option><option value="contactSensorsTable">Kontakt</option><option value="presenceSensorsTable">Presence</option><option value="personDetectionTable">PersonDetection</option></select></label>
           <label title="Interner stabiler Schlüssel für das Element.">Key<input id="newKey" type="text" /></label>
           <label title="Anzeigename in der UI.">Label<input id="newLabel" type="text" /></label>
-          <label title="Objektbrowser per Autocomplete: vorhandene State-IDs werden vorgeschlagen.">Datapoint ID<input id="newId" class="state-input" list="stateIds" type="text" /></label>
-          <button id="browseNewIdBtn" class="btn" type="button">Objektbrowser</button>
+          <label title="Objektbrowser per Suche.">
+            Datapoint ID
+            <span class="input-wrap">
+              <input id="newId" class="state-input" list="stateIds" type="text" />
+              <button id="browseNewIdBtn" class="icon-btn" type="button" title="Objektbrowser öffnen">🔎</button>
+            </span>
+          </label>
           <label title="Werte, die als aktiv gelten, z. B. open,true,motion detected.">Active Values CSV<input id="newActive" type="text" placeholder="open / true / motion detected" /></label>
           <label title="Nur für PersonDetection relevant.">Mode<select id="newMode"><option value="boolean">boolean</option><option value="string">string</option></select></label>
           <label title="Vergleichswert im string-Mode, z. B. human detected.">Detect Value<input id="newDetect" type="text" placeholder="human detected" /></label>
@@ -96,7 +101,7 @@
     <div class="modal-inner browser-inner">
       <button id="closeBrowserBtn" class="modal-close">X</button>
       <h2>Objektbrowser</h2>
-      <input id="objectSearch" type="text" placeholder="State-ID filtern..." />
+      <input id="objectSearch" type="text" placeholder="Mind. 2 Zeichen eingeben (z. B. mqtt.1)" />
       <div id="objectResults" class="object-results"></div>
     </div>
   </div>
