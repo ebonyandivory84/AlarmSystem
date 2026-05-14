@@ -42,7 +42,7 @@
     <section class="grid2">
       <article class="card">
         <h2>Zonen-Canvas</h2>
-        <p class="muted">Sensoren/Detections per Drag&Drop in eine Zone ziehen.</p>
+        <p class="muted">Sensoren/Detections zwischen Palette und Zonen ziehen.</p>
         <div class="zone-canvas">
           <div class="zone perimeter" data-zone="perimeter"><span>perimeter</span></div>
           <div class="zone aussenhaut" data-zone="aussenhaut"><span>aussenhaut</span></div>
@@ -51,8 +51,32 @@
       </article>
 
       <article class="card">
-        <h2>Elemente</h2>
-        <div id="sensorList" class="sensor-list"></div>
+        <h2>Palette</h2>
+        <div id="poolZone" class="pool-zone" data-zone="pool">
+          <strong>Nicht zugeordnet</strong>
+          <div id="poolList" class="sensor-list"></div>
+        </div>
+
+        <h2 class="subhead">Neu hinzufügen</h2>
+        <div class="fields">
+          <label>Typ
+            <select id="newType">
+              <option value="pirSensorsTable">PIR</option>
+              <option value="contactSensorsTable">Kontakt</option>
+              <option value="presenceSensorsTable">Presence</option>
+              <option value="personDetectionTable">PersonDetection</option>
+            </select>
+          </label>
+          <label>Key<input id="newKey" type="text" /></label>
+          <label>Label<input id="newLabel" type="text" /></label>
+          <label>Datapoint ID<input id="newId" type="text" /></label>
+          <label>Active Values CSV<input id="newActive" type="text" placeholder="open / true / motion detected" /></label>
+          <label>Mode (nur PersonDetection)
+            <select id="newMode"><option value="boolean">boolean</option><option value="string">string</option></select>
+          </label>
+          <label>Detect Value (string Mode)<input id="newDetect" type="text" placeholder="human detected" /></label>
+        </div>
+        <div class="row"><button id="addSensorBtn" class="btn">Element hinzufügen</button></div>
       </article>
     </section>
 
