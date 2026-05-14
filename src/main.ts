@@ -136,6 +136,7 @@ class AlarmSystemAdapter extends utils.Adapter {
   private countdownTimer: ioBroker.Timeout | null = null;
   private standbySafetyTimer: ioBroker.Interval | null = null;
   private openDoorBeepResetTimer: ioBroker.Timeout | null = null;
+  private triggerLogDir: string | null = null;
 
   public constructor(options: Partial<utils.AdapterOptions> = {}) {
     super({ ...options, name: 'alarmsystem' });
@@ -145,6 +146,7 @@ class AlarmSystemAdapter extends utils.Adapter {
 
   private async onReady(): Promise<void> {
     this.cfg = this.buildConfig();
+    this.triggerLogDir = path.join(utils.getAbsoluteInstanceDataDir(this), 'trigger-logs');
     await this.subscribeStates('*');
     await this.subscribeForeignInputs();
     await this.ensureStates();
@@ -568,6 +570,7 @@ class AlarmSystemAdapter extends utils.Adapter {
     if (s) {
       const active = this.matchesAny(state.val, s.activeValues);
       if (active && this.zoneArmed[s.zone] && this.allowEvent(id)) {
+        await this.writeDailyTriggerLog('sensor', s.label, s.id, s.zone, state.val);
         await this.handleZoneTrigger(s.label, s.zone);
       }
       return;
@@ -577,6 +580,7 @@ class AlarmSystemAdapter extends utils.Adapter {
     if (p) {
       const active = this.matchesPerson(state.val, p);
       if (active && this.zoneArmed[p.zone] && this.allowEvent(id)) {
+        await this.writeDailyTriggerLog('personDetection', p.label, p.id, p.zone, state.val);
         await this.handleZoneTrigger(p.label, p.zone);
       }
       return;
@@ -588,6 +592,7 @@ class AlarmSystemAdapter extends utils.Adapter {
       const armed = this.zoneArmed.perimeter || this.zoneArmed.aussenhaut || this.zoneArmed.innenraum;
       const nightModeArmed = this.cfg.cameraNightModeArmsCameras && this.isNightModeActive();
       if (active && this.allowEvent(id) && (armed || nightModeArmed)) {
+        await this.writeDailyTriggerLog('camera', cam.label, cam.personDetectionDp || id, 'perimeter', state.val);
         await this.triggerCamera(cam);
       }
     }
@@ -964,6 +969,20 @@ class AlarmSystemAdapter extends utils.Adapter {
   private toNumber(v: unknown, fallback: number): number {
     const n = Number(v);
     return Number.isFinite(n) ? n : fallback;
+  }
+
+  private async writeDailyTriggerLog(sourceType: 'sensor' | 'personDetection' | 'camera', label: string, sourceId: string, zone: Zone, rawVal: ioBroker.StateValue): Promise<void> {
+    try {
+      const now = new Date();
+      const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      const stamp = now.toISOString();
+      const line = `${stamp};type=${sourceType};zone=${zone};label=${label};id=${sourceId};value=${String(rawVal)}\n`;
+      const baseDir = this.triggerLogDir || path.join(utils.getAbsoluteInstanceDataDir(this), 'trigger-logs');
+      await fs.mkdir(baseDir, { recursive: true });
+      await fs.appendFile(path.join(baseDir, `${day}.log`), line, 'utf8');
+    } catch (e) {
+      this.log.warn(`Trigger logfile write failed: ${String(e)}`);
+    }
   }
 
   private cloneJson<T>(value: T): T {
