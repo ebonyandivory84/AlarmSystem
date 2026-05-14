@@ -625,11 +625,11 @@
         },
         "armStateId": {
           "type": "state",
-          "label": "Alarm armed state datapoint"
+          "label": "Alarm armed state datapoint (ALL zones: perimeter+aussenhaut+innenraum)"
         },
         "perimeterStateId": {
           "type": "state",
-          "label": "Perimeter state datapoint"
+          "label": "Perimeter state datapoint (perimeter+aussenhaut)"
         },
         "triggerStateId": {
           "type": "state",

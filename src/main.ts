@@ -525,14 +525,24 @@ class AlarmSystemAdapter extends utils.Adapter {
 
     await this.handleLegacyDoorBuzzers(id, state.val);
 
-    if (id === this.cfg.armStateId && state.val === true) {
-      await this.armZone('perimeter');
-      await this.armZone('aussenhaut');
-      await this.armZone('innenraum');
+    if (id === this.cfg.armStateId) {
+      if (state.val === true) {
+        await this.armZone('perimeter');
+        await this.armZone('aussenhaut');
+        await this.armZone('innenraum');
+      } else if (state.val === false) {
+        await this.disarmAll();
+      }
       return;
     }
-    if (id === this.cfg.perimeterStateId && state.val === true) {
-      await this.armZone('perimeter');
+    if (id === this.cfg.perimeterStateId) {
+      if (state.val === true) {
+        await this.armZone('perimeter');
+        await this.armZone('aussenhaut');
+      } else if (state.val === false) {
+        await this.disarmZone('perimeter');
+        await this.disarmZone('aussenhaut');
+      }
       return;
     }
     if (id === this.cfg.panicStateId) {
