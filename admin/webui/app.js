@@ -21,6 +21,11 @@
   const triggerLogDateInput = document.getElementById('triggerLogDate');
   const triggerLogView = document.getElementById('triggerLogView');
   const selectedEntityLabel = document.getElementById('selectedEntityLabel');
+  const liveMode = document.getElementById('liveMode');
+  const livePerimeter = document.getElementById('livePerimeter');
+  const liveAussenhaut = document.getElementById('liveAussenhaut');
+  const liveInnenraum = document.getElementById('liveInnenraum');
+  const liveCameras = document.getElementById('liveCameras');
 
   const state = { socket: null, instanceObj: null, config: null, profiles: {}, activeProfile: 'default.json', instanceId: 'alarmsystem.0', objectId: 'system.adapter.alarmsystem.0', stateIds: [], selectedEntity: null };
   let objectBrowserTargetInput = null;
@@ -171,6 +176,19 @@
   }
 
   async function loadTriggerLogForDate(day){ if(!day) return; const base=`${state.instanceId}.diagnostics`; await setState(`${base}.triggerLogDate`, day); await new Promise(r=>setTimeout(r,200)); const st=await getState(`${base}.triggerLogText`); triggerLogView.textContent=st?.val?String(st.val):`Keine Trigger-Logs für ${day}`; }
+  async function refreshLiveStatus(){
+    const p = `${state.instanceId}`;
+    const mode = await getState(`${p}.runtime.mode`);
+    const zPer = await getState(`${p}.zones.perimeter.armed`);
+    const zAus = await getState(`${p}.zones.aussenhaut.armed`);
+    const zInn = await getState(`${p}.zones.innenraum.armed`);
+    const cam = await getState(state.config.cctvArmedId || '');
+    liveMode.textContent = `Mode: ${mode?.val ?? '-'}`;
+    livePerimeter.textContent = `Perimeter: ${zPer?.val === true ? 'scharf' : 'unscharf'}`;
+    liveAussenhaut.textContent = `Aussenhaut: ${zAus?.val === true ? 'scharf' : 'unscharf'}`;
+    liveInnenraum.textContent = `Innenraum: ${zInn?.val === true ? 'scharf' : 'unscharf'}`;
+    liveCameras.textContent = `Kameras: ${cam?.val === true ? 'scharf' : 'unscharf'}`;
+  }
 
   async function saveToInstance(){
     readFormIntoConfig();
@@ -215,6 +233,8 @@
     bindPoolDrop();
     bindModal();
     await reloadFromInstance();
+    await refreshLiveStatus();
+    setInterval(() => { void refreshLiveStatus(); }, 2000);
     writeRuleForm(defaultsRule());
 
     document.getElementById('reloadBtn').addEventListener('click',()=>reloadFromInstance().catch(e=>setStatus(String(e),true)));
