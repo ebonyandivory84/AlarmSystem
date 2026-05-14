@@ -125,6 +125,11 @@
   }
 
   function ensureTables(){ ['pirSensorsTable','contactSensorsTable','presenceSensorsTable','personDetectionTable'].forEach(k=>{ if(!Array.isArray(state.config[k])) state.config[k]=[]; }); }
+  function zoneByKind(kind, fallback){
+    if (kind === 'contactSensorsTable') return 'aussenhaut';
+    if (kind === 'personDetectionTable') return 'perimeter';
+    return fallback;
+  }
   function normalizeSemanticZones(){
     ensureTables();
     for (const row of state.config.contactSensorsTable) {
@@ -135,7 +140,14 @@
     }
   }
   function getEntities(){ ensureTables(); const rows=[]; const add=(arr,kind)=>arr.forEach((r,idx)=>{ if(!r||!r.id) return; rows.push({ kind, idx, entityKey: String(r.key||r.id), label:String(r.label||r.key||r.id), zone:String(r.zone||'pool'), hasPos: Number.isFinite(Number(r.posX)) && Number.isFinite(Number(r.posY)), posX: Number.isFinite(Number(r.posX))?Number(r.posX):null, posY: Number.isFinite(Number(r.posY))?Number(r.posY):null }); }); add(state.config.pirSensorsTable,'pirSensorsTable'); add(state.config.contactSensorsTable,'contactSensorsTable'); add(state.config.presenceSensorsTable,'presenceSensorsTable'); add(state.config.personDetectionTable,'personDetectionTable'); return rows; }
-  function setEntity(kind, idx, patch){ if(!Array.isArray(state.config[kind])||!state.config[kind][idx]) return; Object.assign(state.config[kind][idx], patch); }
+  function setEntity(kind, idx, patch){
+    if(!Array.isArray(state.config[kind])||!state.config[kind][idx]) return;
+    const next = { ...patch };
+    if (typeof next.zone === 'string' && next.zone !== 'pool') {
+      next.zone = zoneByKind(kind, next.zone);
+    }
+    Object.assign(state.config[kind][idx], next);
+  }
   function zoneColorClass(zone){ return zone === 'innenraum' ? 'zone-color-innenraum' : zone === 'aussenhaut' ? 'zone-color-aussenhaut' : 'zone-color-perimeter'; }
 
   function ensureEntityPositions(){
@@ -192,8 +204,8 @@
   function readFormIntoConfig(){ globalFields.querySelectorAll('[data-key]').forEach(el=>{const k=el.dataset.key; const s=globalSpec.find(x=>x[0]===k); if(!s)return; if(s[1]==='number') state.config[k]=Number(el.value||0); if(s[1]==='boolean') state.config[k]=el.value==='true';}); dpFields.querySelectorAll('[data-key]').forEach(el=>state.config[el.dataset.key]=el.value||''); }
   async function saveToInstance(){ readFormIntoConfig(); if(!state.profiles['default.json']) state.profiles['default.json']=clone(state.instanceObj.native); const obj=clone(state.instanceObj); obj.native={...obj.native,...state.config}; obj.native.activeConfigProfile=state.activeProfile; obj.native.configProfilesJson=JSON.stringify(state.profiles); await setObject(state.objectId,obj); state.instanceObj=obj; setStatus(`Gespeichert: ${state.objectId}`); }
 
-  function loadProfile(){ const n=profileSelect.value; const p=state.profiles[n]; if(!p){setStatus(`Profil nicht gefunden: ${n}`,true);return;} state.activeProfile=n; state.config=clone(p); renderAll(); setStatus(`Profil geladen: ${n}`); }
-  function saveAsProfile(){ readFormIntoConfig(); const raw=document.getElementById('newProfileName').value; const base=String(raw||'').trim().replace(/[^a-zA-Z0-9_.-]/g,'_'); const n=base?(base.endsWith('.json')?base:`${base}.json`):''; if(!n){setStatus('Bitte gültigen Profilnamen eingeben',true);return;} state.profiles[n]=clone(state.config); state.activeProfile=n; rebuildProfileSelect(); setStatus(`Profil gespeichert: ${n}`); }
+  function loadProfile(){ const n=profileSelect.value; const p=state.profiles[n]; if(!p){setStatus(`Profil nicht gefunden: ${n}`,true);return;} state.activeProfile=n; state.config=clone(p); normalizeSemanticZones(); renderAll(); setStatus(`Profil geladen: ${n}`); }
+  function saveAsProfile(){ readFormIntoConfig(); normalizeSemanticZones(); const raw=document.getElementById('newProfileName').value; const base=String(raw||'').trim().replace(/[^a-zA-Z0-9_.-]/g,'_'); const n=base?(base.endsWith('.json')?base:`${base}.json`):''; if(!n){setStatus('Bitte gültigen Profilnamen eingeben',true);return;} state.profiles[n]=clone(state.config); state.activeProfile=n; rebuildProfileSelect(); setStatus(`Profil gespeichert: ${n}`); }
   function deleteProfile(){ const n=profileSelect.value; if(n==='default.json'){setStatus('default.json kann nicht gelöscht werden',true);return;} delete state.profiles[n]; state.activeProfile='default.json'; state.config=clone(state.profiles['default.json']); renderAll(); setStatus(`Profil gelöscht: ${n}`); }
 
   async function reloadFromInstance(){ let resolved=null; const cands=buildObjectIdCandidates(rawInstance); for(const c of cands){ try{resolved=await getObject(c); state.objectId=c; state.instanceId=c.replace(/^system\.adapter\./,''); break;}catch{} } if(!resolved) throw new Error(`Objekt nicht gefunden. Geprüft: ${cands.join(', ')}`); state.instanceObj=resolved; ensureProfiles(); state.config=clone(state.instanceObj.native); normalizeSemanticZones(); instanceLabel.textContent=`Instanz: ${state.instanceId}`; await loadStateIds(); renderAll(); const today = new Date().toISOString().slice(0,10); triggerLogDateInput.value = today; await loadTriggerLogForDate(today); setStatus('Aktuelle Instanzdaten geladen'); }
