@@ -7,9 +7,12 @@ h1{margin:0;font-size:1.5rem} h2{margin:0 0 10px;font-size:1rem}.subhead{margin-
 label{display:grid;gap:4px;min-width:220px} input,select,textarea{background:#0f182d;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px}
 .btn{border:1px solid var(--line);background:#1c2a4c;color:var(--text);border-radius:10px;padding:9px 12px;cursor:pointer}.btn.primary{background:linear-gradient(135deg,#1f8f7f,#2864d8);border:none}.btn.ghost{background:transparent}.btn.danger{background:#4e1d2a;border-color:#824}
 .zone-canvas{position:relative;height:420px;border-radius:14px;border:1px dashed var(--line);overflow:hidden;background:linear-gradient(180deg,rgba(67,217,189,.05),rgba(67,217,189,.01))}
-.zone{position:absolute;inset:0;margin:auto;border:1px dashed var(--line);border-radius:50%;display:flex;align-items:flex-start;justify-content:center;color:var(--muted);padding-top:8px}
+.zone{position:absolute;inset:0;margin:auto;border:2px solid rgba(123,167,230,.55);border-radius:50%;display:flex;align-items:flex-start;justify-content:center;color:var(--muted);padding-top:8px;box-shadow:inset 0 0 0 1px rgba(6,12,24,.35)}
 .zone.perimeter{width:95%;height:95%}.zone.aussenhaut{width:70%;height:70%}.zone.innenraum{width:43%;height:43%}
 .zone{pointer-events:none}
+.zone.perimeter{background:rgba(244,231,168,.08)}
+.zone.aussenhaut{background:rgba(244,194,143,.12)}
+.zone.innenraum{background:rgba(243,166,166,.16)}
 .dot{position:absolute;width:12px;height:12px;border-radius:50%;border:1px solid rgba(20,20,20,.35);cursor:grab}
 .chip{position:absolute;border-radius:999px;padding:6px 10px;font-size:12px;cursor:grab;user-select:none;border:1px solid rgba(20,20,20,.35);color:#111}
 .dot,.chip{pointer-events:auto}
