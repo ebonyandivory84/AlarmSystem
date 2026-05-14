@@ -124,10 +124,11 @@
     }
   }
 
-  function ensureTables(){ ['pirSensorsTable','contactSensorsTable','presenceSensorsTable','personDetectionTable'].forEach(k=>{ if(!Array.isArray(state.config[k])) state.config[k]=[]; }); }
+  function ensureTables(){ ['pirSensorsTable','contactSensorsTable','presenceSensorsTable','personDetectionTable','camerasTable'].forEach(k=>{ if(!Array.isArray(state.config[k])) state.config[k]=[]; }); }
   function zoneByKind(kind, fallback){
     if (kind === 'contactSensorsTable') return 'aussenhaut';
     if (kind === 'personDetectionTable') return 'perimeter';
+    if (kind === 'camerasTable') return 'perimeter';
     return fallback;
   }
   function inferZoneByIdentity(id, key, label, fallback){
@@ -141,14 +142,15 @@
   function normalizeSemanticZones(){
     ensureTables();
     let moved = 0;
-    const groups = ['pirSensorsTable', 'contactSensorsTable', 'presenceSensorsTable', 'personDetectionTable'];
+    const groups = ['pirSensorsTable', 'contactSensorsTable', 'presenceSensorsTable', 'personDetectionTable', 'camerasTable'];
     for (const group of groups) {
       const rows = state.config[group];
       for (const row of rows) {
-        if (!row || !row.id) continue;
+        const rowId = row?.id || row?.personDetectionDp || row?.snapshotUrl || row?.ip;
+        if (!row || !rowId) continue;
         const oldZone = String(row.zone || 'perimeter');
         const base = zoneByKind(group, oldZone);
-        const newZone = inferZoneByIdentity(row.id, row.key, row.label, base);
+        const newZone = inferZoneByIdentity(rowId, row.key, row.label, base);
         row.zone = newZone;
         if (newZone !== oldZone) {
           delete row.posX;
@@ -159,7 +161,32 @@
     }
     return moved;
   }
-  function getEntities(){ ensureTables(); const rows=[]; const add=(arr,kind)=>arr.forEach((r,idx)=>{ if(!r||!r.id) return; rows.push({ kind, idx, entityKey: String(r.key||r.id), label:String(r.label||r.key||r.id), zone:String(r.zone||'pool'), hasPos: Number.isFinite(Number(r.posX)) && Number.isFinite(Number(r.posY)), posX: Number.isFinite(Number(r.posX))?Number(r.posX):null, posY: Number.isFinite(Number(r.posY))?Number(r.posY):null }); }); add(state.config.pirSensorsTable,'pirSensorsTable'); add(state.config.contactSensorsTable,'contactSensorsTable'); add(state.config.presenceSensorsTable,'presenceSensorsTable'); add(state.config.personDetectionTable,'personDetectionTable'); return rows; }
+  function getEntities(){
+    ensureTables();
+    const rows=[];
+    const add=(arr,kind,getId)=>arr.forEach((r,idx)=>{
+      const id = getId(r);
+      if(!r||!id) return;
+      const baseZone = zoneByKind(kind, String(r.zone || 'perimeter'));
+      const zone = inferZoneByIdentity(id, r.key, r.label, baseZone);
+      rows.push({
+        kind,
+        idx,
+        entityKey: String(r.key||id),
+        label:String(r.label||r.key||id),
+        zone,
+        hasPos: Number.isFinite(Number(r.posX)) && Number.isFinite(Number(r.posY)),
+        posX: Number.isFinite(Number(r.posX))?Number(r.posX):null,
+        posY: Number.isFinite(Number(r.posY))?Number(r.posY):null
+      });
+    });
+    add(state.config.pirSensorsTable,'pirSensorsTable', r => r?.id);
+    add(state.config.contactSensorsTable,'contactSensorsTable', r => r?.id);
+    add(state.config.presenceSensorsTable,'presenceSensorsTable', r => r?.id);
+    add(state.config.personDetectionTable,'personDetectionTable', r => r?.id);
+    add(state.config.camerasTable,'camerasTable', r => r?.personDetectionDp || r?.snapshotUrl || r?.ip);
+    return rows;
+  }
   function setEntity(kind, idx, patch){
     if(!Array.isArray(state.config[kind])||!state.config[kind][idx]) return;
     const next = { ...patch };
