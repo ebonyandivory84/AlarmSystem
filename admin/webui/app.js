@@ -145,8 +145,14 @@
       const rows = state.config[group];
       for (const row of rows) {
         if (!row || !row.id) continue;
-        const base = zoneByKind(group, String(row.zone || 'perimeter'));
-        row.zone = inferZoneByIdentity(row.id, row.key, row.label, base);
+        const oldZone = String(row.zone || 'perimeter');
+        const base = zoneByKind(group, oldZone);
+        const newZone = inferZoneByIdentity(row.id, row.key, row.label, base);
+        row.zone = newZone;
+        if (newZone !== oldZone) {
+          delete row.posX;
+          delete row.posY;
+        }
       }
     }
   }
