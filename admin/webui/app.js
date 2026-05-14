@@ -57,19 +57,38 @@
   }
 
   function ensureTables(){ ['pirSensorsTable','contactSensorsTable','presenceSensorsTable','personDetectionTable'].forEach(k=>{ if(!Array.isArray(state.config[k])) state.config[k]=[]; }); }
-  function getEntities(){ ensureTables(); const rows=[]; const add=(arr,kind)=>arr.forEach((r,idx)=>{ if(!r||!r.id) return; rows.push({ kind, idx, label:String(r.label||r.key||r.id), zone:String(r.zone||'pool'), posX: Number.isFinite(Number(r.posX))?Number(r.posX):50, posY: Number.isFinite(Number(r.posY))?Number(r.posY):50 }); }); add(state.config.pirSensorsTable,'pirSensorsTable'); add(state.config.contactSensorsTable,'contactSensorsTable'); add(state.config.presenceSensorsTable,'presenceSensorsTable'); add(state.config.personDetectionTable,'personDetectionTable'); return rows; }
+  function getEntities(){ ensureTables(); const rows=[]; const add=(arr,kind)=>arr.forEach((r,idx)=>{ if(!r||!r.id) return; rows.push({ kind, idx, label:String(r.label||r.key||r.id), zone:String(r.zone||'pool'), hasPos: Number.isFinite(Number(r.posX)) && Number.isFinite(Number(r.posY)), posX: Number.isFinite(Number(r.posX))?Number(r.posX):null, posY: Number.isFinite(Number(r.posY))?Number(r.posY):null }); }); add(state.config.pirSensorsTable,'pirSensorsTable'); add(state.config.contactSensorsTable,'contactSensorsTable'); add(state.config.presenceSensorsTable,'presenceSensorsTable'); add(state.config.personDetectionTable,'personDetectionTable'); return rows; }
   function setEntity(kind, idx, patch){ if(!Array.isArray(state.config[kind])||!state.config[kind][idx]) return; Object.assign(state.config[kind][idx], patch); }
-  function colorClass(kind){ return kind==='personDetectionTable' ? 'red' : 'green'; }
+  function zoneColorClass(zone){ return zone === 'innenraum' ? 'zone-color-innenraum' : zone === 'aussenhaut' ? 'zone-color-aussenhaut' : 'zone-color-perimeter'; }
+
+  function ensureEntityPositions(){
+    const byZone = { perimeter: [], aussenhaut: [], innenraum: [] };
+    const entities = getEntities().filter(e => e.zone !== 'pool');
+    for (const e of entities) if (byZone[e.zone]) byZone[e.zone].push(e);
+    for (const zone of ['perimeter', 'aussenhaut', 'innenraum']) {
+      const list = byZone[zone];
+      const missing = list.filter(e => !e.hasPos);
+      const n = missing.length;
+      if (n === 0) continue;
+      for (let i = 0; i < n; i++) {
+        const angle = (i / n) * Math.PI * 2;
+        const ring = zone === 'innenraum' ? 20 : zone === 'aussenhaut' ? 28 : 36;
+        const x = 50 + Math.cos(angle) * ring;
+        const y = 50 + Math.sin(angle) * ring;
+        setEntity(missing[i].kind, missing[i].idx, { posX: Math.max(4, Math.min(96, x)), posY: Math.max(4, Math.min(96, y)) });
+      }
+    }
+  }
 
   function addZones(canvas){ canvas.innerHTML=''; ['perimeter','aussenhaut','innenraum'].forEach(z=>{ const d=document.createElement('div'); d.className=`zone ${z}`; d.dataset.zone=z; d.innerHTML=`<span>${z}</span>`; canvas.appendChild(d); }); }
-  function drawEntity(canvas,e,detailed){ const el=document.createElement('div'); el.className=detailed?'chip':`dot ${colorClass(e.kind)}`; el.title=e.label; el.draggable=true; el.dataset.kind=e.kind; el.dataset.idx=String(e.idx); if(detailed) el.textContent=e.label; el.style.left=`${Math.max(2,Math.min(98,e.posX))}%`; el.style.top=`${Math.max(2,Math.min(98,e.posY))}%`; el.addEventListener('dragstart',ev=>ev.dataTransfer.setData('text/plain',JSON.stringify({kind:e.kind,idx:e.idx}))); const z=canvas.querySelector(`.zone.${e.zone}`); if(z) z.appendChild(el); }
+  function drawEntity(canvas,e,detailed){ const el=document.createElement('div'); el.className=(detailed?'chip ':'dot ') + zoneColorClass(e.zone); el.title=e.label; el.draggable=true; el.dataset.kind=e.kind; el.dataset.idx=String(e.idx); if(detailed) el.textContent=e.label; el.style.left=`${Math.max(2,Math.min(98,Number(e.posX || 50)))}%`; el.style.top=`${Math.max(2,Math.min(98,Number(e.posY || 50)))}%`; el.addEventListener('dragstart',ev=>ev.dataTransfer.setData('text/plain',JSON.stringify({kind:e.kind,idx:e.idx}))); const z=canvas.querySelector(`.zone.${e.zone}`); if(z) z.appendChild(el); }
   function renderCanvas(target,detailed){ addZones(target); getEntities().filter(e=>e.zone!=='pool').forEach(e=>drawEntity(target,e,detailed)); }
   function renderPool(){ poolList.innerHTML=''; getEntities().filter(e=>e.zone==='pool').forEach(e=>{ const item=document.createElement('div'); item.className='sensor-item'; item.innerHTML=`<span>${e.label}</span><span class="muted">pool</span>`; item.draggable=true; item.addEventListener('dragstart',ev=>ev.dataTransfer.setData('text/plain',JSON.stringify({kind:e.kind,idx:e.idx}))); poolList.appendChild(item); }); }
   function bindCanvasDrops(canvas){ canvas.addEventListener('dragover',e=>e.preventDefault()); canvas.addEventListener('drop',e=>{ e.preventDefault(); try{ const p=JSON.parse(e.dataTransfer.getData('text/plain')); const zoneEl=e.target.closest('.zone'); if(!zoneEl) return; const rect=zoneEl.getBoundingClientRect(); const x=((e.clientX-rect.left)/rect.width)*100; const y=((e.clientY-rect.top)/rect.height)*100; setEntity(p.kind,p.idx,{zone:zoneEl.dataset.zone,posX:Math.max(2,Math.min(98,x)),posY:Math.max(2,Math.min(98,y))}); renderAllCanvases(); }catch{ setStatus('Ungültiger Drag&Drop-Inhalt',true);} }); }
-  function renderAllCanvases(){ renderCanvas(miniCanvas,false); renderCanvas(fullCanvas,true); renderPool(); bindCanvasDrops(miniCanvas); bindCanvasDrops(fullCanvas); }
+  function renderAllCanvases(){ ensureEntityPositions(); renderCanvas(miniCanvas,false); renderCanvas(fullCanvas,true); renderPool(); bindCanvasDrops(miniCanvas); bindCanvasDrops(fullCanvas); }
   function bindPoolDrop(){ const pool=document.getElementById('poolZone'); pool.addEventListener('dragover',e=>e.preventDefault()); pool.addEventListener('drop',e=>{e.preventDefault(); try{const p=JSON.parse(e.dataTransfer.getData('text/plain')); setEntity(p.kind,p.idx,{zone:'pool'}); renderAllCanvases();}catch{setStatus('Ungültiger Drag&Drop-Inhalt',true);}}); }
 
-  function addNewEntity(){ ensureTables(); const kind=document.getElementById('newType').value; const key=(document.getElementById('newKey').value||'').trim(); const label=(document.getElementById('newLabel').value||'').trim(); const id=(document.getElementById('newId').value||'').trim(); const active=(document.getElementById('newActive').value||'').trim(); const mode=document.getElementById('newMode').value; const detect=(document.getElementById('newDetect').value||'').trim(); if(!id){setStatus('Datapoint ID ist Pflicht',true);return;} const base={key:key||id,label:label||key||id,id,zone:'pool',posX:50,posY:50}; if(kind==='personDetectionTable') state.config[kind].push({...base,mode,detectValue:mode==='string'?(detect||'human detected'):''}); else state.config[kind].push({...base,activeValuesCsv:active||'true'}); renderAllCanvases(); setStatus('Element hinzugefügt'); }
+  function addNewEntity(){ ensureTables(); const kind=document.getElementById('newType').value; const key=(document.getElementById('newKey').value||'').trim(); const label=(document.getElementById('newLabel').value||'').trim(); const id=(document.getElementById('newId').value||'').trim(); const active=(document.getElementById('newActive').value||'').trim(); const mode=document.getElementById('newMode').value; const detect=(document.getElementById('newDetect').value||'').trim(); if(!id){setStatus('Datapoint ID ist Pflicht',true);return;} const base={key:key||id,label:label||key||id,id,zone:'pool'}; if(kind==='personDetectionTable') state.config[kind].push({...base,mode,detectValue:mode==='string'?(detect||'human detected'):''}); else state.config[kind].push({...base,activeValuesCsv:active||'true'}); renderAllCanvases(); setStatus('Element hinzugefügt'); }
 
   async function manualControl(which){
     try {
