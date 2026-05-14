@@ -9,8 +9,10 @@ label{display:grid;gap:4px;min-width:220px} input,select,textarea{background:#0f
 .zone-canvas{position:relative;height:420px;border-radius:14px;border:1px dashed var(--line);overflow:hidden;background:linear-gradient(180deg,rgba(67,217,189,.05),rgba(67,217,189,.01))}
 .zone{position:absolute;inset:0;margin:auto;border:1px dashed var(--line);border-radius:50%;display:flex;align-items:flex-start;justify-content:center;color:var(--muted);padding-top:8px}
 .zone.perimeter{width:95%;height:95%}.zone.aussenhaut{width:70%;height:70%}.zone.innenraum{width:43%;height:43%}
+.zone{pointer-events:none}
 .dot{position:absolute;width:12px;height:12px;border-radius:50%;border:1px solid rgba(20,20,20,.35);cursor:grab}
 .chip{position:absolute;border-radius:999px;padding:6px 10px;font-size:12px;cursor:grab;user-select:none;border:1px solid rgba(20,20,20,.35);color:#111}
+.dot,.chip{pointer-events:auto}
 .zone-color-innenraum{background:var(--zone-in)}
 .zone-color-aussenhaut{background:var(--zone-out)}
 .zone-color-perimeter{background:var(--zone-per)}
