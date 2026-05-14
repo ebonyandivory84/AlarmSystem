@@ -84,6 +84,22 @@
     </section>
 
     <section class="card"><h2>Globale Parameter</h2><div class="fields" id="globalFields"></div></section>
+    <section class="card">
+      <h2>Element-Einstellungen</h2>
+      <p id="selectedEntityLabel" class="muted">Kein Element ausgewählt</p>
+      <div class="fields">
+        <label>Regel aktiv<select id="ruleEnabled"><option value="true">true</option><option value="false">false</option></select></label>
+        <label>Nur wenn Zone scharf<select id="ruleOnlyArmed"><option value="true">true</option><option value="false">false</option></select></label>
+        <label>Nur nachts<select id="ruleOnlyNight"><option value="true">true</option><option value="false">false</option></select></label>
+        <label>Sirene auslösen<select id="ruleSirene"><option value="false">false</option><option value="true">true</option></select></label>
+        <label>Snapshot senden<select id="ruleSnapshot"><option value="false">false</option><option value="true">true</option></select></label>
+        <label>Telegram senden<select id="ruleTelegram"><option value="false">false</option><option value="true">true</option></select></label>
+      </div>
+      <div class="row">
+        <button id="saveEntityRuleBtn" class="btn">Für Element speichern</button>
+        <button id="applyZoneRuleBtn" class="btn">Auf alle in dieser Zone anwenden</button>
+      </div>
+    </section>
     <section class="card"><h2>AlarmCenter / Kern-Datapoints</h2><div class="fields" id="dpFields"></div></section>
     <section class="card"><h2>Status</h2><pre id="statusBox" class="status ok">Bereit</pre></section>
   </div>
