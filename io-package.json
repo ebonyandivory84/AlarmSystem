@@ -706,6 +706,32 @@
       "native": {}
     },
     {
+      "_id": "diagnostics.triggerLogDate",
+      "type": "state",
+      "common": {
+        "name": "Trigger log selected date",
+        "type": "string",
+        "role": "text",
+        "read": true,
+        "write": true,
+        "def": ""
+      },
+      "native": {}
+    },
+    {
+      "_id": "diagnostics.triggerLogText",
+      "type": "state",
+      "common": {
+        "name": "Trigger log text for selected date",
+        "type": "string",
+        "role": "text",
+        "read": true,
+        "write": false,
+        "def": ""
+      },
+      "native": {}
+    },
+    {
       "_id": "rules.ifThenJson",
       "type": "state",
       "common": {

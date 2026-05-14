@@ -150,6 +150,7 @@ class AlarmSystemAdapter extends utils.Adapter {
     await this.subscribeStates('*');
     await this.subscribeForeignInputs();
     await this.ensureStates();
+    await this.refreshTriggerLogState(this.dayString(new Date()));
     await this.publishConfigStates();
     await this.refreshInitialSeen();
     await this.initializeHumanDetectionReset();
@@ -364,6 +365,8 @@ class AlarmSystemAdapter extends utils.Adapter {
       ['zones.innenraum.armed', false],
       ['diagnostics.eventsJson', '[]'],
       ['diagnostics.lastSabotage', ''],
+      ['diagnostics.triggerLogDate', this.dayString(new Date())],
+      ['diagnostics.triggerLogText', ''],
       ['rules.ifThenJson', '[]'],
       ['rules.ifThenText', ''],
       ['config.currentJson', '{}'],
@@ -519,6 +522,9 @@ class AlarmSystemAdapter extends utils.Adapter {
       }
       if (local === 'runtime.simulationMode') {
         this.cfg.simulationMode = state.val === true;
+      }
+      if (local === 'diagnostics.triggerLogDate' && typeof state.val === 'string') {
+        await this.refreshTriggerLogState(state.val);
       }
       return;
     }
@@ -980,9 +986,31 @@ class AlarmSystemAdapter extends utils.Adapter {
       const baseDir = this.triggerLogDir || path.join(utils.getAbsoluteInstanceDataDir(this), 'trigger-logs');
       await fs.mkdir(baseDir, { recursive: true });
       await fs.appendFile(path.join(baseDir, `${day}.log`), line, 'utf8');
+      const currentDate = (await this.getStateAsync('diagnostics.triggerLogDate'))?.val;
+      if (currentDate === day) {
+        await this.refreshTriggerLogState(day);
+      }
     } catch (e) {
       this.log.warn(`Trigger logfile write failed: ${String(e)}`);
     }
+  }
+
+  private dayString(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  private async refreshTriggerLogState(day: string): Promise<void> {
+    const clean = /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : this.dayString(new Date());
+    const baseDir = this.triggerLogDir || path.join(utils.getAbsoluteInstanceDataDir(this), 'trigger-logs');
+    const file = path.join(baseDir, `${clean}.log`);
+    let text = '';
+    try {
+      text = await fs.readFile(file, 'utf8');
+    } catch {
+      text = '';
+    }
+    await this.setStateAsync('diagnostics.triggerLogDate', clean, true);
+    await this.setStateAsync('diagnostics.triggerLogText', text || `Keine Trigger-Logs für ${clean}`, true);
   }
 
   private cloneJson<T>(value: T): T {

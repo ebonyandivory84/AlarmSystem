@@ -101,6 +101,14 @@
       </div>
     </section>
     <section class="card"><h2>AlarmCenter / Kern-Datapoints</h2><div class="fields" id="dpFields"></div></section>
+    <section class="card">
+      <h2>Trigger-Log</h2>
+      <div class="row">
+        <label>Datum<input id="triggerLogDate" type="date" /></label>
+        <button id="loadTriggerLogBtn" class="btn">Log laden</button>
+      </div>
+      <pre id="triggerLogView" class="status" style="max-height:260px;overflow:auto;white-space:pre-wrap"></pre>
+    </section>
     <section class="card"><h2>Status</h2><pre id="statusBox" class="status ok">Bereit</pre></section>
   </div>
 
