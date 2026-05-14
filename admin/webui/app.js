@@ -187,18 +187,35 @@
   }
 
   async function loadTriggerLogForDate(day){ if(!day) return; const base=`${state.instanceId}.diagnostics`; await setState(`${base}.triggerLogDate`, day); await new Promise(r=>setTimeout(r,200)); const st=await getState(`${base}.triggerLogText`); triggerLogView.textContent=st?.val?String(st.val):`Keine Trigger-Logs für ${day}`; }
+  function paintChip(el, armed){
+    if (!el) return;
+    el.classList.remove('armed', 'disarmed');
+    el.classList.add(armed ? 'armed' : 'disarmed');
+  }
   async function refreshLiveStatus(){
     const p = `${state.instanceId}`;
     const mode = await getState(`${p}.runtime.mode`);
+    const perDp = await getState(state.config.perimeterStateId || '');
+    const allDp = await getState(state.config.armStateId || '');
     const zPer = await getState(`${p}.zones.perimeter.armed`);
     const zAus = await getState(`${p}.zones.aussenhaut.armed`);
     const zInn = await getState(`${p}.zones.innenraum.armed`);
     const cam = await getState(state.config.cctvArmedId || '');
+    const perimeterArmed = perDp?.val === true || zPer?.val === true || zAus?.val === true;
+    const allArmed = allDp?.val === true || mode?.val === 'armed' || zInn?.val === true;
+    const innenArmed = allDp?.val === true || zInn?.val === true;
+    const aussenhautArmed = perDp?.val === true || zAus?.val === true;
+    const camerasArmed = cam?.val === true;
     liveMode.textContent = `Mode: ${mode?.val ?? '-'}`;
-    livePerimeter.textContent = `Perimeter: ${zPer?.val === true ? 'scharf' : 'unscharf'}`;
-    liveAussenhaut.textContent = `Aussenhaut: ${zAus?.val === true ? 'scharf' : 'unscharf'}`;
-    liveInnenraum.textContent = `Innenraum: ${zInn?.val === true ? 'scharf' : 'unscharf'}`;
-    liveCameras.textContent = `Kameras: ${cam?.val === true ? 'scharf' : 'unscharf'}`;
+    livePerimeter.textContent = `Perimeter: ${perimeterArmed ? 'scharf' : 'unscharf'}`;
+    liveAussenhaut.textContent = `Aussenhaut: ${aussenhautArmed ? 'scharf' : 'unscharf'}`;
+    liveInnenraum.textContent = `Innenraum: ${innenArmed ? 'scharf' : 'unscharf'}`;
+    liveCameras.textContent = `Kameras: ${camerasArmed ? 'scharf' : 'unscharf'}`;
+    paintChip(livePerimeter, perimeterArmed);
+    paintChip(liveAussenhaut, aussenhautArmed);
+    paintChip(liveInnenraum, innenArmed);
+    paintChip(liveCameras, camerasArmed);
+    paintChip(liveMode, allArmed);
   }
 
   async function saveToInstance(){
