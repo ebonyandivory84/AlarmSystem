@@ -140,6 +140,7 @@
   }
   function normalizeSemanticZones(){
     ensureTables();
+    let moved = 0;
     const groups = ['pirSensorsTable', 'contactSensorsTable', 'presenceSensorsTable', 'personDetectionTable'];
     for (const group of groups) {
       const rows = state.config[group];
@@ -152,9 +153,11 @@
         if (newZone !== oldZone) {
           delete row.posX;
           delete row.posY;
+          moved++;
         }
       }
     }
+    return moved;
   }
   function getEntities(){ ensureTables(); const rows=[]; const add=(arr,kind)=>arr.forEach((r,idx)=>{ if(!r||!r.id) return; rows.push({ kind, idx, entityKey: String(r.key||r.id), label:String(r.label||r.key||r.id), zone:String(r.zone||'pool'), hasPos: Number.isFinite(Number(r.posX)) && Number.isFinite(Number(r.posY)), posX: Number.isFinite(Number(r.posX))?Number(r.posX):null, posY: Number.isFinite(Number(r.posY))?Number(r.posY):null }); }); add(state.config.pirSensorsTable,'pirSensorsTable'); add(state.config.contactSensorsTable,'contactSensorsTable'); add(state.config.presenceSensorsTable,'presenceSensorsTable'); add(state.config.personDetectionTable,'personDetectionTable'); return rows; }
   function setEntity(kind, idx, patch){
@@ -225,8 +228,8 @@
   function saveAsProfile(){ readFormIntoConfig(); normalizeSemanticZones(); const raw=document.getElementById('newProfileName').value; const base=String(raw||'').trim().replace(/[^a-zA-Z0-9_.-]/g,'_'); const n=base?(base.endsWith('.json')?base:`${base}.json`):''; if(!n){setStatus('Bitte gültigen Profilnamen eingeben',true);return;} state.profiles[n]=clone(state.config); state.activeProfile=n; rebuildProfileSelect(); setStatus(`Profil gespeichert: ${n}`); }
   function deleteProfile(){ const n=profileSelect.value; if(n==='default.json'){setStatus('default.json kann nicht gelöscht werden',true);return;} delete state.profiles[n]; state.activeProfile='default.json'; state.config=clone(state.profiles['default.json']); renderAll(); setStatus(`Profil gelöscht: ${n}`); }
 
-  async function reloadFromInstance(){ let resolved=null; const cands=buildObjectIdCandidates(rawInstance); for(const c of cands){ try{resolved=await getObject(c); state.objectId=c; state.instanceId=c.replace(/^system\.adapter\./,''); break;}catch{} } if(!resolved) throw new Error(`Objekt nicht gefunden. Geprüft: ${cands.join(', ')}`); state.instanceObj=resolved; ensureProfiles(); state.config=clone(state.instanceObj.native); normalizeSemanticZones(); instanceLabel.textContent=`Instanz: ${state.instanceId}`; await loadStateIds(); renderAll(); const today = new Date().toISOString().slice(0,10); triggerLogDateInput.value = today; await loadTriggerLogForDate(today); setStatus('Aktuelle Instanzdaten geladen'); }
-  function renderAll(){ rebuildProfileSelect(); renderFields(); renderAllCanvases(); }
+  async function reloadFromInstance(){ let resolved=null; const cands=buildObjectIdCandidates(rawInstance); for(const c of cands){ try{resolved=await getObject(c); state.objectId=c; state.instanceId=c.replace(/^system\.adapter\./,''); break;}catch{} } if(!resolved) throw new Error(`Objekt nicht gefunden. Geprüft: ${cands.join(', ')}`); state.instanceObj=resolved; ensureProfiles(); state.config=clone(state.instanceObj.native); instanceLabel.textContent=`Instanz: ${state.instanceId}`; await loadStateIds(); renderAll(); const today = new Date().toISOString().slice(0,10); triggerLogDateInput.value = today; await loadTriggerLogForDate(today); setStatus('Aktuelle Instanzdaten geladen'); }
+  function renderAll(){ const moved = normalizeSemanticZones(); rebuildProfileSelect(); renderFields(); renderAllCanvases(); if (moved > 0) setStatus(`Zonenkorrektur: ${moved} Element(e) neu zugeordnet`); }
 
   function bindModal(){ document.getElementById('openCanvasBtn').addEventListener('click',()=>{ modal.classList.remove('hidden'); renderCanvas(fullCanvas,true); bindCanvasDrops(fullCanvas); }); document.getElementById('closeCanvasBtn').addEventListener('click',()=>modal.classList.add('hidden')); }
 
