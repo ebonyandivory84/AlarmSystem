@@ -12,6 +12,7 @@
   const fullCanvas = document.getElementById('fullCanvas');
   const modal = document.getElementById('canvasModal');
   const objectBrowserModal = document.getElementById('objectBrowserModal');
+  const entitySettingsModal = document.getElementById('entitySettingsModal');
   const stateIdsDatalist = document.getElementById('stateIds');
   const objectSearch = document.getElementById('objectSearch');
   const objectResults = document.getElementById('objectResults');
@@ -86,6 +87,7 @@
     const map = getRulesMap();
     writeRuleForm(map[entityRuleId(e)]);
     writeSelectedZone(e.zone);
+    entitySettingsModal.classList.remove('hidden');
   }
 
   function addZones(canvas){ canvas.innerHTML=''; ['perimeter','aussenhaut','innenraum'].forEach(z=>{ const d=document.createElement('div'); d.className=`zone ${z}`; d.dataset.zone=z; d.innerHTML=`<span>${z}</span>`; canvas.appendChild(d); }); }
@@ -224,6 +226,7 @@
 
     document.getElementById('browseNewIdBtn').addEventListener('click',()=>openObjectBrowser(document.getElementById('newId')));
     document.getElementById('closeBrowserBtn').addEventListener('click',closeObjectBrowser);
+    document.getElementById('closeEntitySettingsBtn').addEventListener('click',()=>entitySettingsModal.classList.add('hidden'));
     objectSearch.addEventListener('input',renderObjectResults);
     objectResults.addEventListener('click',ev=>{ const item=ev.target.closest('.object-item'); if(!item||!objectBrowserTargetInput) return; objectBrowserTargetInput.value=item.dataset.id||''; closeObjectBrowser(); });
 
