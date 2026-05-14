@@ -173,7 +173,7 @@
               "title": "Label"
             },
             {
-              "type": "text",
+              "type": "state",
               "attr": "id",
               "title": "Datapoint ID"
             },
@@ -232,7 +232,7 @@
               "title": "Label"
             },
             {
-              "type": "text",
+              "type": "state",
               "attr": "id",
               "title": "Datapoint ID"
             },
@@ -291,7 +291,7 @@
               "title": "Label"
             },
             {
-              "type": "text",
+              "type": "state",
               "attr": "id",
               "title": "Datapoint ID"
             },
@@ -350,7 +350,7 @@
               "title": "Label"
             },
             {
-              "type": "text",
+              "type": "state",
               "attr": "id",
               "title": "Datapoint ID"
             },
@@ -439,17 +439,17 @@
               "title": "Snapshot URL"
             },
             {
-              "type": "text",
+              "type": "state",
               "attr": "alarmDatapoint",
               "title": "Alarm datapoint"
             },
             {
-              "type": "text",
+              "type": "state",
               "attr": "ledDatapoint",
               "title": "LED datapoint"
             },
             {
-              "type": "text",
+              "type": "state",
               "attr": "personDetectionDp",
               "title": "Person detection datapoint"
             },
@@ -588,47 +588,47 @@
           "text": "Hardware-Interface des AlarmCenter-Terminals (Display, Buzzer, LEDs, Standby, zentrale Arm/Perimeter/Trigger/Sirene-DPs)."
         },
         "displayId": {
-          "type": "text",
+          "type": "state",
           "label": "Display datapoint"
         },
         "clearDisplayId": {
-          "type": "text",
+          "type": "state",
           "label": "Clear display datapoint"
         },
         "buzzerId": {
-          "type": "text",
+          "type": "state",
           "label": "Buzzer datapoint"
         },
         "motionSensorId": {
-          "type": "text",
+          "type": "state",
           "label": "Motion sensor datapoint"
         },
         "ledRedId": {
-          "type": "text",
+          "type": "state",
           "label": "LED red datapoint"
         },
         "ledYellowId": {
-          "type": "text",
+          "type": "state",
           "label": "LED yellow datapoint"
         },
         "standbyId": {
-          "type": "text",
+          "type": "state",
           "label": "Standby datapoint"
         },
         "armStateId": {
-          "type": "text",
+          "type": "state",
           "label": "Alarm armed state datapoint"
         },
         "perimeterStateId": {
-          "type": "text",
+          "type": "state",
           "label": "Perimeter state datapoint"
         },
         "triggerStateId": {
-          "type": "text",
+          "type": "state",
           "label": "Trigger text datapoint"
         },
         "sirenStateId": {
-          "type": "text",
+          "type": "state",
           "label": "Siren datapoint"
         }
       }
@@ -655,7 +655,7 @@
               "title": "Key"
             },
             {
-              "type": "text",
+              "type": "state",
               "attr": "id",
               "title": "Datapoint ID"
             },
