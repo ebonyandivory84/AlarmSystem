@@ -1,7 +1,6 @@
 (() => {
   const qs = new URLSearchParams(window.location.search);
-  const instanceId = qs.get('instance') || 'alarmsystem.0';
-  const objectId = `system.adapter.${instanceId}`;
+  const rawInstance = qs.get('instance') || 'alarmsystem.0';
 
   const statusBox = document.getElementById('statusBox');
   const instanceLabel = document.getElementById('instanceLabel');
@@ -16,6 +15,8 @@
     config: null,
     profiles: {},
     activeProfile: 'default.json',
+    instanceId: 'alarmsystem.0',
+    objectId: 'system.adapter.alarmsystem.0',
   };
 
   const globalSpec = [
@@ -50,6 +51,24 @@
     return JSON.parse(JSON.stringify(v));
   }
 
+  function normalizeInstanceId(v) {
+    let out = String(v || '').trim();
+    if (out.startsWith('system.adapter.')) out = out.slice('system.adapter.'.length);
+    if (out.startsWith('iobroker.')) out = out.slice('iobroker.'.length);
+    if (!out.includes('.')) out = `${out}.0`;
+    return out;
+  }
+
+  function buildObjectIdCandidates(raw) {
+    const n = normalizeInstanceId(raw);
+    const candidates = new Set([
+      `system.adapter.${n}`,
+      `system.adapter.${raw}`,
+      `system.adapter.${String(raw || '').replace(/^system\\.adapter\\./, '')}`
+    ]);
+    return [...candidates].filter(Boolean);
+  }
+
   function connectSocket() {
     const socket = window.socket || window.io?.connect?.(window.location.origin, { path: '/socket.io' });
     if (!socket) throw new Error('Kein Admin-Socket gefunden. Bitte im ioBroker-Admin öffnen.');
@@ -58,11 +77,16 @@
 
   function getObject(id) {
     return new Promise((resolve, reject) => {
+      const cb = (a, b) => {
+        const obj = b || a;
+        if (obj && typeof obj === 'object' && !obj.error) resolve(obj);
+        else reject(new Error(`Objekt ${id} nicht gefunden`));
+      };
       if (typeof state.socket.getObject === 'function') {
-        state.socket.getObject(id, obj => obj ? resolve(obj) : reject(new Error(`Objekt ${id} nicht gefunden`)));
+        state.socket.getObject(id, cb);
         return;
       }
-      state.socket.emit('getObject', id, obj => obj ? resolve(obj) : reject(new Error(`Objekt ${id} nicht gefunden`)));
+      state.socket.emit('getObject', id, cb);
     });
   }
 
@@ -240,9 +264,9 @@
     obj.native.activeConfigProfile = state.activeProfile;
     obj.native.configProfilesJson = JSON.stringify(state.profiles);
 
-    await setObject(objectId, obj);
+    await setObject(state.objectId, obj);
     state.instanceObj = obj;
-    setStatus(`Gespeichert: ${objectId}`);
+    setStatus(`Gespeichert: ${state.objectId}`);
   }
 
   function loadProfile() {
@@ -286,10 +310,22 @@
   }
 
   async function reloadFromInstance() {
-    state.instanceObj = await getObject(objectId);
+    const candidates = buildObjectIdCandidates(rawInstance);
+    let resolved = null;
+    for (const c of candidates) {
+      try {
+        resolved = await getObject(c);
+        state.objectId = c;
+        state.instanceId = c.replace(/^system\\.adapter\\./, '');
+        break;
+      } catch {
+      }
+    }
+    if (!resolved) throw new Error(`Objekt nicht gefunden. Geprüft: ${candidates.join(', ')}`);
+    state.instanceObj = resolved;
     ensureProfiles();
     state.config = clone(state.instanceObj.native);
-    instanceLabel.textContent = `Instanz: ${instanceId}`;
+    instanceLabel.textContent = `Instanz: ${state.instanceId}`;
     renderAll();
     setStatus('Aktuelle Instanzdaten geladen');
   }
