@@ -148,6 +148,7 @@ class AlarmSystemAdapter extends utils.Adapter {
     await this.subscribeStates('*');
     await this.subscribeForeignInputs();
     await this.ensureStates();
+    await this.publishConfigStates();
     await this.refreshInitialSeen();
     await this.initializeHumanDetectionReset();
     await this.publishRuleView();
@@ -363,9 +364,31 @@ class AlarmSystemAdapter extends utils.Adapter {
       ['diagnostics.lastSabotage', ''],
       ['rules.ifThenJson', '[]'],
       ['rules.ifThenText', ''],
+      ['config.currentJson', '{}'],
+      ['config.profilesJson', '{}'],
+      ['config.profileNamesJson', '[]'],
+      ['config.activeProfile', 'default.json'],
+      ['config.activeProfileJson', '{}'],
       ['commands.ackActiveCase', false]
     ];
     for (const [id, val] of defaults) await this.setStateAsync(id, val, true);
+  }
+
+  private async publishConfigStates(): Promise<void> {
+    const n = this.config as Record<string, any>;
+    const current = this.cloneJson(n);
+    const rawProfiles = this.tryJson<Record<string, unknown>>(n.configProfilesJson, {});
+    const profiles: Record<string, unknown> = this.cloneJson(rawProfiles) || {};
+
+    if (!profiles['default.json']) profiles['default.json'] = current;
+    let activeProfile = typeof n.activeConfigProfile === 'string' && n.activeConfigProfile ? n.activeConfigProfile : 'default.json';
+    if (!profiles[activeProfile]) activeProfile = 'default.json';
+
+    await this.setStateAsync('config.currentJson', JSON.stringify(current), true);
+    await this.setStateAsync('config.profilesJson', JSON.stringify(profiles), true);
+    await this.setStateAsync('config.profileNamesJson', JSON.stringify(Object.keys(profiles).sort()), true);
+    await this.setStateAsync('config.activeProfile', activeProfile, true);
+    await this.setStateAsync('config.activeProfileJson', JSON.stringify(this.cloneJson(profiles[activeProfile])), true);
   }
 
   private async publishRuleView(): Promise<void> {
@@ -931,6 +954,14 @@ class AlarmSystemAdapter extends utils.Adapter {
   private toNumber(v: unknown, fallback: number): number {
     const n = Number(v);
     return Number.isFinite(n) ? n : fallback;
+  }
+
+  private cloneJson<T>(value: T): T {
+    try {
+      return JSON.parse(JSON.stringify(value)) as T;
+    } catch {
+      return value;
+    }
   }
 
   private tryJson<T>(raw: unknown, fallback: T): T {

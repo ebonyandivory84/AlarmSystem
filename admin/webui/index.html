@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AlarmSystem WebUI</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div>
+        <h1>AlarmSystem WebUI</h1>
+        <p id="instanceLabel" class="muted">Instanz: -</p>
+      </div>
+      <div class="actions">
+        <button id="reloadBtn" class="btn ghost">Neu laden</button>
+        <button id="saveBtn" class="btn primary">In Instanz speichern</button>
+      </div>
+    </header>
+
+    <section class="card">
+      <h2>Konfigurationsprofile</h2>
+      <div class="row">
+        <label>
+          Aktives Profil
+          <select id="profileSelect"></select>
+        </label>
+        <button id="loadProfileBtn" class="btn">Profil laden</button>
+      </div>
+      <div class="row">
+        <label>
+          Neues Profil
+          <input id="newProfileName" type="text" placeholder="z.B. home-night.json" />
+        </label>
+        <button id="saveProfileBtn" class="btn">Als Profil speichern</button>
+        <button id="deleteProfileBtn" class="btn danger">Profil löschen</button>
+      </div>
+      <p class="muted">`default.json` bleibt immer erhalten.</p>
+    </section>
+
+    <section class="grid2">
+      <article class="card">
+        <h2>Zonen-Canvas</h2>
+        <p class="muted">Sensoren/Detections per Drag&Drop in eine Zone ziehen.</p>
+        <div class="zone-canvas">
+          <div class="zone perimeter" data-zone="perimeter"><span>perimeter</span></div>
+          <div class="zone aussenhaut" data-zone="aussenhaut"><span>aussenhaut</span></div>
+          <div class="zone innenraum" data-zone="innenraum"><span>innenraum</span></div>
+        </div>
+      </article>
+
+      <article class="card">
+        <h2>Elemente</h2>
+        <div id="sensorList" class="sensor-list"></div>
+      </article>
+    </section>
+
+    <section class="card">
+      <h2>Globale Parameter</h2>
+      <div class="fields" id="globalFields"></div>
+    </section>
+
+    <section class="card">
+      <h2>AlarmCenter / Kern-Datapoints</h2>
+      <div class="fields" id="dpFields"></div>
+    </section>
+
+    <section class="card">
+      <h2>Status</h2>
+      <pre id="statusBox" class="status ok">Bereit</pre>
+    </section>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>

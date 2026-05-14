@@ -37,6 +37,12 @@
     "adminUI": {
       "config": "json"
     },
+    "localLinks": {
+      "WebUI": {
+        "link": "%web_protocol%://%ip%:%web_port%/adapter/alarmsystem/webui/index.html?instance=alarmsystem.%instance%",
+        "icon": "web"
+      }
+    },
     "dependencies": [
       {
         "js-controller": ">=5.0.19"
@@ -562,7 +568,9 @@
     "resetHumanDetectionIdsJson": "[\"mqtt.2.HumanDetection.CamBackyard\",\"mqtt.2.HumanDetection.CamBalkonyNorth\",\"mqtt.2.HumanDetection.CamBalkonySouth\",\"mqtt.2.HumanDetection.CamDriveway\",\"mqtt.2.HumanDetection.CamFrontyardLeft\",\"mqtt.2.HumanDetection.CamFrontyardRight\",\"mqtt.2.HumanDetection.CamTerrace\"]",
     "cameraAlarmOnIdsJson": "[\"0_userdata.0.CamBackyard.Alarm_ON\",\"0_userdata.0.CamBalkonyNorth.Alarm_ON\",\"0_userdata.0.CamBalkonySouth.Alarm_ON\",\"0_userdata.0.CamDriveway.Alarm_ON\",\"0_userdata.0.CamFrontyardLeft.Alarm_ON\",\"0_userdata.0.CamFrontyardRight.Alarm_ON\",\"0_userdata.0.CamTerrace.Alarm_ON\"]",
     "cameraAlarmOffIdsJson": "[\"0_userdata.0.CamBackyard.Alarm_OFF\",\"0_userdata.0.CamBalkonyNorth.Alarm_OFF\",\"0_userdata.0.CamBalkonySouth.Alarm_OFF\",\"0_userdata.0.CamDriveway.Alarm_OFF\",\"0_userdata.0.CamFrontyardLeft.Alarm_OFF\",\"0_userdata.0.CamFrontyardRight.Alarm_OFF\",\"0_userdata.0.CamTerrace.Alarm_OFF\"]",
-    "reolinkSirenIdsJson": "[\"reolink.0.settings.playAlarm\",\"reolink.1.settings.playAlarm\",\"reolink.2.settings.playAlarm\",\"reolink.3.settings.playAlarm\"]"
+    "reolinkSirenIdsJson": "[\"reolink.0.settings.playAlarm\",\"reolink.1.settings.playAlarm\",\"reolink.2.settings.playAlarm\",\"reolink.3.settings.playAlarm\"]",
+    "activeConfigProfile": "default.json",
+    "configProfilesJson": "{}"
   },
   "objects": [],
   "instanceObjects": [
@@ -720,6 +728,71 @@
         "read": true,
         "write": false,
         "def": ""
+      },
+      "native": {}
+    },
+    {
+      "_id": "config.currentJson",
+      "type": "state",
+      "common": {
+        "name": "Current config JSON",
+        "type": "string",
+        "role": "json",
+        "read": true,
+        "write": false,
+        "def": "{}"
+      },
+      "native": {}
+    },
+    {
+      "_id": "config.profilesJson",
+      "type": "state",
+      "common": {
+        "name": "Config profiles JSON",
+        "type": "string",
+        "role": "json",
+        "read": true,
+        "write": false,
+        "def": "{}"
+      },
+      "native": {}
+    },
+    {
+      "_id": "config.profileNamesJson",
+      "type": "state",
+      "common": {
+        "name": "Config profile names JSON",
+        "type": "string",
+        "role": "json",
+        "read": true,
+        "write": false,
+        "def": "[]"
+      },
+      "native": {}
+    },
+    {
+      "_id": "config.activeProfile",
+      "type": "state",
+      "common": {
+        "name": "Active config profile",
+        "type": "string",
+        "role": "text",
+        "read": true,
+        "write": false,
+        "def": "default.json"
+      },
+      "native": {}
+    },
+    {
+      "_id": "config.activeProfileJson",
+      "type": "state",
+      "common": {
+        "name": "Active config profile JSON",
+        "type": "string",
+        "role": "json",
+        "read": true,
+        "write": false,
+        "def": "{}"
       },
       "native": {}
     },
