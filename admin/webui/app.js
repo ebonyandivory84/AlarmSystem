@@ -51,7 +51,7 @@
   }
 
   function connectSocket() {
-    const socket = window.socket || window.parent?.socket || window.opener?.socket || window.io?.connect?.();
+    const socket = window.socket || window.io?.connect?.(window.location.origin, { path: '/socket.io' });
     if (!socket) throw new Error('Kein Admin-Socket gefunden. Bitte im ioBroker-Admin öffnen.');
     state.socket = socket;
   }
