@@ -11,10 +11,15 @@
   const miniCanvas = document.getElementById('miniCanvas');
   const fullCanvas = document.getElementById('fullCanvas');
   const modal = document.getElementById('canvasModal');
+  const objectBrowserModal = document.getElementById('objectBrowserModal');
   const stateIdsDatalist = document.getElementById('stateIds');
+  const objectSearch = document.getElementById('objectSearch');
+  const objectResults = document.getElementById('objectResults');
+  const addResult = document.getElementById('addResult');
   const miniHoverInfo = document.getElementById('miniHoverInfo');
 
   const state = { socket: null, instanceObj: null, config: null, profiles: {}, activeProfile: 'default.json', instanceId: 'alarmsystem.0', objectId: 'system.adapter.alarmsystem.0', stateIds: [] };
+  let objectBrowserTargetInput = null;
   const globalSpec = [['defaultEntryDelaySec','number','Standard Entry-Delay je Zone in Sekunden.'],['defaultExitDelaySec','number','Standard Exit-Delay je Zone in Sekunden.'],['eventDedupeMs','number','Unterdrückt doppelte Trigger innerhalb dieses Zeitfensters.'],['heartbeatTimeoutSec','number','Nach dieser Zeit ohne Update wird Sabotage/Offline gemeldet.'],['snapshotSendDelayMs','number','Wartezeit vor Snapshot-Versand nach Trigger.'],['snapshotBurstCount','number','Anzahl Snapshot-Bilder pro Trigger.'],['snapshotBurstIntervalMs','number','Abstand zwischen Burst-Bildern.'],['autoArmDelaySec','number','Verzögerung vor automatischem Scharfschalten.'],['bedtimeHour','number','Stunde für Bedtime-Logik.'],['bedtimeLightThreshold','number','Lux-Schwelle für Bedtime-Logik.'],['simulationMode','boolean','Keine realen Aktorschaltungen, nur Logeinträge.'],['cameraNightModeEnabled','boolean','Aktiviert Night-Mode-Zeitraum (Dusk bis SunriseEnd).'],['cameraNightModeArmsCameras','boolean','Erlaubt Kamera-Trigger im Night-Mode auch bei unscharfen Zonen.']];
   const dpSpec = [
     ['armStateId','DP für Haupt-Scharfzustand der Alarmanlage.'],['perimeterStateId','DP für Scharfzustand Perimeter-Schutz.'],['triggerStateId','DP für Trigger-/Alarmtext.'],['sirenStateId','DP für Sirene Ein/Aus.'],['displayId','DP für Displayausgabe AlarmCenter.'],['clearDisplayId','DP zum Löschen des Displays.'],['buzzerId','DP für Buzzer/Signalton.'],['ledRedId','DP für roten LED-Ring.'],['ledYellowId','DP für gelben LED-Ring.'],['standbyId','DP für Standby-Modus.'],['motionSensorId','DP des Bewegungssensors am Panel.'],['panicStateId','DP für Panic-Auslösung.'],['fingerprintStateId','DP für Fingerprint-Ereignistext.'],['pinStateId','DP für PIN-Eingabe.'],['statusId','DP für generellen AlarmCenter-Status.']
@@ -38,15 +43,38 @@
         stateIdsDatalist.innerHTML = state.stateIds.slice(0, 5000).map(id => `<option value="${id}"></option>`).join('');
         resolve();
       };
+      const parseRows = raw => {
+        const data = (raw && raw.rows) ? raw : (Array.isArray(raw) ? { rows: raw } : null);
+        const ids = Object.keys((data && data.rows) ? data.rows.reduce((a, r) => { if (r && r.id) a[r.id] = 1; return a; }, {}) : {});
+        finish(ids.sort());
+      };
       if (typeof state.socket.getObjectView === 'function') {
-        state.socket.getObjectView('system', 'state', { startkey: '', endkey: '\u9999' }, data => {
-          const ids = Object.keys((data && data.rows) ? data.rows.reduce((a,r)=>{a[r.id]=1; return a;}, {}) : {});
-          finish(ids.sort());
-        });
+        state.socket.getObjectView('system', 'state', { startkey: '', endkey: '\u9999' }, (a, b) => parseRows(b || a));
+      } else if (typeof state.socket.emit === 'function') {
+        state.socket.emit('getObjectView', 'system', 'state', { startkey: '', endkey: '\u9999' }, (a, b) => parseRows(b || a));
       } else {
         finish([]);
       }
     });
+  }
+
+  function openObjectBrowser(targetInput){
+    objectBrowserTargetInput = targetInput;
+    objectBrowserModal.classList.remove('hidden');
+    objectSearch.value = targetInput.value || '';
+    renderObjectResults();
+    objectSearch.focus();
+  }
+
+  function closeObjectBrowser(){
+    objectBrowserModal.classList.add('hidden');
+    objectBrowserTargetInput = null;
+  }
+
+  function renderObjectResults(){
+    const q = String(objectSearch.value || '').toLowerCase().trim();
+    const list = state.stateIds.filter(id => !q || id.toLowerCase().includes(q)).slice(0, 800);
+    objectResults.innerHTML = list.map(id => `<div class="object-item" data-id="${id}">${id}</div>`).join('') || '<div class="muted">Keine Treffer</div>';
   }
 
   function ensureProfiles(){ let p={}; try{p=JSON.parse(state.instanceObj.native.configProfilesJson||'{}');}catch{} if(!p||typeof p!=='object') p={}; if(!p['default.json']) p['default.json']=clone(state.instanceObj.native); state.profiles=p; const ac=String(state.instanceObj.native.activeConfigProfile||'default.json'); state.activeProfile=p[ac]?ac:'default.json'; }
@@ -89,7 +117,7 @@
   function renderAllCanvases(){ ensureEntityPositions(); renderCanvas(miniCanvas,false); renderCanvas(fullCanvas,true); renderPool(); bindCanvasDrops(miniCanvas); bindCanvasDrops(fullCanvas); }
   function bindPoolDrop(){ const pool=document.getElementById('poolZone'); pool.addEventListener('dragover',e=>e.preventDefault()); pool.addEventListener('drop',e=>{e.preventDefault(); try{const p=JSON.parse(e.dataTransfer.getData('text/plain')); setEntity(p.kind,p.idx,{zone:'pool'}); renderAllCanvases();}catch{setStatus('Ungültiger Drag&Drop-Inhalt',true);}}); }
 
-  function addNewEntity(){ ensureTables(); const kind=document.getElementById('newType').value; const key=(document.getElementById('newKey').value||'').trim(); const label=(document.getElementById('newLabel').value||'').trim(); const id=(document.getElementById('newId').value||'').trim(); const active=(document.getElementById('newActive').value||'').trim(); const mode=document.getElementById('newMode').value; const detect=(document.getElementById('newDetect').value||'').trim(); if(!id){setStatus('Datapoint ID ist Pflicht',true);return;} const base={key:key||id,label:label||key||id,id,zone:'pool'}; if(kind==='personDetectionTable') state.config[kind].push({...base,mode,detectValue:mode==='string'?(detect||'human detected'):''}); else state.config[kind].push({...base,activeValuesCsv:active||'true'}); renderAllCanvases(); setStatus('Element hinzugefügt'); }
+  function addNewEntity(){ ensureTables(); const kind=document.getElementById('newType').value; const key=(document.getElementById('newKey').value||'').trim(); const label=(document.getElementById('newLabel').value||'').trim(); const id=(document.getElementById('newId').value||'').trim(); const active=(document.getElementById('newActive').value||'').trim(); const mode=document.getElementById('newMode').value; const detect=(document.getElementById('newDetect').value||'').trim(); if(!id){setStatus('Datapoint ID ist Pflicht',true); if(addResult) addResult.textContent='Datapoint ID fehlt'; return;} const base={key:key||id,label:label||key||id,id,zone:'pool'}; if(kind==='personDetectionTable') state.config[kind].push({...base,mode,detectValue:mode==='string'?(detect||'human detected'):''}); else state.config[kind].push({...base,activeValuesCsv:active||'true'}); renderAllCanvases(); setStatus('Element hinzugefügt'); if(addResult) addResult.textContent=`Hinzugefügt: ${base.label}`; }
 
   async function manualControl(which){
     try {
@@ -125,6 +153,6 @@
 
   function bindModal(){ document.getElementById('openCanvasBtn').addEventListener('click',()=>{ modal.classList.remove('hidden'); renderCanvas(fullCanvas,true); bindCanvasDrops(fullCanvas); }); document.getElementById('closeCanvasBtn').addEventListener('click',()=>modal.classList.add('hidden')); }
 
-  async function init(){ connectSocket(); bindPoolDrop(); bindModal(); await reloadFromInstance(); document.getElementById('reloadBtn').addEventListener('click',()=>reloadFromInstance().catch(e=>setStatus(String(e),true))); document.getElementById('saveBtn').addEventListener('click',()=>saveToInstance().catch(e=>setStatus(String(e),true))); document.getElementById('loadProfileBtn').addEventListener('click',loadProfile); document.getElementById('saveProfileBtn').addEventListener('click',saveAsProfile); document.getElementById('deleteProfileBtn').addEventListener('click',deleteProfile); document.getElementById('addSensorBtn').addEventListener('click',addNewEntity); document.getElementById('armAlarmBtn').addEventListener('click',()=>manualControl('armAlarm')); document.getElementById('disarmAlarmBtn').addEventListener('click',()=>manualControl('disarmAlarm')); document.getElementById('armPerimeterBtn').addEventListener('click',()=>manualControl('armPerimeter')); document.getElementById('disarmPerimeterBtn').addEventListener('click',()=>manualControl('disarmPerimeter')); document.getElementById('armCamerasBtn').addEventListener('click',()=>manualControl('armCameras')); document.getElementById('disarmCamerasBtn').addEventListener('click',()=>manualControl('disarmCameras')); }
+  async function init(){ connectSocket(); bindPoolDrop(); bindModal(); await reloadFromInstance(); document.getElementById('reloadBtn').addEventListener('click',()=>reloadFromInstance().catch(e=>setStatus(String(e),true))); document.getElementById('saveBtn').addEventListener('click',()=>saveToInstance().catch(e=>setStatus(String(e),true))); document.getElementById('loadProfileBtn').addEventListener('click',loadProfile); document.getElementById('saveProfileBtn').addEventListener('click',saveAsProfile); document.getElementById('deleteProfileBtn').addEventListener('click',deleteProfile); document.getElementById('addSensorBtn').addEventListener('click',addNewEntity); document.getElementById('browseNewIdBtn').addEventListener('click',()=>openObjectBrowser(document.getElementById('newId'))); document.getElementById('closeBrowserBtn').addEventListener('click',closeObjectBrowser); objectSearch.addEventListener('input',renderObjectResults); objectResults.addEventListener('click',ev=>{ const item = ev.target.closest('.object-item'); if(!item || !objectBrowserTargetInput) return; objectBrowserTargetInput.value = item.dataset.id || ''; closeObjectBrowser(); }); document.getElementById('armAlarmBtn').addEventListener('click',()=>manualControl('armAlarm')); document.getElementById('disarmAlarmBtn').addEventListener('click',()=>manualControl('disarmAlarm')); document.getElementById('armPerimeterBtn').addEventListener('click',()=>manualControl('armPerimeter')); document.getElementById('disarmPerimeterBtn').addEventListener('click',()=>manualControl('disarmPerimeter')); document.getElementById('armCamerasBtn').addEventListener('click',()=>manualControl('armCameras')); document.getElementById('disarmCamerasBtn').addEventListener('click',()=>manualControl('disarmCameras')); }
   init().catch(err=>setStatus(String(err),true));
 })();
