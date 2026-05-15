@@ -703,9 +703,10 @@
         return;
       }
       const h = e.target.closest('.resize-handle');
-      if (!h || !state.editImage) return;
+      const onFrame = e.target.closest('.image-resize-handles');
+      if ((!h && !onFrame) || !state.editImage) return;
       e.preventDefault();
-      const corner = h.dataset.corner;
+      const corner = h ? h.dataset.corner : 'move';
       const l = getCurrentLayout();
       snapshotCanvasState();
       state.dragResize = { corner, startX: e.clientX, startY: e.clientY, start: { ...l.imageRect } };
