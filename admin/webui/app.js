@@ -344,8 +344,6 @@
   function setEntity(kind, idx, patch) {
     if (!Array.isArray(state.config[kind]) || !state.config[kind][idx]) return;
     const row = state.config[kind][idx];
-    const oldZone = String(row.zone || 'pool');
-    const newZone = typeof patch.zone === 'string' ? patch.zone : oldZone;
     const floor = String((patch.floor || row.floor || state.currentFloor || 'EG'));
     const floorNorm = floor === 'OG' ? 'OG' : 'EG';
     if (Object.prototype.hasOwnProperty.call(patch, 'posX')) row[floorNorm === 'OG' ? 'posXOg' : 'posXEg'] = patch.posX;
@@ -356,11 +354,6 @@
     Object.assign(row, basePatch);
     row.floor = floorNorm;
     if (typeof patch.zone === 'string') row.manualZone = true;
-    const movedWithoutPos = (newZone !== oldZone) && !('posX' in patch) && !('posY' in patch) && newZone !== 'pool';
-    if (movedWithoutPos) {
-      if (floorNorm === 'OG') { delete row.posXOg; delete row.posYOg; }
-      else { delete row.posXEg; delete row.posYEg; delete row.posX; delete row.posY; }
-    }
   }
 
   function zoneClass(zone) {
