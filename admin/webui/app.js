@@ -531,7 +531,7 @@
 
     const handles = document.createElement('div');
     handles.className = 'image-resize-handles';
-    ['nw','ne','sw','se'].forEach(corner => {
+    ['nw','ne','sw','se','move'].forEach(corner => {
       const h = document.createElement('button');
       h.type = 'button';
       h.className = `resize-handle ${corner}`;
@@ -697,10 +697,9 @@
         return;
       }
       const h = e.target.closest('.resize-handle');
-      const onFrame = e.target.closest('.image-resize-handles');
-      if ((!h && !onFrame) || !state.editZones) return;
+      if (!h || !state.editZones) return;
       e.preventDefault();
-      const corner = h ? h.dataset.corner : 'move';
+      const corner = h.dataset.corner;
       const l = getCurrentLayout();
       snapshotCanvasState();
       state.dragResize = { corner, startX: e.clientX, startY: e.clientY, start: { ...l.imageRect } };
