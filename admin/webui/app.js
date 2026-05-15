@@ -1276,6 +1276,10 @@
     if (type === 'garage') return { w: 150, h: 70, r: 0 };
     if (type === 'stairs') return { w: 160, h: 56, r: 0 };
     if (type === 'wc') return { w: 42, h: 34, r: 0 };
+    if (type === 'washbasin') return { w: 54, h: 36, r: 0 };
+    if (type === 'bathtub') return { w: 130, h: 54, r: 0 };
+    if (type === 'shower') return { w: 72, h: 72, r: 0 };
+    if (type === 'sink') return { w: 88, h: 42, r: 0 };
     if (type === 'kitchen') return { w: 160, h: 60, r: 0 };
     if (type === 'stove') return { w: 70, h: 50, r: 0 };
     if (type === 'cabinet') return { w: 80, h: 40, r: 0 };
@@ -1371,6 +1375,28 @@
     } else if (type === 'wc') {
       inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="8"></rect>`;
       inner += `<ellipse cx="0" cy="2" rx="${Math.max(5, hw - 8)}" ry="${Math.max(4, hh - 10)}" class="arch-soft-fill"></ellipse>`;
+    } else if (type === 'washbasin') {
+      inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="10"></rect>`;
+      inner += `<ellipse cx="0" cy="4" rx="${Math.max(6, hw - 10)}" ry="${Math.max(4, hh - 10)}" class="arch-soft-fill"></ellipse>`;
+      inner += `<line x1="-6" y1="${-hh - 6}" x2="6" y2="${-hh - 6}" class="arch-stroke"></line>`;
+      inner += `<line x1="0" y1="${-hh - 6}" x2="0" y2="${-hh + 2}" class="arch-stroke"></line>`;
+    } else if (type === 'bathtub') {
+      inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="${Math.max(10, Math.min(hw, hh) * 0.6)}"></rect>`;
+      inner += `<rect x="${-hw + 8}" y="${-hh + 8}" width="${Math.max(8, w - 16)}" height="${Math.max(8, h - 16)}" rx="${Math.max(8, Math.min(hw, hh) * 0.45)}" class="arch-soft-fill"></rect>`;
+      inner += `<circle cx="${hw - 14}" cy="0" r="3" class="arch-stroke"></circle>`;
+    } else if (type === 'shower') {
+      inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="4"></rect>`;
+      inner += `<line x1="${-hw}" y1="${-hh}" x2="${hw}" y2="${hh}" class="arch-soft"></line>`;
+      inner += `<line x1="${hw}" y1="${-hh}" x2="${-hw}" y2="${hh}" class="arch-soft"></line>`;
+      inner += `<circle cx="0" cy="0" r="${Math.max(4, Math.min(hw, hh) * 0.16)}" class="arch-stroke"></circle>`;
+    } else if (type === 'sink') {
+      inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="6"></rect>`;
+      const basinW = Math.max(10, (w - 18) / 2);
+      const basinH = Math.max(8, h - 16);
+      inner += `<rect x="${-hw + 6}" y="${-hh + 8}" width="${basinW}" height="${basinH}" rx="4" class="arch-soft-fill"></rect>`;
+      inner += `<rect x="${hw - 6 - basinW}" y="${-hh + 8}" width="${basinW}" height="${basinH}" rx="4" class="arch-soft-fill"></rect>`;
+      inner += `<line x1="-6" y1="${-hh + 4}" x2="6" y2="${-hh + 4}" class="arch-stroke"></line>`;
+      inner += `<line x1="0" y1="${-hh + 4}" x2="0" y2="${-hh + 10}" class="arch-stroke"></line>`;
     } else if (type === 'garage') {
       inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="2"></rect>`;
       for (let y = -hh + 10; y < hh; y += 10) inner += `<line x1="${-hw}" y1="${y}" x2="${hw}" y2="${y}" class="arch-stroke"></line>`;
