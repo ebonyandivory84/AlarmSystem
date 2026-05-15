@@ -71,7 +71,7 @@
     floorLayouts: { EG: null, OG: null },
     dragResize: null,
     canvasHistory: [],
-    floorRatios: { EG: 0.84, OG: 0.84 }
+    floorRatios: { EG: 0.907, OG: 0.906 }
   };
   const DISARM_PIN = '1492';
 
@@ -672,8 +672,8 @@
 
   function getFloorRatio(floor) {
     const f = floor === 'OG' ? 'OG' : 'EG';
-    const r = Number(state.floorRatios[f] || 0.84);
-    return Number.isFinite(r) && r > 0 ? r : 0.84;
+    const r = Number(state.floorRatios[f] || 0.907);
+    return Number.isFinite(r) && r > 0 ? r : 0.907;
   }
 
   function fitRectToRatio(rect, ratio) {
