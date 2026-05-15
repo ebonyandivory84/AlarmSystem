@@ -171,6 +171,7 @@ details summary{cursor:pointer;color:var(--muted);font-weight:600}
 .designer-wall.outer{stroke:#9dffbf;stroke-width:3}
 .designer-wall.drawing{stroke-dasharray:7 5;cursor:crosshair}
 .designer-wall-point{fill:#8fffb8;stroke:#052112;stroke-width:1.5;cursor:grab}
+.designer-wall-close-point{fill:rgba(124,242,165,.22);stroke:#7cf2a5;stroke-width:2;pointer-events:none}
 .designer-room{fill:rgba(124,242,165,.08);stroke:#7cf2a5;stroke-width:1.5}
 .designer-perimeter{stroke:#7cf2a5;stroke-dasharray:8 6;stroke-width:2;fill:rgba(124,242,165,.04)}
 .designer-item{stroke:#7cf2a5;fill:rgba(124,242,165,.10);stroke-width:1.5}

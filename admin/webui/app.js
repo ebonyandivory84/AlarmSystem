@@ -108,6 +108,7 @@
         OG: { showBg: true, useInOverviewOnly: false }
       },
       dragItemId: null,
+      pendingBeamConnect: null,
       dragWallId: null,
       dragWallPoint: null,
       dragWallStart: null,
@@ -1168,6 +1169,7 @@
       };
       state.config.floorplanDesignerPublished = !!s.published;
       state.designer.dragItemId = null;
+      state.designer.pendingBeamConnect = null;
       state.designer.dragWallId = null;
       state.designer.dragWallPoint = null;
       state.designer.dragWallStart = null;
@@ -1247,6 +1249,30 @@
     });
   }
 
+  function finalizeDrawingWall(model, closeLoop = false) {
+    const pts = state.designer.drawingWall || [];
+    if (!Array.isArray(pts) || pts.length < 2) {
+      state.designer.drawingWall = null;
+      state.designer.drawingWallCursor = null;
+      renderDesigner();
+      return false;
+    }
+    const out = pts.map(p => ({ x: Number(p.x), y: Number(p.y) }));
+    if (closeLoop && out.length >= 3 && !isSamePoint(out[0], out[out.length - 1])) {
+      out.push({ x: out[0].x, y: out[0].y });
+    }
+    snapshotDesignerState();
+    const id = model.nextId || 1;
+    model.nextId = id + 1;
+    model.walls.push({ id, points: out });
+    state.designer.drawingWall = null;
+    state.designer.drawingWallCursor = null;
+    saveDesignerData();
+    renderDesigner();
+    renderAllCanvases();
+    return true;
+  }
+
   function renderDesigner() {
     const svg = ui.designerSvg;
     if (!svg) return;
@@ -1301,6 +1327,8 @@
       const pts = state.designer.drawingWall.slice();
       if (state.designer.drawingWallCursor) pts.push(state.designer.drawingWallCursor);
       html += `<polyline class="designer-wall drawing" points="${pts.map(p => `${p.x},${p.y}`).join(' ')}"></polyline>`;
+      const first = state.designer.drawingWall[0];
+      if (first) html += `<circle class="designer-wall-close-point" cx="${first.x}" cy="${first.y}" r="7"></circle>`;
     }
     if (state.designer.drawingPerimeter) {
       const r = state.designer.drawingPerimeter;
@@ -1320,6 +1348,22 @@
       const wallPointEl = e.target.closest('[data-wall-point]');
       const wallEl = e.target.closest('[data-wall-id]');
       const itemEl = e.target.closest('[data-item-id]');
+      const itemType = String(ui.designerItemType?.value || 'door');
+      if (tool === 'place' && itemType === 'beam' && itemEl) {
+        const targetId = Number(itemEl.getAttribute('data-item-id'));
+        const targetBeam = findDesignerItemById(m, targetId);
+        const lastBeam = findDesignerItemById(m, Number(m.lastBeamItemId));
+        if (Number.isInteger(targetId) && targetBeam && String(targetBeam.type || '') === 'beam' && lastBeam && Number(lastBeam.id) !== targetId) {
+          snapshotDesignerState();
+          state.designer.pendingBeamConnect = {
+            targetId,
+            startClientX: Number(e.clientX),
+            startClientY: Number(e.clientY)
+          };
+          svg.setPointerCapture(e.pointerId);
+          return;
+        }
+      }
       if (tool === 'erase') {
         if (itemEl) {
           const itemId = Number(itemEl.getAttribute('data-item-id'));
@@ -1384,7 +1428,6 @@
       }
       if (tool === 'place') {
         snapshotDesignerState();
-        const itemType = String(ui.designerItemType?.value || 'door');
         const id = m.nextId || 1;
         m.nextId = id + 1;
         const newItem = { id, type: itemType, x: p.x, y: p.y, r: 0 };
@@ -1403,6 +1446,15 @@
       }
       if (tool === 'wall') {
         if (!state.designer.drawingWall) state.designer.drawingWall = [];
+        if (state.designer.drawingWall.length >= 2) {
+          const first = state.designer.drawingWall[0];
+          const closeDist = Math.max(8, Math.min(22, Number(state.designer.grid || 12) * 1.25));
+          const d = Math.hypot(Number(p.x) - Number(first.x), Number(p.y) - Number(first.y));
+          if (d <= closeDist) {
+            finalizeDrawingWall(m, true);
+            return;
+          }
+        }
         state.designer.drawingWall.push({ x: p.x, y: p.y });
         state.designer.drawingWallCursor = { x: p.x, y: p.y };
         renderDesigner();
@@ -1431,6 +1483,16 @@
       const tool = String(ui.designerTool?.value || 'select');
       const m = getDesignerFloorModel();
       const p = svgPoint(e);
+      if (state.designer.pendingBeamConnect) {
+        const dx = Number(e.clientX) - Number(state.designer.pendingBeamConnect.startClientX || 0);
+        const dy = Number(e.clientY) - Number(state.designer.pendingBeamConnect.startClientY || 0);
+        if (Math.hypot(dx, dy) > 6) {
+          state.designer.dragItemId = Number(state.designer.pendingBeamConnect.targetId);
+          state.designer.pendingBeamConnect = null;
+        } else {
+          return;
+        }
+      }
       if (state.designer.dragWallPoint) {
         const info = state.designer.dragWallPoint;
         const wall = findDesignerWallById(m, info.wallId);
@@ -1487,6 +1549,20 @@
     });
     svg.addEventListener('pointerup', () => {
       const m = getDesignerFloorModel();
+      if (state.designer.pendingBeamConnect) {
+        const targetId = Number(state.designer.pendingBeamConnect.targetId);
+        const targetBeam = findDesignerItemById(m, targetId);
+        const lastBeam = findDesignerItemById(m, Number(m.lastBeamItemId));
+        state.designer.pendingBeamConnect = null;
+        if (targetBeam && lastBeam && String(targetBeam.type || '') === 'beam' && String(lastBeam.type || '') === 'beam' && Number(targetBeam.id) !== Number(lastBeam.id)) {
+          linkWallBetweenBeams(m, lastBeam, targetBeam);
+          m.lastBeamItemId = Number(targetBeam.id);
+          saveDesignerData();
+          renderDesigner();
+          renderAllCanvases();
+        }
+        return;
+      }
       let changed = false;
       if (state.designer.dragItemId) {
         state.designer.dragItemId = null;
@@ -1517,20 +1593,10 @@
     svg.addEventListener('dblclick', () => {
       if (String(ui.designerTool?.value || '') !== 'wall') return;
       const m = getDesignerFloorModel();
-      const pts = state.designer.drawingWall || [];
-      if (pts.length >= 2) {
-        snapshotDesignerState();
-        const id = m.nextId || 1;
-        m.nextId = id + 1;
-        m.walls.push({ id, points: pts.slice() });
-        saveDesignerData();
-        renderAllCanvases();
-      }
-      state.designer.drawingWall = null;
-      state.designer.drawingWallCursor = null;
-      renderDesigner();
+      finalizeDrawingWall(m, false);
     });
     svg.addEventListener('pointercancel', () => {
+      state.designer.pendingBeamConnect = null;
       state.designer.dragItemId = null;
       state.designer.dragWallId = null;
       state.designer.dragWallPoint = null;
@@ -2013,6 +2079,7 @@
     }
     if (ui.designerTool) {
       ui.designerTool.addEventListener('change', () => {
+        state.designer.pendingBeamConnect = null;
         state.designer.drawingWallCursor = null;
         if (String(ui.designerTool.value || '') !== 'wall') {
           state.designer.drawingWall = null;
@@ -2087,6 +2154,7 @@
         const floor = (ui.designerFloor.value === 'OG') ? 'OG' : 'EG';
         state.designer[floor] = defaultDesignerFloor();
         state.designer.dragItemId = null;
+        state.designer.pendingBeamConnect = null;
         state.designer.dragWallId = null;
         state.designer.dragWallPoint = null;
         state.designer.dragWallStart = null;
