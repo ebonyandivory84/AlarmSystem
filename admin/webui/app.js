@@ -1199,6 +1199,10 @@
     return (model.walls || []).find(w => Number(w.id) === Number(wallId));
   }
 
+  function findDesignerItemById(model, itemId) {
+    return (model.items || []).find(it => Number(it.id) === Number(itemId));
+  }
+
   function isSamePoint(a, b) {
     return Math.abs(Number(a?.x) - Number(b?.x)) < 0.5 && Math.abs(Number(a?.y) - Number(b?.y)) < 0.5;
   }
@@ -1217,7 +1221,25 @@
     model.nextId = wallId + 1;
     model.walls.push({
       id: wallId,
+      autoBeamLink: true,
+      beamAId: Number(fromBeam.id),
+      beamBId: Number(toBeam.id),
       points: [{ x: fromBeam.x, y: fromBeam.y }, { x: toBeam.x, y: toBeam.y }]
+    });
+  }
+
+  function syncAutoBeamWalls(model) {
+    if (!model || !Array.isArray(model.walls)) return;
+    model.walls = model.walls.filter(w => {
+      if (!w || !w.autoBeamLink) return true;
+      const a = findDesignerItemById(model, Number(w.beamAId));
+      const b = findDesignerItemById(model, Number(w.beamBId));
+      if (!a || !b || String(a.type || '') !== 'beam' || String(b.type || '') !== 'beam') return false;
+      w.points = [
+        { x: Number(a.x), y: Number(a.y) },
+        { x: Number(b.x), y: Number(b.y) }
+      ];
+      return true;
     });
   }
 
@@ -1225,6 +1247,7 @@
     const svg = ui.designerSvg;
     if (!svg) return;
     const m = getDesignerFloorModel();
+    syncAutoBeamWalls(m);
     const view = getDesignerFloorView();
     const activeTool = String(ui.designerTool?.value || 'select');
     svg.classList.toggle('erase-mode', activeTool === 'erase');
@@ -1294,6 +1317,7 @@
           if (Number.isInteger(itemId)) {
             snapshotDesignerState();
             m.items = (m.items || []).filter(it => Number(it.id) !== itemId);
+            syncAutoBeamWalls(m);
             if (Number(m.lastBeamItemId) === itemId) {
               const beams = (m.items || []).filter(it => String(it.type || '') === 'beam');
               m.lastBeamItemId = beams.length ? Number(beams[beams.length - 1].id) : null;
@@ -1434,6 +1458,7 @@
         const it = m.items.find(x => x.id === state.designer.dragItemId);
         if (!it) return;
         it.x = p.x; it.y = p.y;
+        if (String(it.type || '') === 'beam') syncAutoBeamWalls(m);
         renderDesigner();
         return;
       }
