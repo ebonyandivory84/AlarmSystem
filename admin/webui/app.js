@@ -43,6 +43,8 @@
     resetImageRectBtn: $('resetImageRectBtn'),
     panicBtn: $('panicToggleBtn'),
     shield: $('statusShield'),
+    absenceCard: $('absenceCard'),
+    absenceList: $('absenceList'),
     zoneActionsList: $('zoneActionsList'),
     zoneActionResult: $('zoneActionResult'),
     canvasEntitySearch: $('canvasEntitySearch'),
@@ -114,6 +116,11 @@
     if (person === 'sebastian') return 'S';
     if (person === 'teresa') return 'T';
     return 'P';
+  }
+  function presenceAvatarPath(person) {
+    if (person === 'sebastian') return './assets/sebastian.jpg';
+    if (person === 'teresa') return './assets/teresa.jpg';
+    return '';
   }
   function isPresenceHome(row, val) {
     const raw = String(val ?? '').trim().toLowerCase();
@@ -282,9 +289,13 @@
       const floor = 'EG';
       const home = !!state.presenceByPerson[person];
       const isSeb = person === 'sebastian';
-      const dynamicZone = home ? 'innenraum' : 'perimeter';
-      const dynamicX = home ? (isSeb ? 47 : 53) : (isSeb ? 5 : 11);
-      const dynamicY = home ? 52 : 52;
+      if (!home) {
+        presenceByPerson[person] = true;
+        return;
+      }
+      const dynamicZone = 'innenraum';
+      const dynamicX = isSeb ? 47 : 53;
+      const dynamicY = 52;
       rows.push({
         kind: 'presenceSensorsTable',
         idx,
@@ -292,6 +303,7 @@
         label: String(r.label || r.key || id),
         shortLabel: presenceShortLabel(person),
         person,
+        avatarPath: presenceAvatarPath(person),
         zone: dynamicZone,
         floor,
         posX: dynamicX,
@@ -592,7 +604,15 @@
     el.title = e.label;
     el.draggable = true;
     if (detailed) el.textContent = e.label;
-    else el.innerHTML = entityIcon(e);
+    else if (e.kind === 'presenceSensorsTable') {
+      const img = String(e.avatarPath || '');
+      const fallback = String(e.shortLabel || 'P');
+      el.innerHTML = img
+        ? `<span class="presence-avatar" style="background-image:url('${img.replace(/'/g, "\\'")}')"></span>`
+        : `<span class="presence-letter">${fallback}</span>`;
+    } else {
+      el.innerHTML = entityIcon(e);
+    }
     el.style.left = `${Math.max(2, Math.min(98, Number(e.posX || 50)))}%`;
     el.style.top = `${Math.max(2, Math.min(98, Number(e.posY || 50)))}%`;
     el.addEventListener('dragstart', ev => ev.dataTransfer.setData('text/plain', JSON.stringify({ kind:e.kind, idx:e.idx })));
@@ -623,6 +643,23 @@
       item.addEventListener('click', () => selectEntity(e));
       ui.pool.appendChild(item);
     });
+  }
+
+  function renderAbsenceCard() {
+    if (!ui.absenceCard || !ui.absenceList) return;
+    const away = [];
+    if (!state.presenceByPerson.sebastian) away.push({ person: 'sebastian', label: 'Sebastian' });
+    if (!state.presenceByPerson.teresa) away.push({ person: 'teresa', label: 'Teresa' });
+    if (away.length === 0) {
+      ui.absenceCard.classList.add('hidden');
+      ui.absenceList.innerHTML = '';
+      return;
+    }
+    ui.absenceCard.classList.remove('hidden');
+    ui.absenceList.innerHTML = away.map(a => {
+      const img = presenceAvatarPath(a.person);
+      return `<div class="legend-row"><span class="presence-avatar tiny" style="background-image:url('${img.replace(/'/g, "\\'")}')"></span><span>${a.label}</span></div>`;
+    }).join('');
   }
 
   function renderCanvasEntitiesList() {
@@ -821,6 +858,7 @@
     renderCanvas(ui.mini, false);
     renderCanvas(ui.full, true);
     renderPool();
+    renderAbsenceCard();
     renderCanvasEntitiesList();
     bindCanvasDrops(ui.mini);
     bindCanvasDrops(ui.full);
