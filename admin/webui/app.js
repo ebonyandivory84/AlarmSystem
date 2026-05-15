@@ -65,6 +65,7 @@
     designerSnapBtn: $('designerSnapBtn'),
     designerBgBtn: $('designerBgBtn'),
     designerUseOnlyBtn: $('designerUseOnlyBtn'),
+    designerUndoBtn: $('designerUndoBtn'),
     designerCopyFloorBtn: $('designerCopyFloorBtn'),
     designerClearBtn: $('designerClearBtn'),
     designerSvg: $('designerSvg')
@@ -113,7 +114,8 @@
       drawingWall: null,
       drawingWallCursor: null,
       drawingPerimeter: null
-    }
+    },
+    designerHistory: []
   };
   const DISARM_PIN = '1492';
 
@@ -1127,6 +1129,57 @@
     return false;
   }
 
+  function snapshotDesignerState() {
+    const snap = JSON.stringify({
+      EG: clone(state.designer.EG || defaultDesignerFloor()),
+      OG: clone(state.designer.OG || defaultDesignerFloor()),
+      settings: {
+        snap: !!state.designer.snap,
+        grid: Math.max(4, Number(state.designer.grid || 12)),
+        floorView: {
+          EG: { ...defaultDesignerView(), ...(state.designer.floorView?.EG || {}) },
+          OG: { ...defaultDesignerView(), ...(state.designer.floorView?.OG || {}) }
+        }
+      }
+    });
+    if (state.designerHistory[state.designerHistory.length - 1] === snap) return;
+    state.designerHistory.push(snap);
+    if (state.designerHistory.length > 120) state.designerHistory.shift();
+  }
+
+  function undoDesignerStep() {
+    const snap = state.designerHistory.pop();
+    if (!snap) {
+      setStatus('Keine Designer-Änderung zum Rückgängigmachen');
+      return;
+    }
+    try {
+      const s = JSON.parse(snap);
+      state.designer.EG = s.EG && typeof s.EG === 'object' ? s.EG : defaultDesignerFloor();
+      state.designer.OG = s.OG && typeof s.OG === 'object' ? s.OG : defaultDesignerFloor();
+      state.designer.snap = s.settings?.snap !== false;
+      state.designer.grid = Number.isFinite(Number(s.settings?.grid)) ? Math.max(4, Number(s.settings.grid)) : 12;
+      state.designer.floorView = {
+        EG: { ...defaultDesignerView(), ...(s.settings?.floorView?.EG || {}) },
+        OG: { ...defaultDesignerView(), ...(s.settings?.floorView?.OG || {}) }
+      };
+      state.designer.dragItemId = null;
+      state.designer.dragWallId = null;
+      state.designer.dragWallPoint = null;
+      state.designer.dragWallStart = null;
+      state.designer.dragWallOrig = null;
+      state.designer.drawingWall = null;
+      state.designer.drawingWallCursor = null;
+      state.designer.drawingPerimeter = null;
+      saveDesignerData();
+      renderDesigner();
+      renderAllCanvases();
+      setStatus('Designer: letzter Schritt rückgängig');
+    } catch {
+      setStatus('Designer-Rückgängig fehlgeschlagen', true);
+    }
+  }
+
   function snapDesigner(v) {
     const g = Math.max(4, Number(state.designer.grid || 12));
     if (!state.designer.snap) return v;
@@ -1241,6 +1294,7 @@
         if (!Number.isInteger(wallId) || !Number.isInteger(pointIdx)) return;
         const wall = findDesignerWallById(m, wallId);
         if (!wall || !Array.isArray(wall.points) || !wall.points[pointIdx]) return;
+        snapshotDesignerState();
         state.designer.dragWallPoint = { wallId, pointIdx };
         svg.setPointerCapture(e.pointerId);
         return;
@@ -1249,6 +1303,7 @@
         const wallId = Number(wallEl.getAttribute('data-wall-id'));
         const wall = findDesignerWallById(m, wallId);
         if (Number.isInteger(wallId) && wall && Array.isArray(wall.points)) {
+          snapshotDesignerState();
           state.designer.dragWallId = wallId;
           state.designer.dragWallStart = { x: p.x, y: p.y };
           state.designer.dragWallOrig = wall.points.map(pt => ({ x: Number(pt.x), y: Number(pt.y) }));
@@ -1257,11 +1312,13 @@
         }
       }
       if (canMoveExisting && itemEl) {
+        snapshotDesignerState();
         state.designer.dragItemId = Number(itemEl.getAttribute('data-item-id'));
         svg.setPointerCapture(e.pointerId);
         return;
       }
       if (tool === 'place') {
+        snapshotDesignerState();
         const itemType = String(ui.designerItemType?.value || 'door');
         const id = m.nextId || 1;
         m.nextId = id + 1;
@@ -1287,12 +1344,14 @@
         return;
       }
       if (tool === 'perimeter') {
+        snapshotDesignerState();
         state.designer.drawingPerimeter = { x: p.x, y: p.y, w: 0, h: 0, sx: p.x, sy: p.y };
         renderDesigner();
         return;
       }
       if (tool === 'outer') {
         if (!wallEl) return;
+        snapshotDesignerState();
         const id = Number(wallEl.getAttribute('data-wall-id'));
         m.outerWallIds = Array.isArray(m.outerWallIds) ? m.outerWallIds : [];
         if (m.outerWallIds.includes(id)) m.outerWallIds = m.outerWallIds.filter(x => x !== id);
@@ -1311,7 +1370,17 @@
         const info = state.designer.dragWallPoint;
         const wall = findDesignerWallById(m, info.wallId);
         if (wall && Array.isArray(wall.points) && wall.points[info.pointIdx]) {
-          wall.points[info.pointIdx] = { x: p.x, y: p.y };
+          let nx = p.x;
+          let ny = p.y;
+          if (tool === 'wall' && wall.points.length === 2) {
+            const otherIdx = info.pointIdx === 0 ? 1 : 0;
+            const anchor = wall.points[otherIdx];
+            if (anchor) {
+              if (Math.abs(nx - Number(anchor.x)) >= Math.abs(ny - Number(anchor.y))) ny = Number(anchor.y);
+              else nx = Number(anchor.x);
+            }
+          }
+          wall.points[info.pointIdx] = { x: nx, y: ny };
           renderDesigner();
         }
         return;
@@ -1384,6 +1453,7 @@
       const m = getDesignerFloorModel();
       const pts = state.designer.drawingWall || [];
       if (pts.length >= 2) {
+        snapshotDesignerState();
         const id = m.nextId || 1;
         m.nextId = id + 1;
         m.walls.push({ id, points: pts.slice() });
@@ -1791,6 +1861,7 @@
     ensureTables();
     ensureFloorLayouts();
     ensureDesignerData();
+    state.designerHistory = [];
     ui.instance.textContent = `Instanz: ${state.instanceId}`;
     renderAll();
     const today = new Date().toISOString().slice(0,10);
@@ -1894,6 +1965,7 @@
     }
     if (ui.designerSnapBtn) {
       ui.designerSnapBtn.addEventListener('click', () => {
+        snapshotDesignerState();
         state.designer.snap = !state.designer.snap;
         ui.designerSnapBtn.textContent = `Snap: ${state.designer.snap ? 'an' : 'aus'}`;
         saveDesignerData();
@@ -1901,6 +1973,7 @@
     }
     if (ui.designerBgBtn) {
       ui.designerBgBtn.addEventListener('click', () => {
+        snapshotDesignerState();
         const view = getDesignerFloorView();
         view.showBg = !view.showBg;
         saveDesignerData();
@@ -1910,6 +1983,7 @@
     }
     if (ui.designerUseOnlyBtn) {
       ui.designerUseOnlyBtn.addEventListener('click', () => {
+        snapshotDesignerState();
         const view = getDesignerFloorView();
         view.useInOverviewOnly = !view.useInOverviewOnly;
         if (view.useInOverviewOnly) view.showBg = false;
@@ -1921,6 +1995,7 @@
     }
     if (ui.designerCopyFloorBtn) {
       ui.designerCopyFloorBtn.addEventListener('click', () => {
+        snapshotDesignerState();
         const from = (ui.designerFloor.value === 'OG') ? 'OG' : 'EG';
         const to = from === 'EG' ? 'OG' : 'EG';
         state.designer[to] = clone(state.designer[from] || defaultDesignerFloor());
@@ -1932,6 +2007,7 @@
     }
     if (ui.designerClearBtn) {
       ui.designerClearBtn.addEventListener('click', () => {
+        snapshotDesignerState();
         const floor = (ui.designerFloor.value === 'OG') ? 'OG' : 'EG';
         state.designer[floor] = defaultDesignerFloor();
         state.designer.dragItemId = null;
@@ -1947,6 +2023,9 @@
         renderAllCanvases();
         setStatus(`Designer ${floor} geleert`);
       });
+    }
+    if (ui.designerUndoBtn) {
+      ui.designerUndoBtn.addEventListener('click', undoDesignerStep);
     }
     bindDesignerInteractions();
     ui.floorEgBtn.addEventListener('click', () => {
