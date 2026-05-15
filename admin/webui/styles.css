@@ -104,9 +104,7 @@ label{display:grid;gap:6px;min-width:220px} input,select,textarea{background:var
 .mini-node svg{width:24px;height:24px;display:block;fill:none;stroke:#0f1115;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .mini-node.presence-node{font-size:18px;font-weight:800;letter-spacing:.4px;color:#0f1115}
 .mini-node .presence-letter{display:block;line-height:1}
-.zone-color-perimeter svg{stroke:#111}
-.zone-color-aussenhaut svg{stroke:#17120d}
-.zone-color-innenraum svg{stroke:#211013}
+.zone-color-perimeter svg,.zone-color-aussenhaut svg,.zone-color-innenraum svg{stroke:#0f1115}
 .chip{position:absolute;border-radius:999px;padding:5px 9px;font-size:11px;cursor:grab;user-select:none;border:1px solid rgba(20,20,20,.35);color:#111;transform:translate(-50%,-50%);max-width:210px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dot,.mini-node,.chip{pointer-events:auto}
 .zone-color-innenraum{background:var(--zone-in)}
