@@ -32,6 +32,8 @@
     settingsPage: $('settingsPage'),
     pageOverviewBtn: $('pageOverviewBtn'),
     pageSettingsBtn: $('pageSettingsBtn'),
+    floorEgBtn: $('floorEgBtn'),
+    floorOgBtn: $('floorOgBtn'),
     panicBtn: $('panicToggleBtn'),
     shield: $('statusShield'),
     zoneActionsList: $('zoneActionsList'),
@@ -56,7 +58,8 @@
     pinInput: '',
     pinTargetAction: null,
     stateIdsLoaded: false,
-    stateIdsLoading: null
+    stateIdsLoading: null,
+    currentFloor: 'EG'
   };
   const DISARM_PIN = '1492';
 
@@ -200,19 +203,24 @@
 
   function getEntities() {
     ensureTables();
+    const xKey = state.currentFloor === 'OG' ? 'posXOg' : 'posXEg';
+    const yKey = state.currentFloor === 'OG' ? 'posYOg' : 'posYEg';
     const rows = [];
     const add = (arr, kind, getId) => (arr || []).forEach((r, idx) => {
       const id = getId(r);
       if (!r || !id) return;
+      const px = Number.isFinite(Number(r[xKey])) ? Number(r[xKey]) : (Number.isFinite(Number(r.posX)) ? Number(r.posX) : null);
+      const py = Number.isFinite(Number(r[yKey])) ? Number(r[yKey]) : (Number.isFinite(Number(r.posY)) ? Number(r.posY) : null);
       rows.push({
         kind,
         idx,
         entityKey: String(r.key || id),
         label: String(r.label || r.key || id),
         zone: String(r.zone || 'pool'),
-        posX: Number.isFinite(Number(r.posX)) ? Number(r.posX) : null,
-        posY: Number.isFinite(Number(r.posY)) ? Number(r.posY) : null,
-        hasPos: Number.isFinite(Number(r.posX)) && Number.isFinite(Number(r.posY))
+        floor: String(r.floor || 'EG') === 'OG' ? 'OG' : 'EG',
+        posX: px,
+        posY: py,
+        hasPos: Number.isFinite(Number(px)) && Number.isFinite(Number(py))
       });
     });
     add(state.config.pirSensorsTable, 'pirSensorsTable', r => r?.id);
@@ -228,10 +236,21 @@
     const row = state.config[kind][idx];
     const oldZone = String(row.zone || 'pool');
     const newZone = typeof patch.zone === 'string' ? patch.zone : oldZone;
-    Object.assign(row, patch);
+    const floor = String((patch.floor || row.floor || state.currentFloor || 'EG'));
+    const floorNorm = floor === 'OG' ? 'OG' : 'EG';
+    if (Object.prototype.hasOwnProperty.call(patch, 'posX')) row[floorNorm === 'OG' ? 'posXOg' : 'posXEg'] = patch.posX;
+    if (Object.prototype.hasOwnProperty.call(patch, 'posY')) row[floorNorm === 'OG' ? 'posYOg' : 'posYEg'] = patch.posY;
+    const basePatch = { ...patch };
+    delete basePatch.posX;
+    delete basePatch.posY;
+    Object.assign(row, basePatch);
+    row.floor = floorNorm;
     if (typeof patch.zone === 'string') row.manualZone = true;
     const movedWithoutPos = (newZone !== oldZone) && !('posX' in patch) && !('posY' in patch) && newZone !== 'pool';
-    if (movedWithoutPos) { delete row.posX; delete row.posY; }
+    if (movedWithoutPos) {
+      if (floorNorm === 'OG') { delete row.posXOg; delete row.posYOg; }
+      else { delete row.posXEg; delete row.posYEg; delete row.posX; delete row.posY; }
+    }
   }
 
   function zoneClass(zone) {
@@ -336,11 +355,14 @@
   function writeRuleForm(rule){ const r={...defaultRule(), ...(rule||{})}; $('ruleEnabled').value=String(r.enabled); $('ruleOnlyArmed').value=String(r.onlyArmed); $('ruleOnlyNight').value=String(r.onlyNight); $('ruleSirene').value=String(r.sirene); $('ruleSnapshot').value=String(r.snapshot); $('ruleTelegram').value=String(r.telegram); }
   function readZoneSel(){ return $('ruleZone').value; }
   function writeZoneSel(z){ $('ruleZone').value = z || 'perimeter'; }
+  function readFloorSel(){ return $('ruleFloor').value === 'OG' ? 'OG' : 'EG'; }
+  function writeFloorSel(f){ $('ruleFloor').value = f === 'OG' ? 'OG' : 'EG'; }
 
   function selectEntity(e) {
     state.selectedEntity = e;
     ui.entityLabel.textContent = `Ausgewählt: ${e.label} (${e.zone})`;
     writeZoneSel(e.zone);
+    writeFloorSel(e.floor || 'EG');
     writeRuleForm(getRulesMap()[ruleId(e)]);
     ui.entityModal.classList.remove('hidden');
   }
@@ -364,8 +386,10 @@
   }
 
   function renderCanvas(target, detailed) {
+    target.classList.toggle('floor-og', state.currentFloor === 'OG');
+    target.classList.toggle('floor-eg', state.currentFloor !== 'OG');
     addZones(target);
-    getEntities().filter(e => e.zone !== 'pool').forEach(e => drawEntity(target, e, detailed));
+    getEntities().filter(e => e.zone !== 'pool' && (String(e.floor || 'EG') === state.currentFloor)).forEach(e => drawEntity(target, e, detailed));
     applyZoneArmedVisuals(target);
   }
 
@@ -547,7 +571,7 @@
     const mode = $('newMode').value;
     const detect = ($('newDetect').value || '').trim();
     if (!id) { setStatus('Datapoint ID ist Pflicht', true); ui.addResult.textContent = 'Datapoint ID fehlt'; return; }
-    const base = { key: key || id, label: label || key || id, id, zone: 'pool' };
+    const base = { key: key || id, label: label || key || id, id, zone: 'pool', floor: state.currentFloor };
     if (kind === 'personDetectionTable') state.config[kind].push({ ...base, mode, detectValue: mode === 'string' ? (detect || 'human detected') : '' });
     else state.config[kind].push({ ...base, activeValuesCsv: active || 'true' });
     renderAllCanvases();
@@ -833,6 +857,18 @@
     $('saveBtn').addEventListener('click', () => saveToInstance().catch(e => setStatus(String(e), true)));
     ui.pageOverviewBtn.addEventListener('click', () => switchPage('overview'));
     ui.pageSettingsBtn.addEventListener('click', () => switchPage('settings'));
+    ui.floorEgBtn.addEventListener('click', () => {
+      state.currentFloor = 'EG';
+      ui.floorEgBtn.classList.add('primary'); ui.floorEgBtn.classList.remove('ghost');
+      ui.floorOgBtn.classList.add('ghost'); ui.floorOgBtn.classList.remove('primary');
+      renderAllCanvases();
+    });
+    ui.floorOgBtn.addEventListener('click', () => {
+      state.currentFloor = 'OG';
+      ui.floorOgBtn.classList.add('primary'); ui.floorOgBtn.classList.remove('ghost');
+      ui.floorEgBtn.classList.add('ghost'); ui.floorEgBtn.classList.remove('primary');
+      renderAllCanvases();
+    });
     $('loadProfileBtn').addEventListener('click', loadProfile);
     $('saveProfileBtn').addEventListener('click', saveAsProfile);
     $('deleteProfileBtn').addEventListener('click', deleteProfile);
@@ -855,7 +891,8 @@
     $('saveEntityRuleBtn').addEventListener('click', () => {
       if (!state.selectedEntity) return setStatus('Bitte erst ein Element anklicken', true);
       const z = readZoneSel();
-      setEntity(state.selectedEntity.kind, state.selectedEntity.idx, { zone: z });
+      const f = readFloorSel();
+      setEntity(state.selectedEntity.kind, state.selectedEntity.idx, { zone: z, floor: f });
       const m = getRulesMap();
       m[ruleId(state.selectedEntity)] = readRuleForm();
       setRulesMap(m);

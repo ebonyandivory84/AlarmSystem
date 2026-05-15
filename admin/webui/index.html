@@ -48,22 +48,26 @@
       </section>
 
       <section class="grid2">
-        <article class="card">
+        <article class="card canvas-full">
           <div class="canvas-head">
             <h2>Zonen-Canvas</h2>
-            <button id="tidyCanvasBtn" class="btn">Aufräumen</button>
-            <button id="openCanvasBtn" class="btn">Maximieren</button>
+            <div class="row">
+              <button id="floorEgBtn" class="btn primary">EG</button>
+              <button id="floorOgBtn" class="btn ghost">OG</button>
+              <button id="tidyCanvasBtn" class="btn">Aufräumen</button>
+              <button id="openCanvasBtn" class="btn">Maximieren</button>
+            </div>
           </div>
           <p class="muted">Miniansicht mit Punkten. Hover zeigt Namen.</p>
           <p id="miniHoverInfo" class="muted">Hover: -</p>
-          <div id="miniCanvas" class="zone-canvas"></div>
+          <div id="miniCanvas" class="zone-canvas floor-eg"></div>
         </article>
+      </section>
 
-        <article class="card">
-          <h2>Status</h2>
-          <div id="statusShield" class="status-shield disarmed" aria-live="polite">🛡️ UNSCHARF</div>
-          <pre id="statusBox" class="status ok">Bereit</pre>
-        </article>
+      <section class="card">
+        <h2>Status</h2>
+        <div id="statusShield" class="status-shield disarmed" aria-live="polite">🛡️ UNSCHARF</div>
+        <pre id="statusBox" class="status ok">Bereit</pre>
       </section>
     </main>
 
@@ -179,6 +183,7 @@
       <p id="selectedEntityLabel" class="muted">Kein Element ausgewählt</p>
       <div class="fields">
         <label title="Legt fest, in welcher Zone dieses Element liegt. Beim Speichern wird die Zone sofort im Canvas und in der Logik genutzt.">Zone<select id="ruleZone"><option value="perimeter">perimeter</option><option value="aussenhaut">aussenhaut</option><option value="innenraum">innenraum</option><option value="pool">pool</option></select></label>
+        <label title="Etage für die Darstellung im Grundriss-Canvas.">Etage<select id="ruleFloor"><option value="EG">EG</option><option value="OG">OG</option></select></label>
         <label title="Aktiviert oder deaktiviert die Automationsregel fuer dieses Element. Bei false wird dieses Element ignoriert.">Regel aktiv<select id="ruleEnabled"><option value="true">true</option><option value="false">false</option></select></label>
         <label title="Wenn true, wird nur ausgeloest, wenn die zugeordnete Zone aktuell scharf ist. Wenn false, kann auch im unscharfen Zustand ausgeloest werden.">Nur wenn Zone scharf<select id="ruleOnlyArmed"><option value="true">true</option><option value="false">false</option></select></label>
         <label title="Wenn true, wird die Regel nur nachts angewendet (basierend auf den konfigurierten Zeit-/Astro-Bedingungen).">Nur nachts<select id="ruleOnlyNight"><option value="true">true</option><option value="false">false</option></select></label>
