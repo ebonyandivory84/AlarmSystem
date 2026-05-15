@@ -67,6 +67,7 @@
     designerUseOnlyBtn: $('designerUseOnlyBtn'),
     designerPublishBtn: $('designerPublishBtn'),
     designerUndoBtn: $('designerUndoBtn'),
+    designerFinishWallBtn: $('designerFinishWallBtn'),
     designerNewBeamChainBtn: $('designerNewBeamChainBtn'),
     designerCopyFloorBtn: $('designerCopyFloorBtn'),
     designerClearBtn: $('designerClearBtn'),
@@ -1398,7 +1399,8 @@
         }
         return;
       }
-      const canMoveExisting = tool !== 'outer' && tool !== 'perimeter';
+      const isWallDrawingActive = tool === 'wall' && Array.isArray(state.designer.drawingWall) && state.designer.drawingWall.length > 0;
+      const canMoveExisting = tool !== 'outer' && tool !== 'perimeter' && !isWallDrawingActive;
       if (canMoveExisting && wallPointEl) {
         const [wallIdRaw, pointIdxRaw] = String(wallPointEl.getAttribute('data-wall-point') || '').split(':');
         const wallId = Number(wallIdRaw);
@@ -1452,6 +1454,7 @@
       }
       if (tool === 'wall') {
         if (Date.now() < Number(state.designer.wallFinishCooldownUntil || 0)) return;
+        if (e.detail >= 2 && Array.isArray(state.designer.drawingWall) && state.designer.drawingWall.length > 0) return;
         if (!state.designer.drawingWall) state.designer.drawingWall = [];
         if (state.designer.drawingWall.length >= 2) {
           const first = state.designer.drawingWall[0];
@@ -1600,6 +1603,14 @@
     });
     svg.addEventListener('dblclick', () => {
       if (String(ui.designerTool?.value || '') !== 'wall') return;
+      const m = getDesignerFloorModel();
+      const done = finalizeDrawingWall(m, false);
+      if (done) state.designer.wallFinishCooldownUntil = Date.now() + 260;
+    });
+    svg.addEventListener('contextmenu', e => {
+      if (String(ui.designerTool?.value || '') !== 'wall') return;
+      if (!Array.isArray(state.designer.drawingWall) || state.designer.drawingWall.length < 2) return;
+      e.preventDefault();
       const m = getDesignerFloorModel();
       const done = finalizeDrawingWall(m, false);
       if (done) state.designer.wallFinishCooldownUntil = Date.now() + 260;
@@ -2192,6 +2203,19 @@
     }
     if (ui.designerUndoBtn) {
       ui.designerUndoBtn.addEventListener('click', undoDesignerStep);
+    }
+    if (ui.designerFinishWallBtn) {
+      ui.designerFinishWallBtn.addEventListener('click', () => {
+        const m = getDesignerFloorModel();
+        const pts = state.designer.drawingWall || [];
+        if (!Array.isArray(pts) || pts.length < 2) {
+          setStatus('Keine aktive Wand zum Abschließen');
+          return;
+        }
+        const closeLoop = pts.length >= 3;
+        const done = finalizeDrawingWall(m, closeLoop);
+        if (done) state.designer.wallFinishCooldownUntil = Date.now() + 260;
+      });
     }
     bindDesignerInteractions();
     ui.floorEgBtn.addEventListener('click', () => {
