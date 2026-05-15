@@ -330,13 +330,13 @@
   function entityIcon(entity) {
     const kind = entity.kind;
     if (kind === 'pirSensorsTable') {
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.2" r="4.2"></circle><path d="M3.5 21c.8-5.6 4.2-8.8 8.5-8.8s7.7 3.2 8.5 8.8H3.5z"></path></svg>';
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"></circle><path d="M4.5 20a7.5 7.5 0 0 1 15 0"></path></svg>';
     }
     if (kind === 'contactSensorsTable') {
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 18.2h10M5 5.8v12.4M5 5.8l8.7-1.5v15.4L5 18.2M15.8 5.3h3.2v13.4h-3.2M11 12h.01"></path></svg>';
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19h10"></path><path d="M5 5v14"></path><path d="M5 5l8-1.5v17L5 19"></path><path d="M16 5h3v14h-3"></path><circle cx="10.8" cy="12" r="0.8"></circle></svg>';
     }
     if (kind === 'camerasTable' || kind === 'personDetectionTable') {
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 8.2h11l3-2.2h3v12h-3l-3-2.2h-11zM9.7 10.2a2.8 2.8 0 100 5.6 2.8 2.8 0 000-5.6z"></path></svg>';
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="8" width="11" height="8" rx="1"></rect><path d="M14.5 10l4-3h2v10h-2l-4-3"></path><circle cx="9" cy="12" r="2.2"></circle></svg>';
     }
     if (kind === 'presenceSensorsTable') {
       const t = String(entity.shortLabel || 'P');
