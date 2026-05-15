@@ -449,7 +449,7 @@
 
   function paintChip(el, armed) {
     if (!el) return;
-    el.classList.remove('armed','disarmed');
+    el.classList.remove('armed','armed-perimeter','disarmed');
     el.classList.add(armed ? 'armed' : 'disarmed');
   }
 
@@ -464,18 +464,22 @@
     const cam = await getState(state.config.cctvArmedId || '');
 
     const perimeterArmed = asArmed(perDp?.val) || asArmed(zPer?.val) || asArmed(zAus?.val);
-    const allArmed = asArmed(allDp?.val) || String(mode?.val || '').toLowerCase() === 'armed' || asArmed(zInn?.val);
+    const allArmed = asArmed(allDp?.val) || asArmed(zInn?.val);
     const innenArmed = asArmed(allDp?.val) || asArmed(zInn?.val);
     const aussenArmed = asArmed(perDp?.val) || asArmed(zAus?.val);
     const camerasArmed = asArmed(cam?.val);
 
-    ui.liveMode.textContent = `Mode: ${mode?.val ?? '-'}`;
+    const modeText = (perimeterArmed || allArmed) ? 'armed' : 'disarmed';
+    ui.liveMode.textContent = `Mode: ${modeText}`;
     ui.livePerimeter.textContent = `Perimeter: ${perimeterArmed ? 'scharf' : 'unscharf'}`;
     ui.liveAussenhaut.textContent = `Aussenhaut: ${aussenArmed ? 'scharf' : 'unscharf'}`;
     ui.liveInnenraum.textContent = `Innenraum: ${innenArmed ? 'scharf' : 'unscharf'}`;
     ui.liveCameras.textContent = `Kameras: ${camerasArmed ? 'scharf' : 'unscharf'}`;
 
-    paintChip(ui.liveMode, allArmed);
+    ui.liveMode.classList.remove('armed','armed-perimeter','disarmed');
+    if (allArmed) ui.liveMode.classList.add('armed');
+    else if (perimeterArmed) ui.liveMode.classList.add('armed-perimeter');
+    else ui.liveMode.classList.add('disarmed');
     paintChip(ui.livePerimeter, perimeterArmed);
     paintChip(ui.liveAussenhaut, aussenArmed);
     paintChip(ui.liveInnenraum, innenArmed);
