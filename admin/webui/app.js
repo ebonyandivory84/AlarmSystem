@@ -483,10 +483,10 @@
       g.setAttribute('transform', `translate(${x.toFixed(3)},${y.toFixed(3)}) rotate(${Number(item.r || 0)})`);
       const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       if (isBeam) {
-        rect.setAttribute('x', '-1.45');
-        rect.setAttribute('y', '-1.45');
-        rect.setAttribute('width', '2.9');
-        rect.setAttribute('height', '2.9');
+        rect.setAttribute('x', '-1.2');
+        rect.setAttribute('y', '-1.2');
+        rect.setAttribute('width', '2.4');
+        rect.setAttribute('height', '2.4');
         rect.setAttribute('rx', '0.22');
       } else {
         rect.setAttribute('x', '-1.8');
@@ -1318,7 +1318,7 @@
       const itemType = String(it.type || 'item');
       const isBeam = itemType === 'beam';
       if (isBeam) {
-        html += `<g class="designer-item beam" data-item-id="${it.id}" transform="translate(${it.x},${it.y}) rotate(${it.r || 0})"><rect x="-14" y="-14" width="28" height="28" rx="2.5"></rect></g>`;
+        html += `<g class="designer-item beam" data-item-id="${it.id}" transform="translate(${it.x},${it.y}) rotate(${it.r || 0})"><rect x="-11" y="-11" width="22" height="22" rx="2.2"></rect></g>`;
       } else {
         html += `<g class="designer-item" data-item-id="${it.id}" transform="translate(${it.x},${it.y}) rotate(${it.r || 0})"><rect x="-18" y="-12" width="36" height="24" rx="4"></rect><text x="0" y="4" text-anchor="middle">${itemType.slice(0,3).toUpperCase()}</text></g>`;
       }
