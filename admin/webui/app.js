@@ -437,14 +437,19 @@
       poly.setAttribute('points', pts.map(p => `${p[0]},${p[1]}`).join(' '));
       poly.setAttribute('fill', 'none');
       poly.setAttribute('stroke', zmap[z]);
-      poly.setAttribute('stroke-width', '0.5');
+      poly.setAttribute('stroke-width', '0.3');
+      poly.setAttribute('stroke-linecap', 'round');
+      poly.setAttribute('stroke-linejoin', 'round');
       svg.appendChild(poly);
       pts.forEach((p, idx) => {
         const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         c.setAttribute('cx', String(p[0]));
         c.setAttribute('cy', String(p[1]));
-        c.setAttribute('r', '0.9');
+        c.setAttribute('r', '0.6');
         c.setAttribute('fill', zmap[z]);
+        c.setAttribute('stroke', '#0d1112');
+        c.setAttribute('stroke-width', '0.18');
+        c.setAttribute('style', 'pointer-events:all;cursor:grab');
         c.dataset.zonePoint = `${z}:${idx}`;
         svg.appendChild(c);
       });
@@ -610,7 +615,7 @@
         const i = state.dragZonePoint.idx;
         if (!Array.isArray(l.zones?.[z]) || !l.zones[z][i]) return;
         l.zones[z][i] = [Number(x.toFixed(2)), Number(y.toFixed(2))];
-        refreshEditorZonePreview(canvas, l, z);
+        refreshAllEditorZonePreviews(l, z);
         return;
       }
       if (!state.dragResize) return;
@@ -658,6 +663,7 @@
   }
 
   function refreshEditorZonePreview(canvas, layout, zone) {
+    if (!canvas) return;
     const pts = layout.zones?.[zone] || [];
     const poly = canvas.querySelector(`.zone-editor-overlay [data-zone-poly="${zone}"]`);
     if (poly) poly.setAttribute('points', pts.map(p => `${p[0]},${p[1]}`).join(' '));
@@ -673,6 +679,11 @@
     });
     const zoneEl = canvas.querySelector(`.zone[data-zone="${zone}"]`);
     if (zoneEl) zoneEl.style.clipPath = `polygon(${pts.map(pt => `${pt[0]}% ${pt[1]}%`).join(',')})`;
+  }
+
+  function refreshAllEditorZonePreviews(layout, zone) {
+    refreshEditorZonePreview(ui.mini, layout, zone);
+    refreshEditorZonePreview(ui.full, layout, zone);
   }
 
   function bindPoolDrop() {
