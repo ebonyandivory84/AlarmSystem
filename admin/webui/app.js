@@ -67,6 +67,7 @@
     designerUseOnlyBtn: $('designerUseOnlyBtn'),
     designerPublishBtn: $('designerPublishBtn'),
     designerUndoBtn: $('designerUndoBtn'),
+    designerNewBeamChainBtn: $('designerNewBeamChainBtn'),
     designerCopyFloorBtn: $('designerCopyFloorBtn'),
     designerClearBtn: $('designerClearBtn'),
     designerSvg: $('designerSvg')
@@ -115,6 +116,7 @@
       dragWallOrig: null,
       drawingWall: null,
       drawingWallCursor: null,
+      wallFinishCooldownUntil: 0,
       drawingPerimeter: null
     },
     designerHistory: []
@@ -1431,8 +1433,11 @@
         const id = m.nextId || 1;
         m.nextId = id + 1;
         const newItem = { id, type: itemType, x: p.x, y: p.y, r: 0 };
+        const forceNewBeamChain = !!(e.altKey || e.metaKey || e.ctrlKey);
         const lastBeam = (itemType === 'beam')
-          ? (m.items || []).find(it => Number(it.id) === Number(m.lastBeamItemId) && String(it.type || '') === 'beam')
+          ? (!forceNewBeamChain
+            ? (m.items || []).find(it => Number(it.id) === Number(m.lastBeamItemId) && String(it.type || '') === 'beam')
+            : null)
           : null;
         m.items.push(newItem);
         if (itemType === 'beam') {
@@ -1445,13 +1450,15 @@
         return;
       }
       if (tool === 'wall') {
+        if (Date.now() < Number(state.designer.wallFinishCooldownUntil || 0)) return;
         if (!state.designer.drawingWall) state.designer.drawingWall = [];
         if (state.designer.drawingWall.length >= 2) {
           const first = state.designer.drawingWall[0];
           const closeDist = Math.max(8, Math.min(22, Number(state.designer.grid || 12) * 1.25));
           const d = Math.hypot(Number(p.x) - Number(first.x), Number(p.y) - Number(first.y));
           if (d <= closeDist) {
-            finalizeDrawingWall(m, true);
+            const done = finalizeDrawingWall(m, true);
+            if (done) state.designer.wallFinishCooldownUntil = Date.now() + 260;
             return;
           }
         }
@@ -1593,10 +1600,12 @@
     svg.addEventListener('dblclick', () => {
       if (String(ui.designerTool?.value || '') !== 'wall') return;
       const m = getDesignerFloorModel();
-      finalizeDrawingWall(m, false);
+      const done = finalizeDrawingWall(m, false);
+      if (done) state.designer.wallFinishCooldownUntil = Date.now() + 260;
     });
     svg.addEventListener('pointercancel', () => {
       state.designer.pendingBeamConnect = null;
+      state.designer.wallFinishCooldownUntil = 0;
       state.designer.dragItemId = null;
       state.designer.dragWallId = null;
       state.designer.dragWallPoint = null;
@@ -2080,6 +2089,7 @@
     if (ui.designerTool) {
       ui.designerTool.addEventListener('change', () => {
         state.designer.pendingBeamConnect = null;
+        state.designer.wallFinishCooldownUntil = 0;
         state.designer.drawingWallCursor = null;
         if (String(ui.designerTool.value || '') !== 'wall') {
           state.designer.drawingWall = null;
@@ -2136,6 +2146,16 @@
         setStatus(`Designer-Plan ${isDesignerPublished() ? 'freigegeben' : 'gesperrt'}`);
       });
     }
+    if (ui.designerNewBeamChainBtn) {
+      ui.designerNewBeamChainBtn.addEventListener('click', () => {
+        const floor = (ui.designerFloor.value === 'OG') ? 'OG' : 'EG';
+        const model = state.designer[floor] || defaultDesignerFloor();
+        state.designer[floor] = model;
+        model.lastBeamItemId = null;
+        state.designer.pendingBeamConnect = null;
+        setStatus('Neue Balkenkette gestartet (nächster Balken ohne Auto-Verbindung)');
+      });
+    }
     if (ui.designerCopyFloorBtn) {
       ui.designerCopyFloorBtn.addEventListener('click', () => {
         snapshotDesignerState();
@@ -2161,6 +2181,7 @@
         state.designer.dragWallOrig = null;
         state.designer.drawingWall = null;
         state.designer.drawingWallCursor = null;
+        state.designer.wallFinishCooldownUntil = 0;
         state.designer.drawingPerimeter = null;
         saveDesignerData();
         renderDesigner();
