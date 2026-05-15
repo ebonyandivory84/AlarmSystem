@@ -11,11 +11,11 @@ body::before{
   transform-origin:50% 100%;
   transform:perspective(900px) rotateX(70deg);
   background:
-    radial-gradient(circle at 50% 0%, rgba(31,206,141,.45), rgba(31,206,141,0) 38%),
-    repeating-linear-gradient(90deg, rgba(53,244,130,.48) 0 2px, rgba(53,244,130,0) 2px 86px),
-    repeating-linear-gradient(180deg, rgba(53,244,130,.4) 0 2px, rgba(53,244,130,0) 2px 86px);
-  filter:drop-shadow(0 0 16px rgba(53,244,130,.35));
-  opacity:.9;
+    radial-gradient(circle at 50% 2%, rgba(31,206,141,.38), rgba(31,206,141,0) 30%),
+    repeating-linear-gradient(90deg, rgba(73,255,150,.78) 0 2px, rgba(73,255,150,0) 2px 74px),
+    repeating-linear-gradient(180deg, rgba(73,255,150,.72) 0 2px, rgba(73,255,150,0) 2px 74px);
+  filter:drop-shadow(0 0 8px rgba(53,244,130,.42));
+  opacity:.98;
   z-index:0;
 }
 body::after{
@@ -24,8 +24,8 @@ body::after{
   inset:0;
   pointer-events:none;
   background:
-    radial-gradient(circle at 50% 42%, rgba(46,255,138,.28) 0, rgba(46,255,138,0) 18%),
-    linear-gradient(180deg, rgba(0,0,0,.08) 0%, rgba(0,0,0,.66) 58%, rgba(0,0,0,.86) 100%);
+    radial-gradient(circle at 50% 42%, rgba(46,255,138,.22) 0, rgba(46,255,138,0) 14%),
+    linear-gradient(180deg, rgba(0,0,0,.02) 0%, rgba(0,0,0,.38) 56%, rgba(0,0,0,.72) 100%);
   z-index:0;
 }
 .app{max-width:1320px;margin:0 auto;padding:22px 22px 110px;display:grid;gap:16px}.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
