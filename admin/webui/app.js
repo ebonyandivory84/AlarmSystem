@@ -298,8 +298,7 @@
       el.addEventListener('mouseenter', () => { ui.hover.textContent = `Hover: ${e.label} (${e.zone})`; });
       el.addEventListener('mouseleave', () => { ui.hover.textContent = 'Hover: -'; });
     }
-    const z = canvas.querySelector(`.zone.${e.zone}`);
-    if (z) z.appendChild(el);
+    canvas.appendChild(el);
   }
 
   function renderCanvas(target, detailed) {
