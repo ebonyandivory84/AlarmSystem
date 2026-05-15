@@ -110,6 +110,7 @@ label{display:grid;gap:6px;min-width:220px} input,select,textarea{background:var
 .designer-overview-overlay .designer-wall.outer{stroke-width:.58}
 .designer-overview-overlay .designer-perimeter{stroke-width:.38;stroke-dasharray:1.6 1.3}
 .designer-overview-overlay .designer-item{stroke-width:.28}
+.designer-overview-overlay .designer-item.beam{stroke-width:.32}
 .designer-overview-overlay .designer-item text{font-size:1.2px}
 .image-resize-handles{position:absolute;left:var(--frame-x,var(--img-x));top:var(--frame-y,var(--img-y));width:var(--frame-w,var(--img-w));height:var(--frame-h,var(--img-h));pointer-events:auto;border:1px dashed rgba(124,242,165,.5)}
 .resize-handle{position:absolute;width:14px;height:14px;border-radius:50%;border:1px solid #7cf2a5;background:#0b0f0c;pointer-events:auto}
@@ -170,6 +171,7 @@ details summary{cursor:pointer;color:var(--muted);font-weight:600}
 .designer-perimeter{stroke:#7cf2a5;stroke-dasharray:8 6;stroke-width:2;fill:rgba(124,242,165,.04)}
 .designer-item{stroke:#7cf2a5;fill:rgba(124,242,165,.10);stroke-width:1.5}
 .designer-item text{fill:#b7ffd1;font-size:11px;font-weight:700}
+.designer-item.beam{fill:rgba(124,242,165,.3);stroke:#b8ffd0;stroke-width:1.8}
 .designer-bg{opacity:.58}
 .designer-alarm{stroke:#ff4d57 !important;fill:rgba(255,77,87,.22) !important;animation:blinkZoneLine 1s linear infinite}
 @media (max-width:920px){.grid2{grid-template-columns:1fr}#overviewPage{height:calc(100dvh - 132px)}.zone-canvas{width:calc(100% - 482px);margin-left:274px;margin-right:208px;min-height:360px}.controls-card,.absence-card,.presence-card,.legend-card,.editor-strip{left:12px;width:250px}.controls-card{top:12px}.absence-card{top:216px}.presence-card{top:332px}.legend-card{top:448px}.editor-strip{bottom:12px}.canvas-tools{right:12px;top:12px;width:200px}.status-mini{left:calc(274px + (100% - 482px)/2);top:84px;transform:translateX(-50%);width:min(420px,calc(100% - 540px));min-width:220px}.status-text-box{left:274px;right:208px;bottom:12px;width:auto}.btn{min-height:52px;font-size:1rem}.panic-btn{right:12px;bottom:12px;width:200px;min-width:0;min-height:52px}}

@@ -465,24 +465,36 @@
       svg.appendChild(line);
     }
     for (const item of (model.items || [])) {
+      const itemType = String(item.type || 'item');
+      const isBeam = itemType === 'beam';
       const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-      g.setAttribute('class', 'designer-item');
+      g.setAttribute('class', `designer-item${isBeam ? ' beam' : ''}`);
       const x = Number(item.x) / 10;
       const y = Number(item.y) / 7;
       g.setAttribute('transform', `translate(${x.toFixed(3)},${y.toFixed(3)}) rotate(${Number(item.r || 0)})`);
       const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      rect.setAttribute('x', '-1.8');
-      rect.setAttribute('y', '-1.2');
-      rect.setAttribute('width', '3.6');
-      rect.setAttribute('height', '2.4');
-      rect.setAttribute('rx', '0.4');
-      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      text.setAttribute('x', '0');
-      text.setAttribute('y', '0.4');
-      text.setAttribute('text-anchor', 'middle');
-      text.textContent = String(item.type || 'item').slice(0, 3).toUpperCase();
+      if (isBeam) {
+        rect.setAttribute('x', '-1.45');
+        rect.setAttribute('y', '-1.45');
+        rect.setAttribute('width', '2.9');
+        rect.setAttribute('height', '2.9');
+        rect.setAttribute('rx', '0.22');
+      } else {
+        rect.setAttribute('x', '-1.8');
+        rect.setAttribute('y', '-1.2');
+        rect.setAttribute('width', '3.6');
+        rect.setAttribute('height', '2.4');
+        rect.setAttribute('rx', '0.4');
+      }
       g.appendChild(rect);
-      g.appendChild(text);
+      if (!isBeam) {
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', '0');
+        text.setAttribute('y', '0.4');
+        text.setAttribute('text-anchor', 'middle');
+        text.textContent = itemType.slice(0, 3).toUpperCase();
+        g.appendChild(text);
+      }
       svg.appendChild(g);
     }
     wrap.appendChild(svg);
@@ -1152,7 +1164,13 @@
       html += `<polyline class="${cls}" data-wall-id="${w.id}" points="${(w.points || []).map(p => `${p.x},${p.y}`).join(' ')}"></polyline>`;
     }
     for (const it of (m.items || [])) {
-      html += `<g class="designer-item" data-item-id="${it.id}" transform="translate(${it.x},${it.y}) rotate(${it.r || 0})"><rect x="-18" y="-12" width="36" height="24" rx="4"></rect><text x="0" y="4" text-anchor="middle">${String(it.type || 'item').slice(0,3).toUpperCase()}</text></g>`;
+      const itemType = String(it.type || 'item');
+      const isBeam = itemType === 'beam';
+      if (isBeam) {
+        html += `<g class="designer-item beam" data-item-id="${it.id}" transform="translate(${it.x},${it.y}) rotate(${it.r || 0})"><rect x="-14" y="-14" width="28" height="28" rx="2.5"></rect></g>`;
+      } else {
+        html += `<g class="designer-item" data-item-id="${it.id}" transform="translate(${it.x},${it.y}) rotate(${it.r || 0})"><rect x="-18" y="-12" width="36" height="24" rx="4"></rect><text x="0" y="4" text-anchor="middle">${itemType.slice(0,3).toUpperCase()}</text></g>`;
+      }
     }
     if (state.designer.drawingWall && state.designer.drawingWall.length > 0) {
       html += `<polyline class="designer-wall" points="${state.designer.drawingWall.map(p => `${p.x},${p.y}`).join(' ')}"></polyline>`;
