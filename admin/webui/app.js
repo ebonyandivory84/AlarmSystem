@@ -44,6 +44,8 @@
     shield: $('statusShield'),
     zoneActionsList: $('zoneActionsList'),
     zoneActionResult: $('zoneActionResult'),
+    canvasEntitySearch: $('canvasEntitySearch'),
+    canvasEntitiesList: $('canvasEntitiesList'),
     floorplanEgInput: $('floorplanEgInput'),
     floorplanOgInput: $('floorplanOgInput'),
     pinModal: $('pinModal'),
@@ -299,6 +301,44 @@
     add(state.config.personDetectionTable, 'personDetectionTable', r => r?.id);
     add(state.config.camerasTable, 'camerasTable', r => r?.personDetectionDp || r?.snapshotUrl || r?.ip);
     return rows;
+  }
+
+  function getAllCanvasEntities() {
+    ensureTables();
+    const out = [];
+    const add = (arr, kind, getId) => (arr || []).forEach((r, idx) => {
+      const id = getId(r);
+      if (!r || !id) return;
+      const floor = String(r.floor || 'EG') === 'OG' ? 'OG' : 'EG';
+      out.push({
+        kind,
+        idx,
+        floor,
+        zone: String(r.zone || 'pool'),
+        key: String(r.key || ''),
+        label: String(r.label || r.key || id),
+        id: String(id),
+        posXEg: Number(r.posXEg),
+        posYEg: Number(r.posYEg),
+        posXOg: Number(r.posXOg),
+        posYOg: Number(r.posYOg)
+      });
+    });
+    add(state.config.pirSensorsTable, 'pirSensorsTable', r => r?.id);
+    add(state.config.contactSensorsTable, 'contactSensorsTable', r => r?.id);
+    add(state.config.presenceSensorsTable, 'presenceSensorsTable', r => r?.id);
+    add(state.config.personDetectionTable, 'personDetectionTable', r => r?.id);
+    add(state.config.camerasTable, 'camerasTable', r => r?.personDetectionDp || r?.snapshotUrl || r?.ip);
+    return out;
+  }
+
+  function kindLabel(kind) {
+    if (kind === 'pirSensorsTable') return 'PIR';
+    if (kind === 'contactSensorsTable') return 'Tür/Kontakt';
+    if (kind === 'presenceSensorsTable') return 'Presence';
+    if (kind === 'personDetectionTable') return 'PersonDetect';
+    if (kind === 'camerasTable') return 'Kamera';
+    return kind;
   }
 
   function setEntity(kind, idx, patch) {
@@ -578,6 +618,33 @@
     });
   }
 
+  function renderCanvasEntitiesList() {
+    if (!ui.canvasEntitiesList) return;
+    const q = String(ui.canvasEntitySearch?.value || '').trim().toLowerCase();
+    const rows = getAllCanvasEntities()
+      .filter(e => {
+        if (!q) return true;
+        return `${e.label} ${e.key} ${e.id} ${e.zone} ${e.floor} ${kindLabel(e.kind)}`.toLowerCase().includes(q);
+      })
+      .sort((a, b) => a.label.localeCompare(b.label, 'de'));
+    if (rows.length === 0) {
+      ui.canvasEntitiesList.innerHTML = '<div class="muted">Keine Elemente gefunden.</div>';
+      return;
+    }
+    ui.canvasEntitiesList.innerHTML = rows.map(e => {
+      const pos = e.floor === 'OG'
+        ? `${Number.isFinite(e.posXOg) ? e.posXOg.toFixed(1) : '-'} / ${Number.isFinite(e.posYOg) ? e.posYOg.toFixed(1) : '-'}`
+        : `${Number.isFinite(e.posXEg) ? e.posXEg.toFixed(1) : '-'} / ${Number.isFinite(e.posYEg) ? e.posYEg.toFixed(1) : '-'}`;
+      return `<div class="sensor-item">
+        <span><strong>${e.label}</strong> <span class="muted">(${kindLabel(e.kind)})</span><br><span class="muted">key=${e.key || '-'} | id=${e.id} | zone=${e.zone} | floor=${e.floor} | pos=${pos}</span></span>
+        <span class="row" style="margin-top:0">
+          <button class="btn" data-entity-edit="${e.kind}:${e.idx}">Bearbeiten</button>
+          <button class="btn danger" data-entity-del="${e.kind}:${e.idx}">Löschen</button>
+        </span>
+      </div>`;
+    }).join('');
+  }
+
   function bindCanvasDrops(canvas) {
     if (canvas.dataset.boundDnD === '1') return;
     canvas.dataset.boundDnD = '1';
@@ -747,6 +814,7 @@
     renderCanvas(ui.mini, false);
     renderCanvas(ui.full, true);
     renderPool();
+    renderCanvasEntitiesList();
     bindCanvasDrops(ui.mini);
     bindCanvasDrops(ui.full);
     bindEditorInteractions(ui.mini);
@@ -1441,6 +1509,62 @@
         renderZoneActions();
       });
     }
+    if (ui.canvasEntitiesList) {
+      ui.canvasEntitiesList.addEventListener('click', ev => {
+        const editBtn = ev.target.closest('[data-entity-edit]');
+        if (editBtn) {
+          const [kind, idxRaw] = String(editBtn.getAttribute('data-entity-edit') || '').split(':');
+          const idx = Number(idxRaw);
+          if (!kind || !Number.isInteger(idx) || !state.config[kind]?.[idx]) return;
+          const row = state.config[kind][idx];
+          const floor = String(row.floor || 'EG') === 'OG' ? 'OG' : 'EG';
+          state.currentFloor = floor;
+          ui.floorEgBtn.classList.toggle('primary', floor === 'EG');
+          ui.floorEgBtn.classList.toggle('ghost', floor !== 'EG');
+          ui.floorOgBtn.classList.toggle('primary', floor === 'OG');
+          ui.floorOgBtn.classList.toggle('ghost', floor !== 'OG');
+          const id = kind === 'camerasTable'
+            ? String(row.personDetectionDp || row.snapshotUrl || row.ip || '')
+            : String(row.id || '');
+          const x = floor === 'OG' ? row.posXOg : (row.posXEg ?? row.posX);
+          const y = floor === 'OG' ? row.posYOg : (row.posYEg ?? row.posY);
+          renderAllCanvases();
+          selectEntity({
+            kind,
+            idx,
+            entityKey: String(row.key || id),
+            label: String(row.label || row.key || id),
+            zone: String(row.zone || 'pool'),
+            floor,
+            posX: Number.isFinite(Number(x)) ? Number(x) : null,
+            posY: Number.isFinite(Number(y)) ? Number(y) : null,
+            hasPos: Number.isFinite(Number(x)) && Number.isFinite(Number(y))
+          });
+          return;
+        }
+        const delBtn = ev.target.closest('[data-entity-del]');
+        if (delBtn) {
+          const [kind, idxRaw] = String(delBtn.getAttribute('data-entity-del') || '').split(':');
+          const idx = Number(idxRaw);
+          if (!kind || !Number.isInteger(idx) || !Array.isArray(state.config[kind]) || !state.config[kind][idx]) return;
+          snapshotCanvasState();
+          const deleted = state.config[kind][idx];
+          state.config[kind].splice(idx, 1);
+          if (state.selectedEntity && state.selectedEntity.kind === kind && state.selectedEntity.idx === idx) {
+            state.selectedEntity = null;
+            ui.entityModal.classList.add('hidden');
+          }
+          renderAllCanvases();
+          setStatus(`Element gelöscht: ${String(deleted.label || deleted.key || kind)}`);
+        }
+      });
+    }
+    if (ui.canvasEntitySearch) {
+      ui.canvasEntitySearch.addEventListener('input', renderCanvasEntitiesList);
+    }
+    $('focusAddEntityBtn')?.addEventListener('click', () => {
+      $('newLabel')?.focus();
+    });
 
     await refreshLiveStatus();
     await refreshPanicButton();
