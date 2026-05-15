@@ -63,6 +63,9 @@
     designerItemType: $('designerItemType'),
     designerGrid: $('designerGrid'),
     designerSnapBtn: $('designerSnapBtn'),
+    designerZoomOutBtn: $('designerZoomOutBtn'),
+    designerZoomInBtn: $('designerZoomInBtn'),
+    designerZoomInfo: $('designerZoomInfo'),
     designerBgBtn: $('designerBgBtn'),
     designerUseOnlyBtn: $('designerUseOnlyBtn'),
     designerPublishBtn: $('designerPublishBtn'),
@@ -180,7 +183,7 @@
     }
   });
   const defaultDesignerFloor = () => ({ items: [], walls: [], outerWallIds: [], perimeter: null, nextId: 1, lastBeamItemId: null });
-  const defaultDesignerView = () => ({ showBg: true, useInOverviewOnly: false });
+  const defaultDesignerView = () => ({ showBg: true, useInOverviewOnly: false, workspaceScale: 1 });
 
   const normalizeInstanceId = v => {
     let out = String(v || '').trim();
@@ -451,15 +454,27 @@
     }
   }
 
-  function renderDesignerOverviewOverlay(canvas, useFrame = false) {
+  function renderDesignerOverviewOverlay(canvas, useFrame = false, withBg = false) {
     const model = getDesignerFloorModel(true);
     if (!model || !hasDesignerGeometry(true)) return;
+    const ws = getDesignerWorkspace(true);
     const wrap = document.createElement('div');
     wrap.className = 'designer-overview-overlay';
     if (useFrame) wrap.classList.add('use-frame');
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('viewBox', '0 0 1000 700');
+    svg.setAttribute('viewBox', `0 0 ${ws.w} ${ws.h}`);
     svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    if (withBg) {
+      const bg = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+      bg.setAttribute('class', 'designer-bg');
+      bg.setAttribute('href', designerBgForFloor(true));
+      bg.setAttribute('x', String(ws.bgX));
+      bg.setAttribute('y', String(ws.bgY));
+      bg.setAttribute('width', String(ws.bgW));
+      bg.setAttribute('height', String(ws.bgH));
+      bg.setAttribute('preserveAspectRatio', 'none');
+      svg.appendChild(bg);
+    }
     if (model.perimeter && Number(model.perimeter.w || 0) > 0 && Number(model.perimeter.h || 0) > 0) {
       const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       r.setAttribute('class', 'designer-perimeter');
@@ -526,10 +541,11 @@
     const hasDesign = hasDesignerGeometry(true);
     const showBackground = !designerView.useInOverviewOnly;
     canvas.classList.toggle('designer-only', !showBackground);
+    const ws = getDesignerWorkspace(true);
     if (showBackground) {
       const box = canvas.getBoundingClientRect();
-      const canvasRatio = box.width > 0 && box.height > 0 ? (box.width / box.height) : (1000 / 700);
-      const designRatio = 1000 / 700;
+      const canvasRatio = box.width > 0 && box.height > 0 ? (box.width / box.height) : (ws.w / ws.h);
+      const designRatio = ws.w / ws.h;
       let frameW = 100;
       let frameH = 100;
       if (canvasRatio > designRatio) {
@@ -547,11 +563,8 @@
       canvas.style.setProperty('--frame-y', `${frameY}%`);
       canvas.style.setProperty('--frame-w', `${frameW}%`);
       canvas.style.setProperty('--frame-h', `${frameH}%`);
-      const bg = document.createElement('div');
-      bg.className = 'floorplan-image';
-      canvas.appendChild(bg);
     }
-    if (hasDesign) renderDesignerOverviewOverlay(canvas, showBackground);
+    if (hasDesign) renderDesignerOverviewOverlay(canvas, showBackground, showBackground);
   }
 
   function renderImageEditorOverlay(canvas) {
@@ -1078,6 +1091,8 @@
       EG: { ...defaultDesignerView(), ...(base.settings?.floorView?.EG || {}) },
       OG: { ...defaultDesignerView(), ...(base.settings?.floorView?.OG || {}) }
     };
+    state.designer.floorView.EG.workspaceScale = normalizedWorkspaceScale(state.designer.floorView.EG.workspaceScale);
+    state.designer.floorView.OG.workspaceScale = normalizedWorkspaceScale(state.designer.floorView.OG.workspaceScale);
     if (typeof state.config.floorplanDesignerPublished !== 'boolean') {
       state.config.floorplanDesignerPublished = false;
     }
@@ -1121,6 +1136,47 @@
       state.designer.floorView[f] = defaultDesignerView();
     }
     return state.designer.floorView[f];
+  }
+
+  function normalizedWorkspaceScale(raw) {
+    const v = Number(raw);
+    if (!Number.isFinite(v)) return 1;
+    return Math.max(1, Math.min(6, Math.round(v * 4) / 4));
+  }
+
+  function workspaceFromScale(scaleRaw) {
+    const scale = normalizedWorkspaceScale(scaleRaw);
+    const w = Math.round(1000 * scale);
+    const h = Math.round(700 * scale);
+    return {
+      scale,
+      w,
+      h,
+      bgX: Math.round((w - 1000) / 2),
+      bgY: Math.round((h - 700) / 2),
+      bgW: 1000,
+      bgH: 700
+    };
+  }
+
+  function getDesignerWorkspace(preferCurrentFloor = false) {
+    const view = getDesignerFloorView(preferCurrentFloor);
+    return workspaceFromScale(view.workspaceScale);
+  }
+
+  function shiftDesignerModel(model, dx, dy) {
+    if (!model || (!dx && !dy)) return;
+    for (const it of (model.items || [])) {
+      it.x = Number(it.x || 0) + dx;
+      it.y = Number(it.y || 0) + dy;
+    }
+    for (const w of (model.walls || [])) {
+      w.points = (w.points || []).map(p => ({ x: Number(p.x || 0) + dx, y: Number(p.y || 0) + dy }));
+    }
+    if (model.perimeter) {
+      model.perimeter.x = Number(model.perimeter.x || 0) + dx;
+      model.perimeter.y = Number(model.perimeter.y || 0) + dy;
+    }
   }
 
   function designerBgForFloor(preferCurrentFloor = false) {
@@ -1205,11 +1261,12 @@
 
   function svgPoint(evt) {
     const svg = ui.designerSvg;
+    const ws = getDesignerWorkspace();
     const pt = svg.createSVGPoint();
     pt.x = evt.clientX;
     pt.y = evt.clientY;
     const p = pt.matrixTransform(svg.getScreenCTM().inverse());
-    return { x: snapDesigner(Math.max(0, Math.min(1000, p.x))), y: snapDesigner(Math.max(0, Math.min(700, p.y))) };
+    return { x: snapDesigner(Math.max(0, Math.min(ws.w, p.x))), y: snapDesigner(Math.max(0, Math.min(ws.h, p.y))) };
   }
 
   function findDesignerWallById(model, wallId) {
@@ -1290,10 +1347,13 @@
     const m = getDesignerFloorModel();
     syncAutoBeamWalls(m);
     const view = getDesignerFloorView();
+    const ws = getDesignerWorkspace();
     const activeTool = String(ui.designerTool?.value || 'select');
     svg.classList.toggle('erase-mode', activeTool === 'erase');
+    svg.setAttribute('viewBox', `0 0 ${ws.w} ${ws.h}`);
     if (ui.designerGrid) ui.designerGrid.value = String(Math.max(4, Number(state.designer.grid || 12)));
     if (ui.designerSnapBtn) ui.designerSnapBtn.textContent = `Snap: ${state.designer.snap ? 'an' : 'aus'}`;
+    if (ui.designerZoomInfo) ui.designerZoomInfo.textContent = `Workspace x${ws.scale.toFixed(2)}`;
     if (ui.designerBgBtn) ui.designerBgBtn.textContent = `Hintergrund: ${view.showBg ? 'an' : 'aus'}`;
     if (ui.designerUseOnlyBtn) ui.designerUseOnlyBtn.textContent = `In Übersicht: ${view.useInOverviewOnly ? 'nur Plan' : 'JPEG'}`;
     if (ui.designerPublishBtn) {
@@ -1305,11 +1365,11 @@
     let html = '';
     if (view.showBg) {
       const href = designerBgForFloor().replace(/"/g, '&quot;');
-      html += `<image class="designer-bg" href="${href}" x="0" y="0" width="1000" height="700" preserveAspectRatio="xMidYMid meet"></image>`;
+      html += `<image class="designer-bg" href="${href}" x="${ws.bgX}" y="${ws.bgY}" width="${ws.bgW}" height="${ws.bgH}" preserveAspectRatio="none"></image>`;
     }
     html += '<g class="designer-grid">';
-    for (let x = 0; x <= 1000; x += grid) html += `<line x1="${x}" y1="0" x2="${x}" y2="700"></line>`;
-    for (let y = 0; y <= 700; y += grid) html += `<line x1="0" y1="${y}" x2="1000" y2="${y}"></line>`;
+    for (let x = 0; x <= ws.w; x += grid) html += `<line x1="${x}" y1="0" x2="${x}" y2="${ws.h}"></line>`;
+    for (let y = 0; y <= ws.h; y += grid) html += `<line x1="0" y1="${y}" x2="${ws.w}" y2="${y}"></line>`;
     html += '</g>';
     if (m.perimeter) {
       html += `<rect class="designer-perimeter" x="${m.perimeter.x}" y="${m.perimeter.y}" width="${m.perimeter.w}" height="${m.perimeter.h}"></rect>`;
@@ -1532,12 +1592,13 @@
       }
       if (state.designer.dragWallId && state.designer.dragWallStart && Array.isArray(state.designer.dragWallOrig)) {
         const wall = findDesignerWallById(m, state.designer.dragWallId);
+        const ws = getDesignerWorkspace();
         if (wall && Array.isArray(wall.points)) {
           const dx = p.x - Number(state.designer.dragWallStart.x || 0);
           const dy = p.y - Number(state.designer.dragWallStart.y || 0);
           wall.points = state.designer.dragWallOrig.map(orig => ({
-            x: snapDesigner(Math.max(0, Math.min(1000, Number(orig.x) + dx))),
-            y: snapDesigner(Math.max(0, Math.min(700, Number(orig.y) + dy)))
+            x: snapDesigner(Math.max(0, Math.min(ws.w, Number(orig.x) + dx))),
+            y: snapDesigner(Math.max(0, Math.min(ws.h, Number(orig.y) + dy)))
           }));
           renderDesigner();
         }
@@ -2131,6 +2192,40 @@
         state.designer.snap = !state.designer.snap;
         ui.designerSnapBtn.textContent = `Snap: ${state.designer.snap ? 'an' : 'aus'}`;
         saveDesignerData();
+      });
+    }
+    if (ui.designerZoomOutBtn) {
+      ui.designerZoomOutBtn.addEventListener('click', () => {
+        const view = getDesignerFloorView();
+        const oldScale = normalizedWorkspaceScale(view.workspaceScale);
+        const newScale = normalizedWorkspaceScale(oldScale - 0.25);
+        if (newScale === oldScale) return;
+        snapshotDesignerState();
+        const model = getDesignerFloorModel();
+        const oldWs = workspaceFromScale(oldScale);
+        const newWs = workspaceFromScale(newScale);
+        shiftDesignerModel(model, newWs.bgX - oldWs.bgX, newWs.bgY - oldWs.bgY);
+        view.workspaceScale = newScale;
+        saveDesignerData();
+        renderDesigner();
+        renderAllCanvases();
+      });
+    }
+    if (ui.designerZoomInBtn) {
+      ui.designerZoomInBtn.addEventListener('click', () => {
+        const view = getDesignerFloorView();
+        const oldScale = normalizedWorkspaceScale(view.workspaceScale);
+        const newScale = normalizedWorkspaceScale(oldScale + 0.25);
+        if (newScale === oldScale) return;
+        snapshotDesignerState();
+        const model = getDesignerFloorModel();
+        const oldWs = workspaceFromScale(oldScale);
+        const newWs = workspaceFromScale(newScale);
+        shiftDesignerModel(model, newWs.bgX - oldWs.bgX, newWs.bgY - oldWs.bgY);
+        view.workspaceScale = newScale;
+        saveDesignerData();
+        renderDesigner();
+        renderAllCanvases();
       });
     }
     if (ui.designerBgBtn) {
