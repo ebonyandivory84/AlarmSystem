@@ -76,6 +76,7 @@
   const setStatus = (m,e=false) => { ui.status.textContent = m; ui.status.classList.toggle('err', e); };
   const clone = v => JSON.parse(JSON.stringify(v));
   const asArmed = v => v === true || v === 1 || ['true','1','on','armed','aktiv'].includes(String(v ?? '').toLowerCase());
+  const readStateVal = s => (s && typeof s === 'object' && Object.prototype.hasOwnProperty.call(s, 'val')) ? s.val : s;
 
   const normalizeInstanceId = v => {
     let out = String(v || '').trim();
@@ -697,16 +698,23 @@
   }
 
   async function refreshPanicButton() {
-    const v = await getState(state.config.panicStateId || '');
-    const on = asArmed(v?.val);
+    const panicId = String(state.config.panicStateId || '').trim();
+    if (!panicId) {
+      ui.panicBtn.classList.remove('on');
+      ui.panicBtn.textContent = 'PANIC';
+      return;
+    }
+    const raw = readStateVal(await getState(panicId));
+    const on = asArmed(raw);
     ui.panicBtn.classList.toggle('on', on);
     ui.panicBtn.textContent = on ? 'PANIC AKTIV' : 'PANIC';
   }
 
   async function togglePanic() {
-    const cur = await getState(state.config.panicStateId || '');
-    const on = asArmed(cur?.val);
-    await setState(state.config.panicStateId, !on);
+    const panicId = String(state.config.panicStateId || '').trim();
+    if (!panicId) throw new Error('panicStateId ist leer');
+    const on = asArmed(readStateVal(await getState(panicId)));
+    await setState(panicId, !on);
     await refreshPanicButton();
     setStatus(`PANIC ${!on ? 'aktiviert' : 'deaktiviert'}`);
   }
