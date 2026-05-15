@@ -137,13 +137,13 @@
       <h2>Element-Einstellungen</h2>
       <p id="selectedEntityLabel" class="muted">Kein Element ausgewählt</p>
       <div class="fields">
-        <label>Zone<select id="ruleZone"><option value="perimeter">perimeter</option><option value="aussenhaut">aussenhaut</option><option value="innenraum">innenraum</option><option value="pool">pool</option></select></label>
-        <label>Regel aktiv<select id="ruleEnabled"><option value="true">true</option><option value="false">false</option></select></label>
-        <label>Nur wenn Zone scharf<select id="ruleOnlyArmed"><option value="true">true</option><option value="false">false</option></select></label>
-        <label>Nur nachts<select id="ruleOnlyNight"><option value="true">true</option><option value="false">false</option></select></label>
-        <label>Sirene auslösen<select id="ruleSirene"><option value="false">false</option><option value="true">true</option></select></label>
-        <label>Snapshot senden<select id="ruleSnapshot"><option value="false">false</option><option value="true">true</option></select></label>
-        <label>Telegram senden<select id="ruleTelegram"><option value="false">false</option><option value="true">true</option></select></label>
+        <label title="Legt fest, in welcher Zone dieses Element liegt. Beim Speichern wird die Zone sofort im Canvas und in der Logik genutzt.">Zone<select id="ruleZone"><option value="perimeter">perimeter</option><option value="aussenhaut">aussenhaut</option><option value="innenraum">innenraum</option><option value="pool">pool</option></select></label>
+        <label title="Aktiviert oder deaktiviert die Automationsregel fuer dieses Element. Bei false wird dieses Element ignoriert.">Regel aktiv<select id="ruleEnabled"><option value="true">true</option><option value="false">false</option></select></label>
+        <label title="Wenn true, wird nur ausgeloest, wenn die zugeordnete Zone aktuell scharf ist. Wenn false, kann auch im unscharfen Zustand ausgeloest werden.">Nur wenn Zone scharf<select id="ruleOnlyArmed"><option value="true">true</option><option value="false">false</option></select></label>
+        <label title="Wenn true, wird die Regel nur nachts angewendet (basierend auf den konfigurierten Zeit-/Astro-Bedingungen).">Nur nachts<select id="ruleOnlyNight"><option value="true">true</option><option value="false">false</option></select></label>
+        <label title="Wenn true, darf dieses Element bei Ausloesung die Sirene aktivieren.">Sirene ausloesen<select id="ruleSirene"><option value="false">false</option><option value="true">true</option></select></label>
+        <label title="Wenn true, wird bei Ausloesung ein Snapshot-Workflow gestartet (sofern Snapshot-Datapoints konfiguriert sind).">Snapshot senden<select id="ruleSnapshot"><option value="false">false</option><option value="true">true</option></select></label>
+        <label title="Wenn true, wird bei Ausloesung eine Telegram-Benachrichtigung gesendet (sofern Telegram-IDs gesetzt sind).">Telegram senden<select id="ruleTelegram"><option value="false">false</option><option value="true">true</option></select></label>
       </div>
       <div class="row">
         <button id="saveEntityRuleBtn" class="btn">Für Element speichern</button>
