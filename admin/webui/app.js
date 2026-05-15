@@ -525,9 +525,11 @@
     paintChip(ui.liveAussenhaut, aussenArmed);
     paintChip(ui.liveInnenraum, innenArmed);
     paintChip(ui.liveCameras, camerasArmed);
-    state.live.perimeterArmed = asArmed(zPer?.val);
-    state.live.aussenArmed = asArmed(zAus?.val);
-    state.live.innenArmed = asArmed(zInn?.val);
+    // Keep canvas blink logic aligned with effective armed evaluation
+    // (datapoints + zone states), not only raw zone states.
+    state.live.perimeterArmed = perimeterArmed;
+    state.live.aussenArmed = aussenArmed;
+    state.live.innenArmed = innenArmed;
     applyZoneArmedVisuals(ui.mini);
     applyZoneArmedVisuals(ui.full);
   }
