@@ -33,6 +33,7 @@
     pageOverviewBtn: $('pageOverviewBtn'),
     pageSettingsBtn: $('pageSettingsBtn'),
     panicBtn: $('panicToggleBtn'),
+    shield: $('statusShield'),
     pinModal: $('pinModal'),
     pinDots: $('pinDots'),
     pinHint: $('pinHint')
@@ -562,6 +563,23 @@
     el.classList.add(armed ? 'armed' : 'disarmed');
   }
 
+  function paintShield(mode) {
+    if (!ui.shield) return;
+    ui.shield.classList.remove('armed', 'perimeter', 'disarmed');
+    if (mode === 'armed') {
+      ui.shield.classList.add('armed');
+      ui.shield.textContent = '🛡️ ALLES SCHARF';
+      return;
+    }
+    if (mode === 'perimeter') {
+      ui.shield.classList.add('perimeter');
+      ui.shield.textContent = '🛡️ PERIMETER AKTIV';
+      return;
+    }
+    ui.shield.classList.add('disarmed');
+    ui.shield.textContent = '🛡️ UNSCHARF';
+  }
+
   async function refreshLiveStatus() {
     const p = state.instanceId;
     const mode = await getState(`${p}.runtime.mode`);
@@ -591,6 +609,9 @@
     if (allArmed) ui.liveMode.classList.add('armed');
     else if (perimeterArmed) ui.liveMode.classList.add('armed-perimeter');
     else ui.liveMode.classList.add('disarmed');
+    if (allArmed) paintShield('armed');
+    else if (perimeterArmed) paintShield('perimeter');
+    else paintShield('disarmed');
     paintChip(ui.livePerimeter, perimeterArmed);
     paintChip(ui.liveAussenhaut, aussenArmed);
     paintChip(ui.liveInnenraum, innenArmed);
