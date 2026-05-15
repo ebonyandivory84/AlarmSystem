@@ -349,6 +349,21 @@
     bindCanvasDrops(ui.full);
   }
 
+  function tidyCanvasLayout() {
+    ensureTables();
+    const groups = ['pirSensorsTable','contactSensorsTable','presenceSensorsTable','personDetectionTable','camerasTable'];
+    for (const g of groups) {
+      for (const row of state.config[g]) {
+        if (!row) continue;
+        if (String(row.zone || 'pool') === 'pool') continue;
+        delete row.posX;
+        delete row.posY;
+      }
+    }
+    renderAllCanvases();
+    setStatus('Canvas aufgeräumt: Elemente pro Zone neu verteilt');
+  }
+
   function renderFields() {
     ui.global.innerHTML = '';
     ui.dp.innerHTML = '';
@@ -598,6 +613,7 @@
     $('saveProfileBtn').addEventListener('click', saveAsProfile);
     $('deleteProfileBtn').addEventListener('click', deleteProfile);
     $('addSensorBtn').addEventListener('click', addNewEntity);
+    $('tidyCanvasBtn').addEventListener('click', tidyCanvasLayout);
 
     $('browseNewIdBtn').addEventListener('click', () => openObjectBrowser($('newId')));
     $('closeBrowserBtn').addEventListener('click', closeObjectBrowser);
