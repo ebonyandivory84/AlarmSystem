@@ -1307,6 +1307,7 @@
       if (!Number.isFinite(Number(it.r))) it.r = d.r;
       if (!Number.isFinite(Number(it.x))) it.x = 0;
       if (!Number.isFinite(Number(it.y))) it.y = 0;
+      it.mirrorX = !!it.mirrorX;
     }
   }
 
@@ -1318,6 +1319,7 @@
     const hh = h / 2;
     const isSelected = !!opts.selected;
     const handles = !!opts.handles;
+    const mirrorX = !!it.mirrorX;
     let inner = '';
     if (type === 'door') {
       const r = Math.min(w, h);
@@ -1413,12 +1415,17 @@
       const rx = hw + 14;
       const ry = -hh - 14;
       controls += `<g class="designer-item-rotate" data-item-rotate="${it.id}" transform="translate(${rx},${ry})"><circle cx="0" cy="0" r="8"></circle><path d="M -3 1 A 4 4 0 1 1 3 -1"></path></g>`;
+      if (type === 'door') {
+        controls += `<g class="designer-item-mirror" data-item-mirror="${it.id}" transform="translate(${-hw - 14},${-hh - 14})"><circle cx="0" cy="0" r="8"></circle><path d="M -4 0 H 4 M -2 -2 L -4 0 L -2 2 M 2 -2 L 4 0 L 2 2"></path></g>`;
+      }
+      controls += `<g class="designer-item-move" data-item-move="${it.id}" transform="translate(${-hw - 14},${hh + 14})"><circle cx="0" cy="0" r="8"></circle><path d="M -3 0 H 3 M 0 -3 V 3"></path></g>`;
       if (itemSupportsResize(type)) {
         controls += `<rect class="designer-item-resize" data-item-resize="${it.id}" x="${hw - 5}" y="${hh - 5}" width="10" height="10" rx="2"></rect>`;
       }
     }
     const cls = `designer-item${type === 'beam' ? ' beam' : ''}${isSelected ? ' selected' : ''}`;
-    return `<g class="${cls}" data-item-id="${it.id}" transform="translate(${Number(it.x) || 0},${Number(it.y) || 0}) rotate(${Number(it.r || 0)})">${inner}${controls}</g>`;
+    const body = mirrorX ? `<g class="designer-item-body" transform="scale(-1,1)">${inner}</g>` : `<g class="designer-item-body">${inner}</g>`;
+    return `<g class="${cls}" data-item-id="${it.id}" transform="translate(${Number(it.x) || 0},${Number(it.y) || 0}) rotate(${Number(it.r || 0)})">${body}${controls}</g>`;
   }
 
   function linkWallBetweenBeams(model, fromBeam, toBeam) {
@@ -1558,6 +1565,8 @@
       const wallEl = e.target.closest('[data-wall-id]');
       const itemEl = e.target.closest('[data-item-id]');
       const rotateEl = e.target.closest('[data-item-rotate]');
+      const mirrorEl = e.target.closest('[data-item-mirror]');
+      const moveEl = e.target.closest('[data-item-move]');
       const resizeEl = e.target.closest('[data-item-resize]');
       const itemType = String(ui.designerItemType?.value || 'door');
       if (tool === 'place' && itemType === 'beam' && itemEl) {
@@ -1619,6 +1628,31 @@
           saveDesignerData();
           renderDesigner();
           renderAllCanvases();
+        }
+        return;
+      }
+      if (canMoveExisting && mirrorEl) {
+        const itemId = Number(mirrorEl.getAttribute('data-item-mirror'));
+        const it = findDesignerItemById(m, itemId);
+        if (it && String(it.type || '') === 'door') {
+          snapshotDesignerState();
+          it.mirrorX = !it.mirrorX;
+          state.designer.selectedItemId = itemId;
+          saveDesignerData();
+          renderDesigner();
+          renderAllCanvases();
+        }
+        return;
+      }
+      if (canMoveExisting && moveEl) {
+        const itemId = Number(moveEl.getAttribute('data-item-move'));
+        const it = findDesignerItemById(m, itemId);
+        if (it) {
+          snapshotDesignerState();
+          state.designer.dragItemId = itemId;
+          state.designer.selectedItemId = itemId;
+          svg.setPointerCapture(e.pointerId);
+          renderDesigner();
         }
         return;
       }
