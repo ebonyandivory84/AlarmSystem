@@ -369,26 +369,10 @@
     const ratio = getFloorRatio(state.currentFloor);
     l.imageRect = fitRectToRatio(l.imageRect || { x: 8, y: 6, w: 84, h: 88 }, ratio);
     const rect = l.imageRect;
-    const rectRatio = rect.w / rect.h;
-    let frameX = rect.x;
-    let frameY = rect.y;
-    let frameW = rect.w;
-    let frameH = rect.h;
-    if (rectRatio > ratio) {
-      frameW = rect.h * ratio;
-      frameX = rect.x + (rect.w - frameW) / 2;
-    } else if (rectRatio < ratio) {
-      frameH = rect.w / ratio;
-      frameY = rect.y + (rect.h - frameH) / 2;
-    }
     canvas.style.setProperty('--img-x', `${rect.x}%`);
     canvas.style.setProperty('--img-y', `${rect.y}%`);
     canvas.style.setProperty('--img-w', `${rect.w}%`);
     canvas.style.setProperty('--img-h', `${rect.h}%`);
-    canvas.style.setProperty('--frame-x', `${frameX}%`);
-    canvas.style.setProperty('--frame-y', `${frameY}%`);
-    canvas.style.setProperty('--frame-w', `${frameW}%`);
-    canvas.style.setProperty('--frame-h', `${frameH}%`);
     const bg = document.createElement('div');
     bg.className = 'floorplan-image';
     canvas.appendChild(bg);
