@@ -28,6 +28,11 @@
     liveAussenhaut: $('liveAussenhaut'),
     liveInnenraum: $('liveInnenraum'),
     liveCameras: $('liveCameras'),
+    overviewPage: $('overviewPage'),
+    settingsPage: $('settingsPage'),
+    pageOverviewBtn: $('pageOverviewBtn'),
+    pageSettingsBtn: $('pageSettingsBtn'),
+    panicBtn: $('panicToggleBtn'),
     pinModal: $('pinModal'),
     pinDots: $('pinDots'),
     pinHint: $('pinHint')
@@ -681,6 +686,31 @@
     $('closeCanvasBtn').addEventListener('click', () => ui.canvasModal.classList.add('hidden'));
   }
 
+  function switchPage(page) {
+    const isOverview = page !== 'settings';
+    ui.overviewPage.classList.toggle('hidden', !isOverview);
+    ui.settingsPage.classList.toggle('hidden', isOverview);
+    ui.pageOverviewBtn.classList.toggle('primary', isOverview);
+    ui.pageOverviewBtn.classList.toggle('ghost', !isOverview);
+    ui.pageSettingsBtn.classList.toggle('primary', !isOverview);
+    ui.pageSettingsBtn.classList.toggle('ghost', isOverview);
+  }
+
+  async function refreshPanicButton() {
+    const v = await getState(state.config.panicStateId || '');
+    const on = asArmed(v?.val);
+    ui.panicBtn.classList.toggle('on', on);
+    ui.panicBtn.textContent = on ? 'PANIC AKTIV' : 'PANIC';
+  }
+
+  async function togglePanic() {
+    const cur = await getState(state.config.panicStateId || '');
+    const on = asArmed(cur?.val);
+    await setState(state.config.panicStateId, !on);
+    await refreshPanicButton();
+    setStatus(`PANIC ${!on ? 'aktiviert' : 'deaktiviert'}`);
+  }
+
   async function init() {
     connectSocket();
     bindPoolDrop();
@@ -690,6 +720,8 @@
 
     $('reloadBtn').addEventListener('click', () => reloadFromInstance().catch(e => setStatus(String(e), true)));
     $('saveBtn').addEventListener('click', () => saveToInstance().catch(e => setStatus(String(e), true)));
+    ui.pageOverviewBtn.addEventListener('click', () => switchPage('overview'));
+    ui.pageSettingsBtn.addEventListener('click', () => switchPage('settings'));
     $('loadProfileBtn').addEventListener('click', loadProfile);
     $('saveProfileBtn').addEventListener('click', saveAsProfile);
     $('deleteProfileBtn').addEventListener('click', deleteProfile);
@@ -757,9 +789,13 @@
         void onPinDigit(btn.getAttribute('data-pin')).catch(e => setStatus(String(e), true));
       });
     });
+    ui.panicBtn.addEventListener('click', () => togglePanic().catch(e => setStatus(String(e), true)));
 
     await refreshLiveStatus();
+    await refreshPanicButton();
+    switchPage('overview');
     setInterval(() => { void refreshLiveStatus(); }, 2000);
+    setInterval(() => { void refreshPanicButton(); }, 2000);
   }
 
   init().catch(err => setStatus(String(err), true));

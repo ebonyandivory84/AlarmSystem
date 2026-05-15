@@ -13,105 +13,122 @@
         <h1>AlarmSystem WebUI</h1>
         <p id="instanceLabel" class="muted">Instanz: -</p>
       </div>
+      <div class="page-switch">
+        <button id="pageOverviewBtn" class="btn primary">Übersicht</button>
+        <button id="pageSettingsBtn" class="btn ghost">Einstellungen</button>
+      </div>
       <div class="actions">
         <button id="reloadBtn" class="btn ghost">Neu laden</button>
         <button id="saveBtn" class="btn primary">In Instanz speichern</button>
       </div>
     </header>
 
-    <section class="card">
-      <h2>Live-Status</h2>
-      <div class="row">
-        <span id="liveMode" class="status-chip">Mode: -</span>
-        <span id="liveInnenraum" class="status-chip">Innenraum: -</span>
-        <span id="liveAussenhaut" class="status-chip">Aussenhaut: -</span>
-        <span id="livePerimeter" class="status-chip">Perimeter: -</span>
-        <span id="liveCameras" class="status-chip">Kameras: -</span>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Manuelle Steuerung</h2>
-      <div class="row">
-        <button id="armAlarmBtn" class="btn" title="Setzt den Alarmzustand auf scharf (armStateId=true).">Alarm scharf</button>
-        <button id="disarmAlarmBtn" class="btn" title="Setzt den Alarmzustand auf unscharf (armStateId=false).">Alarm unscharf</button>
-        <button id="armPerimeterBtn" class="btn" title="Setzt Perimeter-Schutz auf scharf (perimeterStateId=true).">Perimeter scharf</button>
-        <button id="disarmPerimeterBtn" class="btn" title="Setzt Perimeter-Schutz auf unscharf (perimeterStateId=false).">Perimeter unscharf</button>
-        <button id="armCamerasBtn" class="btn" title="Aktiviert Kameraalarme (cameraAlarmOnIdsJson / cctvArmedId).">Kameras scharf</button>
-        <button id="disarmCamerasBtn" class="btn" title="Deaktiviert Kameraalarme (cameraAlarmOffIdsJson / cctvDisarmedId).">Kameras unscharf</button>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Konfigurationsprofile</h2>
-      <div class="row">
-        <label>Aktives Profil<select id="profileSelect"></select></label>
-        <button id="loadProfileBtn" class="btn">Profil laden</button>
-      </div>
-      <div class="row">
-        <label>Neues Profil<input id="newProfileName" type="text" placeholder="z.B. home-night.json" /></label>
-        <button id="saveProfileBtn" class="btn">Als Profil speichern</button>
-        <button id="deleteProfileBtn" class="btn danger">Profil löschen</button>
-      </div>
-      <p class="muted">`default.json` bleibt immer erhalten.</p>
-    </section>
-
-    <section class="grid2">
-      <article class="card">
-        <div class="canvas-head">
-          <h2>Zonen-Canvas</h2>
-          <button id="tidyCanvasBtn" class="btn">Aufräumen</button>
-          <button id="openCanvasBtn" class="btn">Maximieren</button>
+    <main id="overviewPage" class="page">
+      <section class="card">
+        <h2>Live-Status</h2>
+        <div class="row">
+          <span id="liveMode" class="status-chip">Mode: -</span>
+          <span id="liveInnenraum" class="status-chip">Innenraum: -</span>
+          <span id="liveAussenhaut" class="status-chip">Aussenhaut: -</span>
+          <span id="livePerimeter" class="status-chip">Perimeter: -</span>
+          <span id="liveCameras" class="status-chip">Kameras: -</span>
         </div>
-        <p class="muted">Miniansicht mit Punkten. Hover zeigt Namen.</p>
-        <p id="miniHoverInfo" class="muted">Hover: -</p>
-        <div id="miniCanvas" class="zone-canvas"></div>
-      </article>
+      </section>
 
-      <article class="card">
-        <h2>Palette</h2>
-        <div id="poolZone" class="pool-zone" data-zone="pool">
-          <strong>Nicht zugeordnet</strong>
-          <div id="poolList" class="sensor-list"></div>
+      <section class="card">
+        <h2>Manuelle Steuerung</h2>
+        <div class="row">
+          <button id="armAlarmBtn" class="btn" title="Setzt den Alarmzustand auf scharf (armStateId=true).">Alarm scharf</button>
+          <button id="disarmAlarmBtn" class="btn" title="Setzt den Alarmzustand auf unscharf (armStateId=false).">Alarm unscharf</button>
+          <button id="armPerimeterBtn" class="btn" title="Setzt Perimeter-Schutz auf scharf (perimeterStateId=true).">Perimeter scharf</button>
+          <button id="disarmPerimeterBtn" class="btn" title="Setzt Perimeter-Schutz auf unscharf (perimeterStateId=false).">Perimeter unscharf</button>
+          <button id="armCamerasBtn" class="btn" title="Aktiviert Kameraalarme (cameraAlarmOnIdsJson / cctvArmedId).">Kameras scharf</button>
+          <button id="disarmCamerasBtn" class="btn" title="Deaktiviert Kameraalarme (cameraAlarmOffIdsJson / cctvDisarmedId).">Kameras unscharf</button>
         </div>
+      </section>
 
-        <h2 class="subhead">Neu hinzufügen</h2>
-        <div class="fields">
-          <label title="Definiert die Tabelle, in die das neue Element gespeichert wird.">Typ<select id="newType"><option value="pirSensorsTable">PIR</option><option value="contactSensorsTable">Kontakt</option><option value="presenceSensorsTable">Presence</option><option value="personDetectionTable">PersonDetection</option></select></label>
-          <label title="Interner stabiler Schlüssel für das Element.">Key<input id="newKey" type="text" /></label>
-          <label title="Anzeigename in der UI.">Label<input id="newLabel" type="text" /></label>
-          <label title="Objektbrowser per Suche.">
-            Datapoint ID
-            <span class="input-wrap">
-              <input id="newId" class="state-input" list="stateIds" type="text" />
-              <button id="browseNewIdBtn" class="icon-btn" type="button" title="Objektbrowser öffnen">🔎</button>
-            </span>
-          </label>
-          <label title="Werte, die als aktiv gelten, z. B. open,true,motion detected.">Active Values CSV<input id="newActive" type="text" placeholder="open / true / motion detected" /></label>
-          <label title="Nur für PersonDetection relevant.">Mode<select id="newMode"><option value="boolean">boolean</option><option value="string">string</option></select></label>
-          <label title="Vergleichswert im string-Mode, z. B. human detected.">Detect Value<input id="newDetect" type="text" placeholder="human detected" /></label>
+      <section class="grid2">
+        <article class="card">
+          <div class="canvas-head">
+            <h2>Zonen-Canvas</h2>
+            <button id="tidyCanvasBtn" class="btn">Aufräumen</button>
+            <button id="openCanvasBtn" class="btn">Maximieren</button>
+          </div>
+          <p class="muted">Miniansicht mit Punkten. Hover zeigt Namen.</p>
+          <p id="miniHoverInfo" class="muted">Hover: -</p>
+          <div id="miniCanvas" class="zone-canvas"></div>
+        </article>
+
+        <article class="card">
+          <h2>Status</h2>
+          <pre id="statusBox" class="status ok">Bereit</pre>
+        </article>
+      </section>
+    </main>
+
+    <main id="settingsPage" class="page hidden">
+      <section class="card">
+        <h2>Konfigurationsprofile</h2>
+        <div class="row">
+          <label>Aktives Profil<select id="profileSelect"></select></label>
+          <button id="loadProfileBtn" class="btn">Profil laden</button>
         </div>
-        <div class="row"><button id="addSensorBtn" class="btn">Element hinzufügen</button><span id="addResult" class="muted"></span></div>
-      </article>
-    </section>
+        <div class="row">
+          <label>Neues Profil<input id="newProfileName" type="text" placeholder="z.B. home-night.json" /></label>
+          <button id="saveProfileBtn" class="btn">Als Profil speichern</button>
+          <button id="deleteProfileBtn" class="btn danger">Profil löschen</button>
+        </div>
+        <p class="muted">`default.json` bleibt immer erhalten.</p>
+      </section>
 
-    <section class="card"><h2>Globale Parameter</h2><div class="fields" id="globalFields"></div></section>
-    <section class="card">
-      <details id="advancedDpSection">
-        <summary>Erweitert: AlarmCenter / Kern-Datapoints</summary>
-        <div class="fields" id="dpFields" style="margin-top:10px"></div>
-      </details>
-    </section>
-    <section class="card">
-      <h2>Trigger-Log</h2>
-      <div class="row">
-        <label>Datum<input id="triggerLogDate" type="date" /></label>
-        <button id="loadTriggerLogBtn" class="btn">Log laden</button>
-      </div>
-      <pre id="triggerLogView" class="status" style="max-height:260px;overflow:auto;white-space:pre-wrap"></pre>
-    </section>
-    <section class="card"><h2>Status</h2><pre id="statusBox" class="status ok">Bereit</pre></section>
+      <section class="grid2">
+        <article class="card">
+          <h2>Palette</h2>
+          <div id="poolZone" class="pool-zone" data-zone="pool">
+            <strong>Nicht zugeordnet</strong>
+            <div id="poolList" class="sensor-list"></div>
+          </div>
+
+          <h2 class="subhead">Neu hinzufügen</h2>
+          <div class="fields">
+            <label title="Definiert die Tabelle, in die das neue Element gespeichert wird.">Typ<select id="newType"><option value="pirSensorsTable">PIR</option><option value="contactSensorsTable">Kontakt</option><option value="presenceSensorsTable">Presence</option><option value="personDetectionTable">PersonDetection</option></select></label>
+            <label title="Interner stabiler Schlüssel für das Element.">Key<input id="newKey" type="text" /></label>
+            <label title="Anzeigename in der UI.">Label<input id="newLabel" type="text" /></label>
+            <label title="Objektbrowser per Suche.">
+              Datapoint ID
+              <span class="input-wrap">
+                <input id="newId" class="state-input" list="stateIds" type="text" />
+                <button id="browseNewIdBtn" class="icon-btn" type="button" title="Objektbrowser öffnen">🔎</button>
+              </span>
+            </label>
+            <label title="Werte, die als aktiv gelten, z. B. open,true,motion detected.">Active Values CSV<input id="newActive" type="text" placeholder="open / true / motion detected" /></label>
+            <label title="Nur für PersonDetection relevant.">Mode<select id="newMode"><option value="boolean">boolean</option><option value="string">string</option></select></label>
+            <label title="Vergleichswert im string-Mode, z. B. human detected.">Detect Value<input id="newDetect" type="text" placeholder="human detected" /></label>
+          </div>
+          <div class="row"><button id="addSensorBtn" class="btn">Element hinzufügen</button><span id="addResult" class="muted"></span></div>
+        </article>
+
+        <article class="card">
+          <h2>Trigger-Log</h2>
+          <div class="row">
+            <label>Datum<input id="triggerLogDate" type="date" /></label>
+            <button id="loadTriggerLogBtn" class="btn">Log laden</button>
+          </div>
+          <pre id="triggerLogView" class="status" style="max-height:260px;overflow:auto;white-space:pre-wrap"></pre>
+        </article>
+      </section>
+
+      <section class="card"><h2>Globale Parameter</h2><div class="fields" id="globalFields"></div></section>
+      <section class="card">
+        <details id="advancedDpSection">
+          <summary>Erweitert: AlarmCenter / Kern-Datapoints</summary>
+          <div class="fields" id="dpFields" style="margin-top:10px"></div>
+        </details>
+      </section>
+    </main>
   </div>
+
+  <button id="panicToggleBtn" class="panic-btn" title="PANIC umschalten">PANIC</button>
 
   <div id="canvasModal" class="modal hidden">
     <div class="modal-inner">
