@@ -255,11 +255,10 @@
     return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"/></svg>';
   }
   function detectZoneByCanvasPos(xPct, yPct) {
-    const dx = xPct - 50;
-    const dy = yPct - 50;
-    const d = Math.sqrt(dx * dx + dy * dy);
-    if (d <= 21) return 'innenraum';
-    if (d <= 35) return 'aussenhaut';
+    const inBuilding = xPct >= 16 && xPct <= 84 && yPct >= 10 && yPct <= 90;
+    const inInnen = xPct >= 22 && xPct <= 78 && yPct >= 16 && yPct <= 84;
+    if (inInnen) return 'innenraum';
+    if (inBuilding) return 'aussenhaut';
     return 'perimeter';
   }
 
@@ -270,28 +269,39 @@
       const list = buckets[z];
       const miss = list.filter(x => !x.hasPos);
       const n = miss.length;
-      for (let i=0;i<n;i++) {
-        const angle = (i / n) * Math.PI * 2;
-        // Place elements inside zone AREAS (donuts), not on border lines
-        let rMin = 0;
-        let rMax = 0;
+      for (let i = 0; i < n; i++) {
+        const col = Math.floor(Math.sqrt(n));
+        const cols = Math.max(2, col);
+        const rows = Math.ceil(n / cols);
+        const c = i % cols;
+        const r = Math.floor(i / cols);
+        let x = 50;
+        let y = 50;
         if (z === 'innenraum') {
-          rMin = 6;
-          rMax = 19;
+          x = 22 + ((c + 1) * (56 / (cols + 1)));
+          y = 16 + ((r + 1) * (68 / (rows + 1)));
         } else if (z === 'aussenhaut') {
-          rMin = 23;
-          rMax = 33;
+          const perimeterBandPoints = [
+            [19, 13], [32, 13], [45, 13], [58, 13], [71, 13], [81, 13],
+            [81, 25], [81, 38], [81, 51], [81, 64], [81, 77], [81, 88],
+            [68, 88], [55, 88], [42, 88], [29, 88], [19, 88],
+            [19, 76], [19, 63], [19, 50], [19, 37], [19, 24]
+          ];
+          const p = perimeterBandPoints[i % perimeterBandPoints.length];
+          x = p[0];
+          y = p[1];
         } else {
-          rMin = 37;
-          rMax = 45;
+          const outerBandPoints = [
+            [6, 6], [18, 6], [30, 6], [42, 6], [54, 6], [66, 6], [78, 6], [90, 6],
+            [94, 16], [94, 28], [94, 40], [94, 52], [94, 64], [94, 76], [94, 88],
+            [82, 94], [70, 94], [58, 94], [46, 94], [34, 94], [22, 94], [10, 94],
+            [6, 82], [6, 70], [6, 58], [6, 46], [6, 34], [6, 22]
+          ];
+          const p = outerBandPoints[i % outerBandPoints.length];
+          x = p[0];
+          y = p[1];
         }
-        const bands = 3;
-        const bandIdx = i % bands;
-        const frac = (bandIdx + 0.5) / bands;
-        const radius = rMin + (rMax - rMin) * frac;
-        const x = 50 + Math.cos(angle) * radius;
-        const y = 50 + Math.sin(angle) * radius;
-        setEntity(miss[i].kind, miss[i].idx, { posX: Math.max(4, Math.min(96, x)), posY: Math.max(4, Math.min(96, y)) });
+        setEntity(miss[i].kind, miss[i].idx, { posX: Math.max(2, Math.min(98, x)), posY: Math.max(2, Math.min(98, y)) });
       }
     }
   }
@@ -302,10 +312,12 @@
       const d = document.createElement('div');
       d.className = `zone ${z}`;
       d.dataset.zone = z;
-      d.innerHTML = `<span>${z}</span>`;
+      const label = z === 'aussenhaut' ? 'außenhaut' : z;
+      d.innerHTML = `<span>${label}</span>`;
       canvas.appendChild(d);
     });
   }
+
   function applyZoneArmedVisuals(canvas){
     if (!canvas) return;
     const per = canvas.querySelector('.zone.perimeter');

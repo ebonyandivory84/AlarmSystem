@@ -46,13 +46,17 @@ label{display:grid;gap:6px;min-width:220px} input,select,textarea{background:var
 .status-chip.armed-perimeter{background:#5b4b0f;border-color:#b5962d;color:#fff3c7;animation:blinkArmed 1s linear infinite}
 .status-chip.disarmed{background:#10361a;border-color:#2f8a45;color:#d6ffe2}
 @keyframes blinkArmed{0%{opacity:1}50%{opacity:.5}100%{opacity:1}}
-.zone-canvas{position:relative;height:420px;border-radius:14px;border:1px dashed var(--line-strong);overflow:hidden;background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01))}
-.zone{position:absolute;inset:0;margin:auto;border:2px solid rgba(123,167,230,.55);border-radius:50%;display:flex;align-items:flex-start;justify-content:center;color:var(--muted);padding-top:8px;box-shadow:inset 0 0 0 1px rgba(6,12,24,.35)}
-.zone.perimeter{width:95%;height:95%}.zone.aussenhaut{width:70%;height:70%}.zone.innenraum{width:43%;height:43%}
+.zone-canvas{position:relative;height:420px;border-radius:14px;border:1px dashed var(--line-strong);overflow:hidden;background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01)),url('./assets/floorplan-dashboard.jpg') center/cover no-repeat}
+.zone{position:absolute;inset:0;color:var(--muted);pointer-events:none}
+.zone span{position:absolute;font-size:16px;font-weight:700;letter-spacing:.3px;text-shadow:0 2px 8px rgba(0,0,0,.7)}
+.zone.perimeter{box-shadow:inset 0 0 0 2px rgba(123,167,230,.35)}
+.zone.perimeter span{top:8px;left:12px}
+.zone.aussenhaut{clip-path:polygon(16% 10%,84% 10%,84% 90%,16% 90%,16% 10%,22% 16%,22% 84%,78% 84%,78% 16%,22% 16%);background:rgba(244,194,143,.14);border:2px solid rgba(123,167,230,.55)}
+.zone.aussenhaut span{top:14px;left:24%}
+.zone.innenraum{clip-path:polygon(22% 16%,78% 16%,78% 84%,22% 84%);background:rgba(243,166,166,.15);border:2px solid rgba(123,167,230,.55)}
+.zone.innenraum span{top:24px;left:46%}
 .zone{pointer-events:none}
 .zone.perimeter{background:rgba(244,231,168,.08)}
-.zone.aussenhaut{background:rgba(244,194,143,.12)}
-.zone.innenraum{background:rgba(243,166,166,.16)}
 .zone.perimeter.armed-zone,
 .zone.aussenhaut.armed-zone,
 .zone.innenraum.armed-zone{
