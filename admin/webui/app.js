@@ -491,7 +491,12 @@
     }
     for (const wall of (model.walls || [])) {
       const cls = Array.isArray(model.outerWallIds) && model.outerWallIds.includes(wall.id) ? 'designer-wall outer' : 'designer-wall';
-      html += `<polyline class="${cls}" fill="none" points="${(wall.points || []).map(p => `${Number(p.x)},${Number(p.y)}`).join(' ')}"></polyline>`;
+      const pts = normalizeWallPoints(wall.points);
+      if (pts.length < 2) continue;
+      const a = offsetWallPolyline(pts, 6);
+      const b = offsetWallPolyline(pts, -6);
+      html += `<polyline class="${cls} wall-edge" fill="none" points="${wallPointsAttr(a)}"></polyline>`;
+      html += `<polyline class="${cls} wall-edge" fill="none" points="${wallPointsAttr(b)}"></polyline>`;
     }
     for (const item of (model.items || [])) html += svgForDesignerItem(item, { handles: false, selected: false });
     svg.innerHTML += html;
@@ -1270,6 +1275,52 @@
     return Math.abs(Number(a?.x) - Number(b?.x)) < 0.5 && Math.abs(Number(a?.y) - Number(b?.y)) < 0.5;
   }
 
+  function normalizeWallPoints(points) {
+    return (points || [])
+      .map(p => ({ x: Number(p?.x), y: Number(p?.y) }))
+      .filter(p => Number.isFinite(p.x) && Number.isFinite(p.y));
+  }
+
+  function wallPointsAttr(points) {
+    return points.map(p => `${p.x},${p.y}`).join(' ');
+  }
+
+  function segmentNormal(a, b) {
+    const dx = Number(b.x) - Number(a.x);
+    const dy = Number(b.y) - Number(a.y);
+    const len = Math.hypot(dx, dy);
+    if (!len) return { x: 0, y: 0 };
+    return { x: -dy / len, y: dx / len };
+  }
+
+  function normalizeVec(v) {
+    const len = Math.hypot(Number(v.x), Number(v.y));
+    if (!len) return { x: 0, y: 0 };
+    return { x: Number(v.x) / len, y: Number(v.y) / len };
+  }
+
+  function offsetWallPolyline(points, offset) {
+    const pts = normalizeWallPoints(points);
+    if (pts.length < 2) return pts;
+    const out = [];
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+      let n = { x: 0, y: 0 };
+      if (i === 0) {
+        n = segmentNormal(pts[0], pts[1]);
+      } else if (i === pts.length - 1) {
+        n = segmentNormal(pts[pts.length - 2], pts[pts.length - 1]);
+      } else {
+        const n1 = segmentNormal(pts[i - 1], pts[i]);
+        const n2 = segmentNormal(pts[i], pts[i + 1]);
+        n = normalizeVec({ x: n1.x + n2.x, y: n1.y + n2.y });
+        if (!n.x && !n.y) n = n2;
+      }
+      out.push({ x: p.x + (n.x * offset), y: p.y + (n.y * offset) });
+    }
+    return out;
+  }
+
   function defaultDesignerItemSpec(typeRaw) {
     const type = String(typeRaw || '');
     if (type === 'door') return { w: 48, h: 48, r: 0 };
@@ -1527,10 +1578,16 @@
     const showWallHandles = ['select', 'wall'].includes(activeTool);
     for (const w of (m.walls || [])) {
       const cls = m.outerWallIds?.includes(w.id) ? 'designer-wall outer' : 'designer-wall';
-      html += `<polyline class="${cls}" data-wall-id="${w.id}" points="${(w.points || []).map(p => `${p.x},${p.y}`).join(' ')}"></polyline>`;
+      const pts = normalizeWallPoints(w.points);
+      if (pts.length < 2) continue;
+      const a = offsetWallPolyline(pts, 6);
+      const b = offsetWallPolyline(pts, -6);
+      html += `<polyline class="${cls} wall-edge" points="${wallPointsAttr(a)}"></polyline>`;
+      html += `<polyline class="${cls} wall-edge" points="${wallPointsAttr(b)}"></polyline>`;
+      html += `<polyline class="designer-wall-hit" data-wall-id="${w.id}" points="${wallPointsAttr(pts)}"></polyline>`;
       if (showWallHandles) {
-        for (let i = 0; i < (w.points || []).length; i++) {
-          const p = w.points[i];
+        for (let i = 0; i < pts.length; i++) {
+          const p = pts[i];
           html += `<circle class="designer-wall-point" data-wall-point="${w.id}:${i}" cx="${p.x}" cy="${p.y}" r="5"></circle>`;
         }
       }
