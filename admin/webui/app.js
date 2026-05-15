@@ -38,6 +38,7 @@
     editZoneSelect: $('editZoneSelect'),
     closeZoneBtn: $('closeZoneBtn'),
     clearZoneBtn: $('clearZoneBtn'),
+    copyZonesFloorBtn: $('copyZonesFloorBtn'),
     resetImageRectBtn: $('resetImageRectBtn'),
     panicBtn: $('panicToggleBtn'),
     shield: $('statusShield'),
@@ -906,6 +907,23 @@
     return state.floorLayouts[state.currentFloor];
   }
 
+  function copyZonesToOtherFloor() {
+    const from = state.currentFloor === 'OG' ? 'OG' : 'EG';
+    const to = from === 'EG' ? 'OG' : 'EG';
+    if (!state.floorLayouts[from]) state.floorLayouts[from] = defaultLayout();
+    if (!state.floorLayouts[to]) state.floorLayouts[to] = defaultLayout();
+    snapshotCanvasState();
+    const fromZones = state.floorLayouts[from].zones || {};
+    state.floorLayouts[to].zones = clone({
+      perimeter: Array.isArray(fromZones.perimeter) ? fromZones.perimeter : [],
+      aussenhaut: Array.isArray(fromZones.aussenhaut) ? fromZones.aussenhaut : [],
+      innenraum: Array.isArray(fromZones.innenraum) ? fromZones.innenraum : []
+    });
+    writeFloorLayoutsToConfig();
+    renderAllCanvases();
+    setStatus(`Zonen von ${from} nach ${to} übernommen`);
+  }
+
   function readFormIntoConfig() {
     ui.global.querySelectorAll('[data-key]').forEach(el => {
       const k = el.dataset.key;
@@ -1327,6 +1345,9 @@
       renderAllCanvases();
     });
     $('undoCanvasBtn').addEventListener('click', undoCanvasStep);
+    if (ui.copyZonesFloorBtn) {
+      ui.copyZonesFloorBtn.addEventListener('click', copyZonesToOtherFloor);
+    }
     ui.resetImageRectBtn.addEventListener('click', () => {
       const l = getCurrentLayout();
       snapshotCanvasState();
