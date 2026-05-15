@@ -450,21 +450,22 @@
     }
   }
 
-  function renderDesignerOverviewOverlay(canvas) {
+  function renderDesignerOverviewOverlay(canvas, useFrame = false) {
     const model = getDesignerFloorModel(true);
     if (!model || !hasDesignerGeometry(true)) return;
     const wrap = document.createElement('div');
     wrap.className = 'designer-overview-overlay';
+    if (useFrame) wrap.classList.add('use-frame');
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('viewBox', '0 0 100 100');
+    svg.setAttribute('viewBox', '0 0 1000 700');
     svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
     if (model.perimeter && Number(model.perimeter.w || 0) > 0 && Number(model.perimeter.h || 0) > 0) {
       const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       r.setAttribute('class', 'designer-perimeter');
-      r.setAttribute('x', String((Number(model.perimeter.x) / 10).toFixed(3)));
-      r.setAttribute('y', String((Number(model.perimeter.y) / 7).toFixed(3)));
-      r.setAttribute('width', String((Number(model.perimeter.w) / 10).toFixed(3)));
-      r.setAttribute('height', String((Number(model.perimeter.h) / 7).toFixed(3)));
+      r.setAttribute('x', String(Number(model.perimeter.x)));
+      r.setAttribute('y', String(Number(model.perimeter.y)));
+      r.setAttribute('width', String(Number(model.perimeter.w)));
+      r.setAttribute('height', String(Number(model.perimeter.h)));
       svg.appendChild(r);
     }
     for (const wall of (model.walls || [])) {
@@ -472,7 +473,7 @@
       const isOuter = Array.isArray(model.outerWallIds) && model.outerWallIds.includes(wall.id);
       line.setAttribute('class', isOuter ? 'designer-wall outer' : 'designer-wall');
       line.setAttribute('fill', 'none');
-      line.setAttribute('points', (wall.points || []).map(p => `${(Number(p.x) / 10).toFixed(3)},${(Number(p.y) / 7).toFixed(3)}`).join(' '));
+      line.setAttribute('points', (wall.points || []).map(p => `${Number(p.x)},${Number(p.y)}`).join(' '));
       svg.appendChild(line);
     }
     for (const item of (model.items || [])) {
@@ -480,28 +481,28 @@
       const isBeam = itemType === 'beam';
       const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       g.setAttribute('class', `designer-item${isBeam ? ' beam' : ''}`);
-      const x = Number(item.x) / 10;
-      const y = Number(item.y) / 7;
-      g.setAttribute('transform', `translate(${x.toFixed(3)},${y.toFixed(3)}) rotate(${Number(item.r || 0)})`);
+      const x = Number(item.x);
+      const y = Number(item.y);
+      g.setAttribute('transform', `translate(${x},${y}) rotate(${Number(item.r || 0)})`);
       const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       if (isBeam) {
-        rect.setAttribute('x', '-1.2');
-        rect.setAttribute('y', '-1.2');
-        rect.setAttribute('width', '2.4');
-        rect.setAttribute('height', '2.4');
-        rect.setAttribute('rx', '0.22');
+        rect.setAttribute('x', '-11');
+        rect.setAttribute('y', '-11');
+        rect.setAttribute('width', '22');
+        rect.setAttribute('height', '22');
+        rect.setAttribute('rx', '2.2');
       } else {
-        rect.setAttribute('x', '-1.8');
-        rect.setAttribute('y', '-1.2');
-        rect.setAttribute('width', '3.6');
-        rect.setAttribute('height', '2.4');
-        rect.setAttribute('rx', '0.4');
+        rect.setAttribute('x', '-18');
+        rect.setAttribute('y', '-12');
+        rect.setAttribute('width', '36');
+        rect.setAttribute('height', '24');
+        rect.setAttribute('rx', '4');
       }
       g.appendChild(rect);
       if (!isBeam) {
         const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         text.setAttribute('x', '0');
-        text.setAttribute('y', '0.4');
+        text.setAttribute('y', '4');
         text.setAttribute('text-anchor', 'middle');
         text.textContent = itemType.slice(0, 3).toUpperCase();
         g.appendChild(text);
@@ -542,7 +543,7 @@
       bg.className = 'floorplan-image';
       canvas.appendChild(bg);
     }
-    if (hasDesign) renderDesignerOverviewOverlay(canvas);
+    if (hasDesign) renderDesignerOverviewOverlay(canvas, showBackground);
   }
 
   function renderImageEditorOverlay(canvas) {
