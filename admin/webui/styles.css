@@ -53,6 +53,7 @@ label{display:grid;gap:6px;min-width:220px} input,select,textarea{background:var
 .canvas-full{grid-column:1 / -1}
 .canvas-shell{position:relative;padding:10px;height:100%;min-height:0}
 .zone-canvas{position:relative;width:calc(100% - 540px);margin-left:320px;margin-right:220px;height:100%;min-height:420px;border-radius:14px;border:1px dashed var(--line-strong);overflow:hidden;background:linear-gradient(180deg,rgba(0,0,0,.14),rgba(0,0,0,.08));--img-x:8%;--img-y:6%;--img-w:84%;--img-h:88%}
+.zone-canvas.designer-locked{background:linear-gradient(180deg,rgba(0,0,0,.4),rgba(0,0,0,.28))}
 .canvas-overlay{position:absolute;z-index:6}
 .status-mini{left:calc(320px + (100% - 540px)/2);top:22px;transform:translateX(-50%);width:min(620px,calc(100% - 680px));min-width:320px;padding:8px;border-radius:12px;background:rgba(10,10,10,.62);border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(8px)}
 .controls-card,.absence-card,.presence-card,.legend-card,.editor-strip{left:20px;width:280px;padding:10px;border-radius:12px;background:rgba(10,10,10,.62);border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(8px);z-index:7}

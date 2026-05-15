@@ -65,6 +65,7 @@
     designerSnapBtn: $('designerSnapBtn'),
     designerBgBtn: $('designerBgBtn'),
     designerUseOnlyBtn: $('designerUseOnlyBtn'),
+    designerPublishBtn: $('designerPublishBtn'),
     designerUndoBtn: $('designerUndoBtn'),
     designerCopyFloorBtn: $('designerCopyFloorBtn'),
     designerClearBtn: $('designerClearBtn'),
@@ -510,42 +511,35 @@
 
   function addZones(canvas) {
     canvas.innerHTML = '';
-    const l = state.floorLayouts[state.currentFloor] || defaultLayout();
+    const published = isDesignerPublished();
+    canvas.classList.toggle('designer-locked', !published);
+    if (!published) {
+      canvas.classList.remove('designer-only');
+      return;
+    }
     const designerView = getDesignerFloorView(true);
-    const useDesignerOnly = !!designerView.useInOverviewOnly && hasDesignerGeometry(true);
-    const ratio = getFloorRatio(state.currentFloor);
-    l.imageRect = fitRectToRatio(l.imageRect || { x: 8, y: 6, w: 84, h: 88 }, ratio);
-    const rect = l.imageRect;
-    const frame = calcImageFrameInCanvas(canvas, rect, ratio);
-    canvas.style.setProperty('--img-x', `${rect.x}%`);
-    canvas.style.setProperty('--img-y', `${rect.y}%`);
-    canvas.style.setProperty('--img-w', `${rect.w}%`);
-    canvas.style.setProperty('--img-h', `${rect.h}%`);
-    canvas.style.setProperty('--frame-x', `${frame.x}%`);
-    canvas.style.setProperty('--frame-y', `${frame.y}%`);
-    canvas.style.setProperty('--frame-w', `${frame.w}%`);
-    canvas.style.setProperty('--frame-h', `${frame.h}%`);
-    canvas.classList.toggle('designer-only', useDesignerOnly);
-    if (!useDesignerOnly) {
+    const hasDesign = hasDesignerGeometry(true);
+    const showBackground = !designerView.useInOverviewOnly;
+    canvas.classList.toggle('designer-only', !showBackground);
+    if (showBackground) {
+      const l = state.floorLayouts[state.currentFloor] || defaultLayout();
+      const ratio = getFloorRatio(state.currentFloor);
+      l.imageRect = fitRectToRatio(l.imageRect || { x: 8, y: 6, w: 84, h: 88 }, ratio);
+      const rect = l.imageRect;
+      const frame = calcImageFrameInCanvas(canvas, rect, ratio);
+      canvas.style.setProperty('--img-x', `${rect.x}%`);
+      canvas.style.setProperty('--img-y', `${rect.y}%`);
+      canvas.style.setProperty('--img-w', `${rect.w}%`);
+      canvas.style.setProperty('--img-h', `${rect.h}%`);
+      canvas.style.setProperty('--frame-x', `${frame.x}%`);
+      canvas.style.setProperty('--frame-y', `${frame.y}%`);
+      canvas.style.setProperty('--frame-w', `${frame.w}%`);
+      canvas.style.setProperty('--frame-h', `${frame.h}%`);
       const bg = document.createElement('div');
       bg.className = 'floorplan-image';
       canvas.appendChild(bg);
     }
-    ['perimeter','aussenhaut','innenraum'].forEach(z => {
-      const poly = l.zones?.[z];
-      if (!Array.isArray(poly) || poly.length < 3) return;
-      const d = document.createElement('div');
-      d.className = `zone ${z}`;
-      d.dataset.zone = z;
-      const label = z === 'aussenhaut' ? 'außenhaut' : z;
-      d.innerHTML = `<span>${label}</span>`;
-      d.style.clipPath = `polygon(${poly.map(pt => `${pt[0]}% ${pt[1]}%`).join(',')})`;
-      canvas.appendChild(d);
-    });
-    if (useDesignerOnly) renderDesignerOverviewOverlay(canvas);
-    renderStaticZoneOverlay(canvas, l);
-    if (state.editImage) renderImageEditorOverlay(canvas);
-    if (state.editZones) renderZoneEditorOverlay(canvas, l);
+    if (hasDesign) renderDesignerOverviewOverlay(canvas);
   }
 
   function renderImageEditorOverlay(canvas) {
@@ -710,6 +704,7 @@
     target.classList.toggle('floor-og', state.currentFloor === 'OG');
     target.classList.toggle('floor-eg', state.currentFloor !== 'OG');
     addZones(target);
+    if (!isDesignerPublished()) return;
     getEntities().filter(e => e.zone !== 'pool' && (String(e.floor || 'EG') === state.currentFloor)).forEach(e => drawEntity(target, e, detailed));
     applyZoneArmedVisuals(target);
   }
@@ -1071,6 +1066,9 @@
       EG: { ...defaultDesignerView(), ...(base.settings?.floorView?.EG || {}) },
       OG: { ...defaultDesignerView(), ...(base.settings?.floorView?.OG || {}) }
     };
+    if (typeof state.config.floorplanDesignerPublished !== 'boolean') {
+      state.config.floorplanDesignerPublished = false;
+    }
     if (!Number.isFinite(Number(state.designer.grid)) || Number(state.designer.grid) < 4) state.designer.grid = 12;
   }
 
@@ -1129,10 +1127,15 @@
     return false;
   }
 
+  function isDesignerPublished() {
+    return !!state.config?.floorplanDesignerPublished;
+  }
+
   function snapshotDesignerState() {
     const snap = JSON.stringify({
       EG: clone(state.designer.EG || defaultDesignerFloor()),
       OG: clone(state.designer.OG || defaultDesignerFloor()),
+      published: isDesignerPublished(),
       settings: {
         snap: !!state.designer.snap,
         grid: Math.max(4, Number(state.designer.grid || 12)),
@@ -1163,6 +1166,7 @@
         EG: { ...defaultDesignerView(), ...(s.settings?.floorView?.EG || {}) },
         OG: { ...defaultDesignerView(), ...(s.settings?.floorView?.OG || {}) }
       };
+      state.config.floorplanDesignerPublished = !!s.published;
       state.designer.dragItemId = null;
       state.designer.dragWallId = null;
       state.designer.dragWallPoint = null;
@@ -1255,6 +1259,11 @@
     if (ui.designerSnapBtn) ui.designerSnapBtn.textContent = `Snap: ${state.designer.snap ? 'an' : 'aus'}`;
     if (ui.designerBgBtn) ui.designerBgBtn.textContent = `Hintergrund: ${view.showBg ? 'an' : 'aus'}`;
     if (ui.designerUseOnlyBtn) ui.designerUseOnlyBtn.textContent = `In Übersicht: ${view.useInOverviewOnly ? 'nur Plan' : 'JPEG'}`;
+    if (ui.designerPublishBtn) {
+      ui.designerPublishBtn.textContent = `Übersicht: ${isDesignerPublished() ? 'freigegeben' : 'gesperrt'}`;
+      ui.designerPublishBtn.classList.toggle('primary', isDesignerPublished());
+      ui.designerPublishBtn.classList.toggle('ghost', !isDesignerPublished());
+    }
     const grid = Math.max(4, Number(state.designer.grid || 12));
     let html = '';
     if (view.showBg) {
@@ -2048,6 +2057,16 @@
         ui.designerUseOnlyBtn.textContent = `In Übersicht: ${view.useInOverviewOnly ? 'nur Plan' : 'JPEG'}`;
         renderDesigner();
         renderAllCanvases();
+      });
+    }
+    if (ui.designerPublishBtn) {
+      ui.designerPublishBtn.addEventListener('click', () => {
+        snapshotDesignerState();
+        state.config.floorplanDesignerPublished = !isDesignerPublished();
+        saveDesignerData();
+        renderDesigner();
+        renderAllCanvases();
+        setStatus(`Designer-Plan ${isDesignerPublished() ? 'freigegeben' : 'gesperrt'}`);
       });
     }
     if (ui.designerCopyFloorBtn) {
