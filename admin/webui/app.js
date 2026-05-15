@@ -38,6 +38,8 @@
     shield: $('statusShield'),
     zoneActionsList: $('zoneActionsList'),
     zoneActionResult: $('zoneActionResult'),
+    floorplanEgInput: $('floorplanEgInput'),
+    floorplanOgInput: $('floorplanOgInput'),
     pinModal: $('pinModal'),
     pinDots: $('pinDots'),
     pinHint: $('pinHint')
@@ -275,7 +277,7 @@
   }
   function detectZoneByCanvasPos(xPct, yPct) {
     const inBuilding = xPct >= 16 && xPct <= 84 && yPct >= 10 && yPct <= 90;
-    const inInnen = xPct >= 22 && xPct <= 78 && yPct >= 16 && yPct <= 84;
+    const inInnen = xPct >= 22 && xPct <= 78 && yPct >= 14 && yPct <= 86;
     if (inInnen) return 'innenraum';
     if (inBuilding) return 'aussenhaut';
     return 'perimeter';
@@ -298,13 +300,13 @@
         let y = 50;
         if (z === 'innenraum') {
           x = 22 + ((c + 1) * (56 / (cols + 1)));
-          y = 16 + ((r + 1) * (68 / (rows + 1)));
+          y = 14 + ((r + 1) * (72 / (rows + 1)));
         } else if (z === 'aussenhaut') {
           const perimeterBandPoints = [
-            [19, 13], [32, 13], [45, 13], [58, 13], [71, 13], [81, 13],
-            [81, 25], [81, 38], [81, 51], [81, 64], [81, 77], [81, 88],
-            [68, 88], [55, 88], [42, 88], [29, 88], [19, 88],
-            [19, 76], [19, 63], [19, 50], [19, 37], [19, 24]
+            [18, 11], [31, 11], [44, 11], [57, 11], [70, 11], [82, 11],
+            [82, 24], [82, 37], [82, 50], [82, 63], [82, 76], [82, 89],
+            [69, 89], [56, 89], [43, 89], [30, 89], [18, 89],
+            [18, 76], [18, 63], [18, 50], [18, 37], [18, 24]
           ];
           const p = perimeterBandPoints[i % perimeterBandPoints.length];
           x = p[0];
@@ -504,6 +506,15 @@
     }
   }
 
+  function applyFloorplanImages() {
+    const eg = String(state.config.floorplanEgImage || './assets/floorplan-dashboard.jpg').trim();
+    const og = String(state.config.floorplanOgImage || eg || './assets/floorplan-dashboard.jpg').trim();
+    document.documentElement.style.setProperty('--floor-eg-image', `url('${eg.replace(/'/g, "\\'")}')`);
+    document.documentElement.style.setProperty('--floor-og-image', `url('${og.replace(/'/g, "\\'")}')`);
+    if (ui.floorplanEgInput) ui.floorplanEgInput.value = eg;
+    if (ui.floorplanOgInput) ui.floorplanOgInput.value = og;
+  }
+
   function readFormIntoConfig() {
     ui.global.querySelectorAll('[data-key]').forEach(el => {
       const k = el.dataset.key;
@@ -512,6 +523,8 @@
       state.config[k] = spec[1] === 'number' ? Number(el.value || 0) : (el.value === 'true');
     });
     ui.dp.querySelectorAll('[data-key]').forEach(el => { state.config[el.dataset.key] = el.value || ''; });
+    state.config.floorplanEgImage = String(ui.floorplanEgInput?.value || './assets/floorplan-dashboard.jpg').trim();
+    state.config.floorplanOgImage = String(ui.floorplanOgInput?.value || state.config.floorplanEgImage || './assets/floorplan-dashboard.jpg').trim();
   }
 
   function renderZoneActions() {
@@ -778,6 +791,7 @@
   function renderAll() {
     rebuildProfileSelect();
     renderFields();
+    applyFloorplanImages();
     renderAllCanvases();
     renderZoneActions();
   }

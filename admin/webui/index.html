@@ -125,6 +125,18 @@
 
       <section class="card"><h2>Globale Parameter</h2><div class="fields" id="globalFields"></div></section>
       <section class="card">
+        <h2>Grundriss-Bilder</h2>
+        <div class="fields">
+          <label title="Relativer Pfad unter admin/webui, z. B. ./assets/grundriss-eg-clean.jpg">EG Bild
+            <input id="floorplanEgInput" type="text" placeholder="./assets/floorplan-dashboard.jpg" />
+          </label>
+          <label title="Relativer Pfad unter admin/webui, z. B. ./assets/grundriss-og-clean.jpg">OG Bild
+            <input id="floorplanOgInput" type="text" placeholder="./assets/floorplan-dashboard.jpg" />
+          </label>
+        </div>
+        <p class="muted">Tipp: Beschriftungen/Quadratmeter können nur über eine bereinigte Bilddatei entfernt werden.</p>
+      </section>
+      <section class="card">
         <h2>Zonen-Aktoren bei Alarmtrigger</h2>
         <div class="fields">
           <label>Zone<select id="zoneActionZone"><option value="perimeter">perimeter</option><option value="aussenhaut">aussenhaut</option><option value="innenraum">innenraum</option></select></label>

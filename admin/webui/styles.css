@@ -47,29 +47,30 @@ label{display:grid;gap:6px;min-width:220px} input,select,textarea{background:var
 .status-chip.disarmed{background:#10361a;border-color:#2f8a45;color:#d6ffe2}
 @keyframes blinkArmed{0%{opacity:1}50%{opacity:.5}100%{opacity:1}}
 .canvas-full{grid-column:1 / -1}
-.zone-canvas{position:relative;height:640px;border-radius:14px;border:1px dashed var(--line-strong);overflow:hidden;background-image:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01)),url('./assets/floorplan-dashboard.jpg');background-repeat:no-repeat,no-repeat;background-size:cover,200% 100%;background-position:center,0% 50%}
-.zone-canvas.floor-og{background-position:center,100% 50%}
+.zone-canvas{position:relative;height:640px;border-radius:14px;border:1px dashed var(--line-strong);overflow:hidden;background-image:linear-gradient(180deg,rgba(0,0,0,.14),rgba(0,0,0,.08)),var(--floor-eg-image,url('./assets/floorplan-dashboard.jpg'));background-repeat:no-repeat,no-repeat;background-size:cover,cover;background-position:center,center}
+.zone-canvas.floor-og{background-image:linear-gradient(180deg,rgba(0,0,0,.14),rgba(0,0,0,.08)),var(--floor-og-image,url('./assets/floorplan-dashboard.jpg'))}
 .zone{position:absolute;inset:0;color:var(--muted);pointer-events:none}
 .zone span{position:absolute;font-size:16px;font-weight:700;letter-spacing:.3px;text-shadow:0 2px 8px rgba(0,0,0,.7)}
-.zone.perimeter{box-shadow:inset 0 0 0 2px rgba(123,167,230,.35)}
-.zone.perimeter span{top:8px;left:12px}
-.zone.aussenhaut{clip-path:polygon(16% 10%,84% 10%,84% 90%,16% 90%,16% 10%,22% 16%,22% 84%,78% 84%,78% 16%,22% 16%);background:rgba(244,194,143,.14);border:2px solid rgba(123,167,230,.55)}
-.zone.aussenhaut span{top:14px;left:24%}
-.zone.innenraum{clip-path:polygon(22% 16%,78% 16%,78% 84%,22% 84%);background:rgba(243,166,166,.15);border:2px solid rgba(123,167,230,.55)}
-.zone.innenraum span{top:24px;left:46%}
+.zone.perimeter{inset:4%;border:2px solid #7cf2a5;background:transparent}
+.zone.perimeter span{top:6px;left:8px}
+.zone.aussenhaut{inset:10% 16%;border:3px solid #7cf2a5;background:transparent}
+.zone.aussenhaut span{top:-26px;left:10px}
+.zone.innenraum{inset:14% 22%;background:rgba(255,116,116,.12);border:1px solid rgba(255,116,116,.35)}
+.zone.innenraum span{top:6px;left:8px}
 .zone{pointer-events:none}
-.zone.perimeter{background:rgba(244,231,168,.08)}
+.zone.perimeter{background:rgba(124,242,165,.03)}
 .zone.perimeter.armed-zone,
 .zone.aussenhaut.armed-zone,
 .zone.innenraum.armed-zone{
   animation:blinkZoneLine 1.8s linear infinite;
-  border-color:#ff3b3b;
+  border-color:#ff2a2a;
 }
 @keyframes blinkZoneLine{
-  0%{border-color:rgba(255,59,59,1)}
-  50%{border-color:rgba(255,59,59,.35)}
-  100%{border-color:rgba(255,59,59,1)}
+  0%{border-color:rgba(255,42,42,1)}
+  50%{border-color:rgba(255,42,42,.35)}
+  100%{border-color:rgba(255,42,42,1)}
 }
+.zone.innenraum.armed-zone{background:rgba(255,82,82,.28)}
 .dot{position:absolute;width:12px;height:12px;border-radius:50%;border:1px solid rgba(20,20,20,.35);cursor:grab;transform:translate(-50%,-50%)}
 .mini-node{position:absolute;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid rgba(20,20,20,.35);cursor:grab;transform:translate(-50%,-50%);font-size:13px;line-height:1}
 .mini-node svg{width:18px;height:18px;display:block;fill:none;stroke:#0f1115;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
