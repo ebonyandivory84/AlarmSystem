@@ -658,7 +658,7 @@
     ui.absenceCard.classList.remove('hidden');
     ui.absenceList.innerHTML = away.map(a => {
       const img = presenceAvatarPath(a.person);
-      return `<div class="legend-row"><span class="presence-avatar tiny" style="background-image:url('${img.replace(/'/g, "\\'")}')"></span><span>${a.label}</span></div>`;
+      return `<div class="legend-row"><span class="presence-avatar tiny" style="background-image:url('${img.replace(/'/g, "\\'")}')"></span></div>`;
     }).join('');
   }
 
@@ -856,14 +856,14 @@
   function renderAllCanvases() {
     ensureEntityPositions();
     renderCanvas(ui.mini, false);
-    renderCanvas(ui.full, true);
+    if (ui.full) renderCanvas(ui.full, true);
     renderPool();
     renderAbsenceCard();
     renderCanvasEntitiesList();
     bindCanvasDrops(ui.mini);
-    bindCanvasDrops(ui.full);
+    if (ui.full) bindCanvasDrops(ui.full);
     bindEditorInteractions(ui.mini);
-    bindEditorInteractions(ui.full);
+    if (ui.full) bindEditorInteractions(ui.full);
   }
 
   function tidyCanvasLayout() {
@@ -1369,12 +1369,16 @@
   }
 
   function bindModal() {
-    $('openCanvasBtn').addEventListener('click', () => {
-      ui.canvasModal.classList.remove('hidden');
-      renderCanvas(ui.full, true);
-      bindCanvasDrops(ui.full);
-    });
-    $('closeCanvasBtn').addEventListener('click', () => ui.canvasModal.classList.add('hidden'));
+    const openBtn = $('openCanvasBtn');
+    const closeBtn = $('closeCanvasBtn');
+    if (openBtn && ui.canvasModal && ui.full) {
+      openBtn.addEventListener('click', () => {
+        ui.canvasModal.classList.remove('hidden');
+        renderCanvas(ui.full, true);
+        bindCanvasDrops(ui.full);
+      });
+    }
+    if (closeBtn && ui.canvasModal) closeBtn.addEventListener('click', () => ui.canvasModal.classList.add('hidden'));
   }
 
   function switchPage(page) {
@@ -1493,7 +1497,8 @@
     $('deleteProfileBtn').addEventListener('click', deleteProfile);
     $('addSensorBtn').addEventListener('click', addNewEntity);
     $('addZoneActionBtn').addEventListener('click', addZoneAction);
-    $('tidyCanvasBtn').addEventListener('click', tidyCanvasLayout);
+    const tidyBtn = $('tidyCanvasBtn');
+    if (tidyBtn) tidyBtn.addEventListener('click', tidyCanvasLayout);
 
     $('browseNewIdBtn').addEventListener('click', () => openObjectBrowser($('newId')));
     $('browseZoneActionIdBtn').addEventListener('click', () => openObjectBrowser($('zoneActionId')));
