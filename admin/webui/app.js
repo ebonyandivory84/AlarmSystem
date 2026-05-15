@@ -34,6 +34,11 @@
     pageSettingsBtn: $('pageSettingsBtn'),
     floorEgBtn: $('floorEgBtn'),
     floorOgBtn: $('floorOgBtn'),
+    editZonesBtn: $('editZonesBtn'),
+    editZoneSelect: $('editZoneSelect'),
+    closeZoneBtn: $('closeZoneBtn'),
+    clearZoneBtn: $('clearZoneBtn'),
+    resetImageRectBtn: $('resetImageRectBtn'),
     panicBtn: $('panicToggleBtn'),
     shield: $('statusShield'),
     zoneActionsList: $('zoneActionsList'),
@@ -61,7 +66,10 @@
     pinTargetAction: null,
     stateIdsLoaded: false,
     stateIdsLoading: null,
-    currentFloor: 'EG'
+    currentFloor: 'EG',
+    editZones: false,
+    floorLayouts: { EG: null, OG: null },
+    dragResize: null
   };
   const DISARM_PIN = '1492';
 
@@ -87,6 +95,14 @@
   const clone = v => JSON.parse(JSON.stringify(v));
   const asArmed = v => v === true || v === 1 || ['true','1','on','armed','aktiv'].includes(String(v ?? '').toLowerCase());
   const readStateVal = s => (s && typeof s === 'object' && Object.prototype.hasOwnProperty.call(s, 'val')) ? s.val : s;
+  const defaultLayout = () => ({
+    imageRect: { x: 8, y: 6, w: 84, h: 88 },
+    zones: {
+      innenraum: [],
+      aussenhaut: [],
+      perimeter: []
+    }
+  });
 
   const normalizeInstanceId = v => {
     let out = String(v || '').trim();
@@ -276,11 +292,29 @@
     return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"/></svg>';
   }
   function detectZoneByCanvasPos(xPct, yPct) {
+    const l = state.floorLayouts[state.currentFloor] || defaultLayout();
+    const pIn = l.zones?.innenraum || [];
+    const pOut = l.zones?.aussenhaut || [];
+    const pPer = l.zones?.perimeter || [];
+    if (pIn.length >= 3 && pointInPolygon([xPct, yPct], pIn)) return 'innenraum';
+    if (pOut.length >= 3 && pointInPolygon([xPct, yPct], pOut)) return 'aussenhaut';
+    if (pPer.length >= 3 && pointInPolygon([xPct, yPct], pPer)) return 'perimeter';
     const inBuilding = xPct >= 16 && xPct <= 84 && yPct >= 10 && yPct <= 90;
     const inInnen = xPct >= 22 && xPct <= 78 && yPct >= 14 && yPct <= 86;
     if (inInnen) return 'innenraum';
     if (inBuilding) return 'aussenhaut';
     return 'perimeter';
+  }
+
+  function pointInPolygon(p, poly) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const xi = Number(poly[i][0]); const yi = Number(poly[i][1]);
+      const xj = Number(poly[j][0]); const yj = Number(poly[j][1]);
+      const intersect = ((yi > p[1]) !== (yj > p[1])) && (p[0] < ((xj - xi) * (p[1] - yi)) / ((yj - yi) || 0.000001) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
   }
 
   function ensureEntityPositions() {
@@ -329,14 +363,67 @@
 
   function addZones(canvas) {
     canvas.innerHTML = '';
+    const l = state.floorLayouts[state.currentFloor] || defaultLayout();
+    const rect = l.imageRect || { x: 8, y: 6, w: 84, h: 88 };
+    canvas.style.setProperty('--img-x', `${rect.x}%`);
+    canvas.style.setProperty('--img-y', `${rect.y}%`);
+    canvas.style.setProperty('--img-w', `${rect.w}%`);
+    canvas.style.setProperty('--img-h', `${rect.h}%`);
+    const bg = document.createElement('div');
+    bg.className = 'floorplan-image';
+    canvas.appendChild(bg);
     ['perimeter','aussenhaut','innenraum'].forEach(z => {
       const d = document.createElement('div');
       d.className = `zone ${z}`;
       d.dataset.zone = z;
       const label = z === 'aussenhaut' ? 'außenhaut' : z;
       d.innerHTML = `<span>${label}</span>`;
+      const poly = l.zones?.[z];
+      if (Array.isArray(poly) && poly.length >= 3) {
+        d.style.clipPath = `polygon(${poly.map(pt => `${pt[0]}% ${pt[1]}%`).join(',')})`;
+      }
       canvas.appendChild(d);
     });
+    if (state.editZones) renderZoneEditorOverlay(canvas, l);
+  }
+
+  function renderZoneEditorOverlay(canvas, layout) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'zone-editor-overlay');
+    svg.setAttribute('viewBox', '0 0 100 100');
+    svg.dataset.editor = '1';
+    const zmap = { innenraum: '#ff8f8f', aussenhaut: '#ff4242', perimeter: '#7cf2a5' };
+    for (const z of ['perimeter', 'aussenhaut', 'innenraum']) {
+      const pts = (layout.zones?.[z] || []);
+      if (pts.length < 1) continue;
+      const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+      poly.setAttribute('points', pts.map(p => `${p[0]},${p[1]}`).join(' '));
+      poly.setAttribute('fill', 'none');
+      poly.setAttribute('stroke', zmap[z]);
+      poly.setAttribute('stroke-width', '0.5');
+      svg.appendChild(poly);
+      pts.forEach((p, idx) => {
+        const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        c.setAttribute('cx', String(p[0]));
+        c.setAttribute('cy', String(p[1]));
+        c.setAttribute('r', '0.9');
+        c.setAttribute('fill', zmap[z]);
+        c.dataset.zonePoint = `${z}:${idx}`;
+        svg.appendChild(c);
+      });
+    }
+    canvas.appendChild(svg);
+
+    const handles = document.createElement('div');
+    handles.className = 'image-resize-handles';
+    ['nw','ne','sw','se'].forEach(corner => {
+      const h = document.createElement('button');
+      h.type = 'button';
+      h.className = `resize-handle ${corner}`;
+      h.dataset.corner = corner;
+      handles.appendChild(h);
+    });
+    canvas.appendChild(handles);
   }
 
   function applyZoneArmedVisuals(canvas){
@@ -428,6 +515,56 @@
     });
   }
 
+  function bindEditorInteractions(canvas) {
+    if (canvas.dataset.boundEditor === '1') return;
+    canvas.dataset.boundEditor = '1';
+    canvas.addEventListener('click', e => {
+      if (!state.editZones) return;
+      const t = e.target;
+      if (t.closest('.resize-handle')) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+      const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+      const zone = ui.editZoneSelect.value;
+      const l = getCurrentLayout();
+      if (!Array.isArray(l.zones[zone])) l.zones[zone] = [];
+      l.zones[zone].push([Number(x.toFixed(2)), Number(y.toFixed(2))]);
+      writeFloorLayoutsToConfig();
+      renderAllCanvases();
+    });
+
+    canvas.addEventListener('pointerdown', e => {
+      const h = e.target.closest('.resize-handle');
+      if (!h || !state.editZones) return;
+      e.preventDefault();
+      const corner = h.dataset.corner;
+      const l = getCurrentLayout();
+      state.dragResize = { corner, startX: e.clientX, startY: e.clientY, start: { ...l.imageRect } };
+      canvas.setPointerCapture(e.pointerId);
+    });
+    canvas.addEventListener('pointermove', e => {
+      if (!state.dragResize) return;
+      const rect = canvas.getBoundingClientRect();
+      const dx = ((e.clientX - state.dragResize.startX) / rect.width) * 100;
+      const dy = ((e.clientY - state.dragResize.startY) / rect.height) * 100;
+      const l = getCurrentLayout();
+      const s = state.dragResize.start;
+      const ratio = s.w / s.h;
+      let w = s.w;
+      if (state.dragResize.corner === 'se' || state.dragResize.corner === 'ne') w = Math.max(20, s.w + dx);
+      else w = Math.max(20, s.w - dx);
+      let h = w / ratio;
+      let x = s.x;
+      let y = s.y;
+      if (state.dragResize.corner === 'nw' || state.dragResize.corner === 'sw') x = s.x + (s.w - w);
+      if (state.dragResize.corner === 'nw' || state.dragResize.corner === 'ne') y = s.y + (s.h - h);
+      l.imageRect = { x: Math.max(0, Math.min(100 - w, x)), y: Math.max(0, Math.min(100 - h, y)), w: Math.min(100, w), h: Math.min(100, h) };
+      writeFloorLayoutsToConfig();
+      renderAllCanvases();
+    });
+    canvas.addEventListener('pointerup', () => { state.dragResize = null; });
+  }
+
   function bindPoolDrop() {
     const poolZone = $('poolZone');
     poolZone.addEventListener('dragover', e => e.preventDefault());
@@ -450,6 +587,8 @@
     renderPool();
     bindCanvasDrops(ui.mini);
     bindCanvasDrops(ui.full);
+    bindEditorInteractions(ui.mini);
+    bindEditorInteractions(ui.full);
   }
 
   function tidyCanvasLayout() {
@@ -507,12 +646,30 @@
   }
 
   function applyFloorplanImages() {
-    const eg = String(state.config.floorplanEgImage || './assets/floorplan-dashboard.jpg').trim();
-    const og = String(state.config.floorplanOgImage || eg || './assets/floorplan-dashboard.jpg').trim();
+    const eg = String(state.config.floorplanEgImage || './assets/EG.jpg').trim();
+    const og = String(state.config.floorplanOgImage || './assets/OG.jpg').trim();
     document.documentElement.style.setProperty('--floor-eg-image', `url('${eg.replace(/'/g, "\\'")}')`);
     document.documentElement.style.setProperty('--floor-og-image', `url('${og.replace(/'/g, "\\'")}')`);
     if (ui.floorplanEgInput) ui.floorplanEgInput.value = eg;
     if (ui.floorplanOgInput) ui.floorplanOgInput.value = og;
+  }
+
+  function ensureFloorLayouts() {
+    let parsed = null;
+    try { parsed = JSON.parse(String(state.config.floorLayoutsJson || '{}')); } catch {}
+    const base = parsed && typeof parsed === 'object' ? parsed : {};
+    const eg = base.EG && typeof base.EG === 'object' ? base.EG : defaultLayout();
+    const og = base.OG && typeof base.OG === 'object' ? base.OG : defaultLayout();
+    state.floorLayouts = { EG: eg, OG: og };
+  }
+
+  function writeFloorLayoutsToConfig() {
+    state.config.floorLayoutsJson = JSON.stringify(state.floorLayouts);
+  }
+
+  function getCurrentLayout() {
+    if (!state.floorLayouts[state.currentFloor]) state.floorLayouts[state.currentFloor] = defaultLayout();
+    return state.floorLayouts[state.currentFloor];
   }
 
   function readFormIntoConfig() {
@@ -791,6 +948,7 @@
   function renderAll() {
     rebuildProfileSelect();
     renderFields();
+    ensureFloorLayouts();
     applyFloorplanImages();
     renderAllCanvases();
     renderZoneActions();
@@ -811,6 +969,7 @@
     ensureProfiles();
     state.config = clone(state.instanceObj.native);
     ensureTables();
+    ensureFloorLayouts();
     ui.instance.textContent = `Instanz: ${state.instanceId}`;
     renderAll();
     const today = new Date().toISOString().slice(0,10);
@@ -881,6 +1040,35 @@
       state.currentFloor = 'OG';
       ui.floorOgBtn.classList.add('primary'); ui.floorOgBtn.classList.remove('ghost');
       ui.floorEgBtn.classList.add('ghost'); ui.floorEgBtn.classList.remove('primary');
+      renderAllCanvases();
+    });
+    ui.editZonesBtn.addEventListener('click', () => {
+      state.editZones = !state.editZones;
+      ui.editZonesBtn.classList.toggle('primary', state.editZones);
+      ui.editZonesBtn.classList.toggle('ghost', !state.editZones);
+      renderAllCanvases();
+    });
+    ui.closeZoneBtn.addEventListener('click', () => {
+      const z = ui.editZoneSelect.value;
+      const l = getCurrentLayout();
+      const pts = l.zones[z] || [];
+      if (pts.length >= 3 && (pts[0][0] !== pts[pts.length - 1][0] || pts[0][1] !== pts[pts.length - 1][1])) {
+        pts.push([pts[0][0], pts[0][1]]);
+      }
+      writeFloorLayoutsToConfig();
+      renderAllCanvases();
+    });
+    ui.clearZoneBtn.addEventListener('click', () => {
+      const z = ui.editZoneSelect.value;
+      const l = getCurrentLayout();
+      l.zones[z] = [];
+      writeFloorLayoutsToConfig();
+      renderAllCanvases();
+    });
+    ui.resetImageRectBtn.addEventListener('click', () => {
+      const l = getCurrentLayout();
+      l.imageRect = { x: 8, y: 6, w: 84, h: 88 };
+      writeFloorLayoutsToConfig();
       renderAllCanvases();
     });
     $('loadProfileBtn').addEventListener('click', loadProfile);

@@ -555,6 +555,9 @@
       }
     ],
     "zoneActionsTable": [],
+    "floorplanEgImage": "./assets/EG.jpg",
+    "floorplanOgImage": "./assets/OG.jpg",
+    "floorLayoutsJson": "",
     "statusId": "mqtt.1.AlarmCenter.Status",
     "checkRedId": "mqtt.1.AlarmCenter.CheckRed",
     "checkYellowId": "mqtt.1.AlarmCenter.CheckYellow",
