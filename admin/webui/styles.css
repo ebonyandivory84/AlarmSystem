@@ -58,7 +58,7 @@ label{display:grid;gap:6px;min-width:220px} input,select,textarea{background:var
 .controls-card .row{display:grid;grid-template-columns:repeat(2,minmax(110px,1fr));gap:8px;margin:0}
 .canvas-tools{right:20px;top:20px;max-width:260px;padding:8px;border-radius:12px;background:rgba(10,10,10,.62);border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(8px)}
 .canvas-tools .row{display:grid;grid-template-columns:repeat(2,minmax(90px,1fr));gap:8px;margin:0}
-.status-text-box{right:20px;bottom:74px;width:min(320px,calc(100% - 40px));max-height:160px;overflow:auto}
+.status-text-box{left:20px;bottom:74px;width:min(340px,calc(100% - 40px));max-height:170px;overflow:auto}
 .editor-strip{left:20px;right:20px;bottom:18px;display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:12px;background:rgba(10,10,10,.62);border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(8px);flex-wrap:wrap}
 .editor-strip .btn{min-height:36px;padding:6px 10px}
 .editor-strip select{min-width:150px;min-height:36px;padding:6px 10px}
