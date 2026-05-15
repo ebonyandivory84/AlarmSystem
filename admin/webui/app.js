@@ -64,6 +64,7 @@
     designerGrid: $('designerGrid'),
     designerSnapBtn: $('designerSnapBtn'),
     designerBgBtn: $('designerBgBtn'),
+    designerUseOnlyBtn: $('designerUseOnlyBtn'),
     designerCopyFloorBtn: $('designerCopyFloorBtn'),
     designerClearBtn: $('designerClearBtn'),
     designerSvg: $('designerSvg')
@@ -95,7 +96,19 @@
     suppressZoneClickOnce: false,
     canvasHistory: [],
     floorRatios: { EG: 0.907, OG: 0.906 }
-    ,designer: { EG: null, OG: null, snap: true, showBg: true, grid: 12, dragItemId: null, drawingWall: null, drawingPerimeter: null }
+    ,designer: {
+      EG: null,
+      OG: null,
+      snap: true,
+      grid: 12,
+      floorView: {
+        EG: { showBg: true, useInOverviewOnly: false },
+        OG: { showBg: true, useInOverviewOnly: false }
+      },
+      dragItemId: null,
+      drawingWall: null,
+      drawingPerimeter: null
+    }
   };
   const DISARM_PIN = '1492';
 
@@ -155,6 +168,7 @@
     }
   });
   const defaultDesignerFloor = () => ({ items: [], walls: [], outerWallIds: [], perimeter: null, nextId: 1 });
+  const defaultDesignerView = () => ({ showBg: true, useInOverviewOnly: false });
 
   const normalizeInstanceId = v => {
     let out = String(v || '').trim();
@@ -425,9 +439,61 @@
     }
   }
 
+  function renderDesignerOverviewOverlay(canvas) {
+    const model = getDesignerFloorModel(true);
+    if (!model || !hasDesignerGeometry(true)) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'designer-overview-overlay';
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 100 100');
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    if (model.perimeter && Number(model.perimeter.w || 0) > 0 && Number(model.perimeter.h || 0) > 0) {
+      const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      r.setAttribute('class', 'designer-perimeter');
+      r.setAttribute('x', String((Number(model.perimeter.x) / 10).toFixed(3)));
+      r.setAttribute('y', String((Number(model.perimeter.y) / 7).toFixed(3)));
+      r.setAttribute('width', String((Number(model.perimeter.w) / 10).toFixed(3)));
+      r.setAttribute('height', String((Number(model.perimeter.h) / 7).toFixed(3)));
+      svg.appendChild(r);
+    }
+    for (const wall of (model.walls || [])) {
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+      const isOuter = Array.isArray(model.outerWallIds) && model.outerWallIds.includes(wall.id);
+      line.setAttribute('class', isOuter ? 'designer-wall outer' : 'designer-wall');
+      line.setAttribute('fill', 'none');
+      line.setAttribute('points', (wall.points || []).map(p => `${(Number(p.x) / 10).toFixed(3)},${(Number(p.y) / 7).toFixed(3)}`).join(' '));
+      svg.appendChild(line);
+    }
+    for (const item of (model.items || [])) {
+      const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      g.setAttribute('class', 'designer-item');
+      const x = Number(item.x) / 10;
+      const y = Number(item.y) / 7;
+      g.setAttribute('transform', `translate(${x.toFixed(3)},${y.toFixed(3)}) rotate(${Number(item.r || 0)})`);
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('x', '-1.8');
+      rect.setAttribute('y', '-1.2');
+      rect.setAttribute('width', '3.6');
+      rect.setAttribute('height', '2.4');
+      rect.setAttribute('rx', '0.4');
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('x', '0');
+      text.setAttribute('y', '0.4');
+      text.setAttribute('text-anchor', 'middle');
+      text.textContent = String(item.type || 'item').slice(0, 3).toUpperCase();
+      g.appendChild(rect);
+      g.appendChild(text);
+      svg.appendChild(g);
+    }
+    wrap.appendChild(svg);
+    canvas.appendChild(wrap);
+  }
+
   function addZones(canvas) {
     canvas.innerHTML = '';
     const l = state.floorLayouts[state.currentFloor] || defaultLayout();
+    const designerView = getDesignerFloorView(true);
+    const useDesignerOnly = !!designerView.useInOverviewOnly && hasDesignerGeometry(true);
     const ratio = getFloorRatio(state.currentFloor);
     l.imageRect = fitRectToRatio(l.imageRect || { x: 8, y: 6, w: 84, h: 88 }, ratio);
     const rect = l.imageRect;
@@ -440,9 +506,12 @@
     canvas.style.setProperty('--frame-y', `${frame.y}%`);
     canvas.style.setProperty('--frame-w', `${frame.w}%`);
     canvas.style.setProperty('--frame-h', `${frame.h}%`);
-    const bg = document.createElement('div');
-    bg.className = 'floorplan-image';
-    canvas.appendChild(bg);
+    canvas.classList.toggle('designer-only', useDesignerOnly);
+    if (!useDesignerOnly) {
+      const bg = document.createElement('div');
+      bg.className = 'floorplan-image';
+      canvas.appendChild(bg);
+    }
     ['perimeter','aussenhaut','innenraum'].forEach(z => {
       const poly = l.zones?.[z];
       if (!Array.isArray(poly) || poly.length < 3) return;
@@ -454,6 +523,7 @@
       d.style.clipPath = `polygon(${poly.map(pt => `${pt[0]}% ${pt[1]}%`).join(',')})`;
       canvas.appendChild(d);
     });
+    if (useDesignerOnly) renderDesignerOverviewOverlay(canvas);
     renderStaticZoneOverlay(canvas, l);
     if (state.editImage) renderImageEditorOverlay(canvas);
     if (state.editZones) renderZoneEditorOverlay(canvas, l);
@@ -976,23 +1046,68 @@
     const base = parsed && typeof parsed === 'object' ? parsed : {};
     state.designer.EG = base.EG && typeof base.EG === 'object' ? base.EG : defaultDesignerFloor();
     state.designer.OG = base.OG && typeof base.OG === 'object' ? base.OG : defaultDesignerFloor();
+    state.designer.snap = base.settings?.snap !== false;
+    state.designer.grid = Number.isFinite(Number(base.settings?.grid)) ? Math.max(4, Number(base.settings.grid)) : 12;
+    state.designer.floorView = {
+      EG: { ...defaultDesignerView(), ...(base.settings?.floorView?.EG || {}) },
+      OG: { ...defaultDesignerView(), ...(base.settings?.floorView?.OG || {}) }
+    };
     if (!Number.isFinite(Number(state.designer.grid)) || Number(state.designer.grid) < 4) state.designer.grid = 12;
   }
 
   function saveDesignerData() {
-    state.config.floorplanDesignerJson = JSON.stringify({ EG: state.designer.EG, OG: state.designer.OG });
+    state.config.floorplanDesignerJson = JSON.stringify({
+      version: 2,
+      EG: state.designer.EG,
+      OG: state.designer.OG,
+      settings: {
+        snap: !!state.designer.snap,
+        grid: Math.max(4, Number(state.designer.grid || 12)),
+        floorView: {
+          EG: { ...defaultDesignerView(), ...(state.designer.floorView?.EG || {}) },
+          OG: { ...defaultDesignerView(), ...(state.designer.floorView?.OG || {}) }
+        }
+      }
+    });
   }
 
-  function getDesignerFloorModel() {
-    const f = (ui.designerFloor?.value === 'OG') ? 'OG' : 'EG';
+  function getDesignerFloorKey(preferCurrentFloor = false) {
+    if (!preferCurrentFloor && ui.designerFloor?.value === 'OG') return 'OG';
+    if (!preferCurrentFloor && ui.designerFloor?.value === 'EG') return 'EG';
+    return state.currentFloor === 'OG' ? 'OG' : 'EG';
+  }
+
+  function getDesignerFloorModel(preferCurrentFloor = false) {
+    const f = getDesignerFloorKey(preferCurrentFloor);
     if (!state.designer[f]) state.designer[f] = defaultDesignerFloor();
     return state.designer[f];
   }
 
-  function designerBgForFloor() {
-    return (ui.designerFloor?.value === 'OG')
+  function getDesignerFloorView(preferCurrentFloor = false) {
+    const f = getDesignerFloorKey(preferCurrentFloor);
+    if (!state.designer.floorView || typeof state.designer.floorView !== 'object') {
+      state.designer.floorView = { EG: defaultDesignerView(), OG: defaultDesignerView() };
+    }
+    if (!state.designer.floorView[f] || typeof state.designer.floorView[f] !== 'object') {
+      state.designer.floorView[f] = defaultDesignerView();
+    }
+    return state.designer.floorView[f];
+  }
+
+  function designerBgForFloor(preferCurrentFloor = false) {
+    const floor = getDesignerFloorKey(preferCurrentFloor);
+    return (floor === 'OG')
       ? String(state.config.floorplanOgImage || './assets/OG.jpg')
       : String(state.config.floorplanEgImage || './assets/EG.jpg');
+  }
+
+  function hasDesignerGeometry(preferCurrentFloor = false) {
+    const m = getDesignerFloorModel(preferCurrentFloor);
+    if (!m) return false;
+    if (m.perimeter && Number(m.perimeter.w || 0) > 0 && Number(m.perimeter.h || 0) > 0) return true;
+    if (Array.isArray(m.walls) && m.walls.length > 0) return true;
+    if (Array.isArray(m.items) && m.items.length > 0) return true;
+    return false;
   }
 
   function snapDesigner(v) {
@@ -1014,12 +1129,14 @@
     const svg = ui.designerSvg;
     if (!svg) return;
     const m = getDesignerFloorModel();
+    const view = getDesignerFloorView();
     if (ui.designerGrid) ui.designerGrid.value = String(Math.max(4, Number(state.designer.grid || 12)));
     if (ui.designerSnapBtn) ui.designerSnapBtn.textContent = `Snap: ${state.designer.snap ? 'an' : 'aus'}`;
-    if (ui.designerBgBtn) ui.designerBgBtn.textContent = `Hintergrund: ${state.designer.showBg ? 'an' : 'aus'}`;
+    if (ui.designerBgBtn) ui.designerBgBtn.textContent = `Hintergrund: ${view.showBg ? 'an' : 'aus'}`;
+    if (ui.designerUseOnlyBtn) ui.designerUseOnlyBtn.textContent = `In Übersicht: ${view.useInOverviewOnly ? 'nur Plan' : 'JPEG'}`;
     const grid = Math.max(4, Number(state.designer.grid || 12));
     let html = '';
-    if (state.designer.showBg) {
+    if (view.showBg) {
       const href = designerBgForFloor().replace(/"/g, '&quot;');
       html += `<image class="designer-bg" href="${href}" x="0" y="0" width="1000" height="700" preserveAspectRatio="xMidYMid meet"></image>`;
     }
@@ -1061,6 +1178,7 @@
         m.items.push({ id, type: String(ui.designerItemType?.value || 'door'), x: p.x, y: p.y, r: 0 });
         saveDesignerData();
         renderDesigner();
+        renderAllCanvases();
         return;
       }
       if (tool === 'wall') {
@@ -1083,6 +1201,7 @@
         else m.outerWallIds.push(id);
         saveDesignerData();
         renderDesigner();
+        renderAllCanvases();
         return;
       }
       const itemEl = e.target.closest('[data-item-id]');
@@ -1116,6 +1235,7 @@
       if (tool === 'select' && state.designer.dragItemId) {
         state.designer.dragItemId = null;
         saveDesignerData();
+        renderAllCanvases();
       }
       if (tool === 'perimeter' && state.designer.drawingPerimeter) {
         const r = state.designer.drawingPerimeter;
@@ -1123,6 +1243,7 @@
         state.designer.drawingPerimeter = null;
         saveDesignerData();
         renderDesigner();
+        renderAllCanvases();
       }
     });
     svg.addEventListener('dblclick', () => {
@@ -1134,6 +1255,7 @@
         m.nextId = id + 1;
         m.walls.push({ id, points: pts.slice() });
         saveDesignerData();
+        renderAllCanvases();
       }
       state.designer.drawingWall = null;
       renderDesigner();
@@ -1616,20 +1738,36 @@
     if (ui.designerGrid) {
       ui.designerGrid.addEventListener('change', () => {
         state.designer.grid = Math.max(4, Number(ui.designerGrid.value || 12));
+        saveDesignerData();
         renderDesigner();
+        renderAllCanvases();
       });
     }
     if (ui.designerSnapBtn) {
       ui.designerSnapBtn.addEventListener('click', () => {
         state.designer.snap = !state.designer.snap;
         ui.designerSnapBtn.textContent = `Snap: ${state.designer.snap ? 'an' : 'aus'}`;
+        saveDesignerData();
       });
     }
     if (ui.designerBgBtn) {
       ui.designerBgBtn.addEventListener('click', () => {
-        state.designer.showBg = !state.designer.showBg;
-        ui.designerBgBtn.textContent = `Hintergrund: ${state.designer.showBg ? 'an' : 'aus'}`;
+        const view = getDesignerFloorView();
+        view.showBg = !view.showBg;
+        saveDesignerData();
+        ui.designerBgBtn.textContent = `Hintergrund: ${view.showBg ? 'an' : 'aus'}`;
         renderDesigner();
+      });
+    }
+    if (ui.designerUseOnlyBtn) {
+      ui.designerUseOnlyBtn.addEventListener('click', () => {
+        const view = getDesignerFloorView();
+        view.useInOverviewOnly = !view.useInOverviewOnly;
+        if (view.useInOverviewOnly) view.showBg = false;
+        saveDesignerData();
+        ui.designerUseOnlyBtn.textContent = `In Übersicht: ${view.useInOverviewOnly ? 'nur Plan' : 'JPEG'}`;
+        renderDesigner();
+        renderAllCanvases();
       });
     }
     if (ui.designerCopyFloorBtn) {
@@ -1637,7 +1775,9 @@
         const from = (ui.designerFloor.value === 'OG') ? 'OG' : 'EG';
         const to = from === 'EG' ? 'OG' : 'EG';
         state.designer[to] = clone(state.designer[from] || defaultDesignerFloor());
+        state.designer.floorView[to] = { ...defaultDesignerView(), ...(state.designer.floorView[from] || {}) };
         saveDesignerData();
+        renderAllCanvases();
         setStatus(`Designer von ${from} nach ${to} kopiert`);
       });
     }
@@ -1647,6 +1787,7 @@
         state.designer[floor] = defaultDesignerFloor();
         saveDesignerData();
         renderDesigner();
+        renderAllCanvases();
         setStatus(`Designer ${floor} geleert`);
       });
     }
