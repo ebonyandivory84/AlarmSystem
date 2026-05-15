@@ -111,6 +111,7 @@
       dragWallStart: null,
       dragWallOrig: null,
       drawingWall: null,
+      drawingWallCursor: null,
       drawingPerimeter: null
     }
   };
@@ -1210,7 +1211,9 @@
       }
     }
     if (state.designer.drawingWall && state.designer.drawingWall.length > 0) {
-      html += `<polyline class="designer-wall" points="${state.designer.drawingWall.map(p => `${p.x},${p.y}`).join(' ')}"></polyline>`;
+      const pts = state.designer.drawingWall.slice();
+      if (state.designer.drawingWallCursor) pts.push(state.designer.drawingWallCursor);
+      html += `<polyline class="designer-wall drawing" points="${pts.map(p => `${p.x},${p.y}`).join(' ')}"></polyline>`;
     }
     if (state.designer.drawingPerimeter) {
       const r = state.designer.drawingPerimeter;
@@ -1230,29 +1233,33 @@
       const wallPointEl = e.target.closest('[data-wall-point]');
       const wallEl = e.target.closest('[data-wall-id]');
       const itemEl = e.target.closest('[data-item-id]');
-      if (tool === 'select' || tool === 'wall') {
-        if (wallPointEl) {
-          const [wallIdRaw, pointIdxRaw] = String(wallPointEl.getAttribute('data-wall-point') || '').split(':');
-          const wallId = Number(wallIdRaw);
-          const pointIdx = Number(pointIdxRaw);
-          if (!Number.isInteger(wallId) || !Number.isInteger(pointIdx)) return;
-          const wall = findDesignerWallById(m, wallId);
-          if (!wall || !Array.isArray(wall.points) || !wall.points[pointIdx]) return;
-          state.designer.dragWallPoint = { wallId, pointIdx };
+      const canMoveExisting = tool !== 'outer' && tool !== 'perimeter';
+      if (canMoveExisting && wallPointEl) {
+        const [wallIdRaw, pointIdxRaw] = String(wallPointEl.getAttribute('data-wall-point') || '').split(':');
+        const wallId = Number(wallIdRaw);
+        const pointIdx = Number(pointIdxRaw);
+        if (!Number.isInteger(wallId) || !Number.isInteger(pointIdx)) return;
+        const wall = findDesignerWallById(m, wallId);
+        if (!wall || !Array.isArray(wall.points) || !wall.points[pointIdx]) return;
+        state.designer.dragWallPoint = { wallId, pointIdx };
+        svg.setPointerCapture(e.pointerId);
+        return;
+      }
+      if (canMoveExisting && wallEl) {
+        const wallId = Number(wallEl.getAttribute('data-wall-id'));
+        const wall = findDesignerWallById(m, wallId);
+        if (Number.isInteger(wallId) && wall && Array.isArray(wall.points)) {
+          state.designer.dragWallId = wallId;
+          state.designer.dragWallStart = { x: p.x, y: p.y };
+          state.designer.dragWallOrig = wall.points.map(pt => ({ x: Number(pt.x), y: Number(pt.y) }));
           svg.setPointerCapture(e.pointerId);
           return;
         }
-        if (wallEl) {
-          const wallId = Number(wallEl.getAttribute('data-wall-id'));
-          const wall = findDesignerWallById(m, wallId);
-          if (Number.isInteger(wallId) && wall && Array.isArray(wall.points)) {
-            state.designer.dragWallId = wallId;
-            state.designer.dragWallStart = { x: p.x, y: p.y };
-            state.designer.dragWallOrig = wall.points.map(pt => ({ x: Number(pt.x), y: Number(pt.y) }));
-            svg.setPointerCapture(e.pointerId);
-            return;
-          }
-        }
+      }
+      if (canMoveExisting && itemEl) {
+        state.designer.dragItemId = Number(itemEl.getAttribute('data-item-id'));
+        svg.setPointerCapture(e.pointerId);
+        return;
       }
       if (tool === 'place') {
         const itemType = String(ui.designerItemType?.value || 'door');
@@ -1275,6 +1282,7 @@
       if (tool === 'wall') {
         if (!state.designer.drawingWall) state.designer.drawingWall = [];
         state.designer.drawingWall.push({ x: p.x, y: p.y });
+        state.designer.drawingWallCursor = { x: p.x, y: p.y };
         renderDesigner();
         return;
       }
@@ -1294,16 +1302,12 @@
         renderAllCanvases();
         return;
       }
-      if (tool === 'select' && itemEl) {
-        state.designer.dragItemId = Number(itemEl.getAttribute('data-item-id'));
-        svg.setPointerCapture(e.pointerId);
-      }
     });
     svg.addEventListener('pointermove', e => {
       const tool = String(ui.designerTool?.value || 'select');
       const m = getDesignerFloorModel();
       const p = svgPoint(e);
-      if ((tool === 'select' || tool === 'wall') && state.designer.dragWallPoint) {
+      if (state.designer.dragWallPoint) {
         const info = state.designer.dragWallPoint;
         const wall = findDesignerWallById(m, info.wallId);
         if (wall && Array.isArray(wall.points) && wall.points[info.pointIdx]) {
@@ -1312,7 +1316,7 @@
         }
         return;
       }
-      if ((tool === 'select' || tool === 'wall') && state.designer.dragWallId && state.designer.dragWallStart && Array.isArray(state.designer.dragWallOrig)) {
+      if (state.designer.dragWallId && state.designer.dragWallStart && Array.isArray(state.designer.dragWallOrig)) {
         const wall = findDesignerWallById(m, state.designer.dragWallId);
         if (wall && Array.isArray(wall.points)) {
           const dx = p.x - Number(state.designer.dragWallStart.x || 0);
@@ -1325,11 +1329,12 @@
         }
         return;
       }
-      if (tool === 'select' && state.designer.dragItemId) {
+      if (state.designer.dragItemId) {
         const it = m.items.find(x => x.id === state.designer.dragItemId);
         if (!it) return;
         it.x = p.x; it.y = p.y;
         renderDesigner();
+        return;
       }
       if (tool === 'perimeter' && state.designer.drawingPerimeter) {
         const r = state.designer.drawingPerimeter;
@@ -1338,27 +1343,31 @@
         r.w = Math.abs(p.x - r.sx);
         r.h = Math.abs(p.y - r.sy);
         renderDesigner();
+        return;
+      }
+      if (tool === 'wall' && state.designer.drawingWall && state.designer.drawingWall.length > 0) {
+        state.designer.drawingWallCursor = { x: p.x, y: p.y };
+        renderDesigner();
       }
     });
     svg.addEventListener('pointerup', () => {
-      const tool = String(ui.designerTool?.value || 'select');
       const m = getDesignerFloorModel();
       let changed = false;
-      if (tool === 'select' && state.designer.dragItemId) {
+      if (state.designer.dragItemId) {
         state.designer.dragItemId = null;
         changed = true;
       }
-      if ((tool === 'select' || tool === 'wall') && state.designer.dragWallPoint) {
+      if (state.designer.dragWallPoint) {
         state.designer.dragWallPoint = null;
         changed = true;
       }
-      if ((tool === 'select' || tool === 'wall') && state.designer.dragWallId) {
+      if (state.designer.dragWallId) {
         state.designer.dragWallId = null;
         state.designer.dragWallStart = null;
         state.designer.dragWallOrig = null;
         changed = true;
       }
-      if (tool === 'perimeter' && state.designer.drawingPerimeter) {
+      if (state.designer.drawingPerimeter) {
         const r = state.designer.drawingPerimeter;
         m.perimeter = { x: r.x, y: r.y, w: r.w, h: r.h };
         state.designer.drawingPerimeter = null;
@@ -1382,6 +1391,7 @@
         renderAllCanvases();
       }
       state.designer.drawingWall = null;
+      state.designer.drawingWallCursor = null;
       renderDesigner();
     });
     svg.addEventListener('pointercancel', () => {
@@ -1864,7 +1874,15 @@
     if (ui.designerFloor) {
       ui.designerFloor.addEventListener('change', () => renderDesigner());
     }
-    if (ui.designerTool) ui.designerTool.addEventListener('change', () => renderDesigner());
+    if (ui.designerTool) {
+      ui.designerTool.addEventListener('change', () => {
+        state.designer.drawingWallCursor = null;
+        if (String(ui.designerTool.value || '') !== 'wall') {
+          state.designer.drawingWall = null;
+        }
+        renderDesigner();
+      });
+    }
     if (ui.designerItemType) ui.designerItemType.addEventListener('change', () => renderDesigner());
     if (ui.designerGrid) {
       ui.designerGrid.addEventListener('change', () => {
@@ -1916,6 +1934,14 @@
       ui.designerClearBtn.addEventListener('click', () => {
         const floor = (ui.designerFloor.value === 'OG') ? 'OG' : 'EG';
         state.designer[floor] = defaultDesignerFloor();
+        state.designer.dragItemId = null;
+        state.designer.dragWallId = null;
+        state.designer.dragWallPoint = null;
+        state.designer.dragWallStart = null;
+        state.designer.dragWallOrig = null;
+        state.designer.drawingWall = null;
+        state.designer.drawingWallCursor = null;
+        state.designer.drawingPerimeter = null;
         saveDesignerData();
         renderDesigner();
         renderAllCanvases();
