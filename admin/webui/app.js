@@ -495,9 +495,9 @@
     paintChip(ui.liveAussenhaut, aussenArmed);
     paintChip(ui.liveInnenraum, innenArmed);
     paintChip(ui.liveCameras, camerasArmed);
-    state.live.perimeterArmed = perimeterArmed;
-    state.live.aussenArmed = aussenArmed;
-    state.live.innenArmed = innenArmed;
+    state.live.perimeterArmed = asArmed(zPer?.val);
+    state.live.aussenArmed = asArmed(zAus?.val);
+    state.live.innenArmed = asArmed(zInn?.val);
     applyZoneArmedVisuals(ui.mini);
     applyZoneArmedVisuals(ui.full);
   }
