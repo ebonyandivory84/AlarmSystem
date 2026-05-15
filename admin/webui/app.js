@@ -1044,18 +1044,19 @@
   function paintShield(mode) {
     if (!ui.shield) return;
     ui.shield.classList.remove('armed', 'perimeter', 'disarmed');
+    const shieldIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v6c0 5-3.2 8-7 9-3.8-1-7-4-7-9V6l7-3z"></path><path d="M9 12.5l2 2 4-4"></path></svg>';
     if (mode === 'armed') {
       ui.shield.classList.add('armed');
-      ui.shield.textContent = '🛡️ ALLES SCHARF';
+      ui.shield.innerHTML = `${shieldIcon}<span>ALLES SCHARF</span>`;
       return;
     }
     if (mode === 'perimeter') {
       ui.shield.classList.add('perimeter');
-      ui.shield.textContent = '🛡️ PERIMETER AKTIV';
+      ui.shield.innerHTML = `${shieldIcon}<span>PERIMETER AKTIV</span>`;
       return;
     }
     ui.shield.classList.add('disarmed');
-    ui.shield.textContent = '🛡️ UNSCHARF';
+    ui.shield.innerHTML = `${shieldIcon}<span>UNSCHARF</span>`;
   }
 
   async function refreshLiveStatus() {
