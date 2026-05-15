@@ -1582,8 +1582,8 @@
       if (pts.length < 2) continue;
       const a = offsetWallPolyline(pts, 6);
       const b = offsetWallPolyline(pts, -6);
-      html += `<polyline class="${cls} wall-edge" points="${wallPointsAttr(a)}"></polyline>`;
-      html += `<polyline class="${cls} wall-edge" points="${wallPointsAttr(b)}"></polyline>`;
+      html += `<polyline class="${cls} wall-edge" data-wall-id="${w.id}" points="${wallPointsAttr(a)}"></polyline>`;
+      html += `<polyline class="${cls} wall-edge" data-wall-id="${w.id}" points="${wallPointsAttr(b)}"></polyline>`;
       html += `<polyline class="designer-wall-hit" data-wall-id="${w.id}" points="${wallPointsAttr(pts)}"></polyline>`;
       if (showWallHandles) {
         for (let i = 0; i < pts.length; i++) {
@@ -1818,11 +1818,13 @@
         snapshotDesignerState();
         const id = Number(wallEl.getAttribute('data-wall-id'));
         m.outerWallIds = Array.isArray(m.outerWallIds) ? m.outerWallIds : [];
-        if (m.outerWallIds.includes(id)) m.outerWallIds = m.outerWallIds.filter(x => x !== id);
+        const wasOuter = m.outerWallIds.includes(id);
+        if (wasOuter) m.outerWallIds = m.outerWallIds.filter(x => x !== id);
         else m.outerWallIds.push(id);
         saveDesignerData();
         renderDesigner();
         renderAllCanvases();
+        setStatus(`Außenhaut ${wasOuter ? 'entfernt' : 'markiert'} (Wand ${id})`);
         return;
       }
     });
@@ -1955,6 +1957,7 @@
         const r = state.designer.drawingPerimeter;
         m.perimeter = { x: r.x, y: r.y, w: r.w, h: r.h };
         state.designer.drawingPerimeter = null;
+        setStatus('Perimeter-Rechteck gesetzt und übernommen');
         changed = true;
       }
       if (changed) {

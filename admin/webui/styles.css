@@ -143,9 +143,9 @@ details summary{cursor:pointer;color:var(--muted);font-weight:600}
 .designer-svg.erase-mode{cursor:not-allowed}
 .designer-grid line{stroke:rgba(124,242,165,.18);stroke-width:1}
 .designer-wall{stroke:#7cf2a5;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
-.designer-wall.outer{stroke:#9dffbf;stroke-width:2.1}
-.designer-wall.wall-edge{pointer-events:none}
-.designer-wall-hit{stroke:transparent;stroke-width:14;fill:none;cursor:grab;pointer-events:stroke}
+.designer-wall.outer{stroke:#d8ffe9;stroke-width:2.6}
+.designer-wall.wall-edge{pointer-events:stroke;cursor:grab}
+.designer-wall-hit{stroke:rgba(124,242,165,.01);stroke-width:18;fill:none;cursor:grab;pointer-events:stroke}
 .designer-wall.drawing{stroke-dasharray:7 5;cursor:crosshair}
 .designer-wall-point{fill:#8fffb8;stroke:#052112;stroke-width:1.5;cursor:grab}
 .designer-wall-close-point{fill:rgba(124,242,165,.22);stroke:#7cf2a5;stroke-width:2;pointer-events:none}
