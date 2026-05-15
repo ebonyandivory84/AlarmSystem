@@ -369,26 +369,15 @@
     const ratio = getFloorRatio(state.currentFloor);
     l.imageRect = fitRectToRatio(l.imageRect || { x: 8, y: 6, w: 84, h: 88 }, ratio);
     const rect = l.imageRect;
-    const rectRatio = rect.w / rect.h;
-    let frameX = rect.x;
-    let frameY = rect.y;
-    let frameW = rect.w;
-    let frameH = rect.h;
-    if (rectRatio > ratio) {
-      frameW = rect.h * ratio;
-      frameX = rect.x + (rect.w - frameW) / 2;
-    } else if (rectRatio < ratio) {
-      frameH = rect.w / ratio;
-      frameY = rect.y + (rect.h - frameH) / 2;
-    }
+    const frame = calcImageFrameInCanvas(canvas, rect, ratio);
     canvas.style.setProperty('--img-x', `${rect.x}%`);
     canvas.style.setProperty('--img-y', `${rect.y}%`);
     canvas.style.setProperty('--img-w', `${rect.w}%`);
     canvas.style.setProperty('--img-h', `${rect.h}%`);
-    canvas.style.setProperty('--frame-x', `${frameX}%`);
-    canvas.style.setProperty('--frame-y', `${frameY}%`);
-    canvas.style.setProperty('--frame-w', `${frameW}%`);
-    canvas.style.setProperty('--frame-h', `${frameH}%`);
+    canvas.style.setProperty('--frame-x', `${frame.x}%`);
+    canvas.style.setProperty('--frame-y', `${frame.y}%`);
+    canvas.style.setProperty('--frame-w', `${frame.w}%`);
+    canvas.style.setProperty('--frame-h', `${frame.h}%`);
     const bg = document.createElement('div');
     bg.className = 'floorplan-image';
     canvas.appendChild(bg);
@@ -404,6 +393,32 @@
       canvas.appendChild(d);
     });
     if (state.editZones) renderZoneEditorOverlay(canvas, l);
+  }
+
+  function calcImageFrameInCanvas(canvas, rect, imageRatio) {
+    const box = canvas.getBoundingClientRect();
+    if (!box.width || !box.height || !imageRatio) return { x: rect.x, y: rect.y, w: rect.w, h: rect.h };
+    const rectPx = {
+      x: (rect.x / 100) * box.width,
+      y: (rect.y / 100) * box.height,
+      w: (rect.w / 100) * box.width,
+      h: (rect.h / 100) * box.height
+    };
+    let framePx = { ...rectPx };
+    const rectRatioPx = rectPx.w / rectPx.h;
+    if (rectRatioPx > imageRatio) {
+      framePx.w = rectPx.h * imageRatio;
+      framePx.x = rectPx.x + (rectPx.w - framePx.w) / 2;
+    } else if (rectRatioPx < imageRatio) {
+      framePx.h = rectPx.w / imageRatio;
+      framePx.y = rectPx.y + (rectPx.h - framePx.h) / 2;
+    }
+    return {
+      x: (framePx.x / box.width) * 100,
+      y: (framePx.y / box.height) * 100,
+      w: (framePx.w / box.width) * 100,
+      h: (framePx.h / box.height) * 100
+    };
   }
 
   function renderZoneEditorOverlay(canvas, layout) {
