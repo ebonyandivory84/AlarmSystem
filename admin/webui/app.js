@@ -34,6 +34,7 @@
     pageSettingsBtn: $('pageSettingsBtn'),
     floorEgBtn: $('floorEgBtn'),
     floorOgBtn: $('floorOgBtn'),
+    editImageBtn: $('editImageBtn'),
     editZonesBtn: $('editZonesBtn'),
     editZoneSelect: $('editZoneSelect'),
     closeZoneBtn: $('closeZoneBtn'),
@@ -71,6 +72,7 @@
     stateIdsLoaded: false,
     stateIdsLoading: null,
     currentFloor: 'EG',
+    editImage: false,
     editZones: false,
     floorLayouts: { EG: null, OG: null },
     dragResize: null,
@@ -448,7 +450,21 @@
       canvas.appendChild(d);
     });
     renderStaticZoneOverlay(canvas, l);
+    if (state.editImage) renderImageEditorOverlay(canvas);
     if (state.editZones) renderZoneEditorOverlay(canvas, l);
+  }
+
+  function renderImageEditorOverlay(canvas) {
+    const handles = document.createElement('div');
+    handles.className = 'image-resize-handles';
+    ['nw','ne','sw','se','move'].forEach(corner => {
+      const h = document.createElement('button');
+      h.type = 'button';
+      h.className = `resize-handle ${corner}`;
+      h.dataset.corner = corner;
+      handles.appendChild(h);
+    });
+    canvas.appendChild(handles);
   }
 
   function renderStaticZoneOverlay(canvas, layout) {
@@ -529,16 +545,6 @@
     }
     canvas.appendChild(svg);
 
-    const handles = document.createElement('div');
-    handles.className = 'image-resize-handles';
-    ['nw','ne','sw','se','move'].forEach(corner => {
-      const h = document.createElement('button');
-      h.type = 'button';
-      h.className = `resize-handle ${corner}`;
-      h.dataset.corner = corner;
-      handles.appendChild(h);
-    });
-    canvas.appendChild(handles);
   }
 
   function applyZoneArmedVisuals(canvas){
@@ -697,7 +703,7 @@
         return;
       }
       const h = e.target.closest('.resize-handle');
-      if (!h || !state.editZones) return;
+      if (!h || !state.editImage) return;
       e.preventDefault();
       const corner = h.dataset.corner;
       const l = getCurrentLayout();
@@ -1379,10 +1385,16 @@
       ui.floorEgBtn.classList.add('ghost'); ui.floorEgBtn.classList.remove('primary');
       renderAllCanvases();
     });
+    ui.editImageBtn.addEventListener('click', () => {
+      state.editImage = !state.editImage;
+      if (state.editImage) state.editZones = false;
+      syncEditButtons();
+      renderAllCanvases();
+    });
     ui.editZonesBtn.addEventListener('click', () => {
       state.editZones = !state.editZones;
-      ui.editZonesBtn.classList.toggle('primary', state.editZones);
-      ui.editZonesBtn.classList.toggle('ghost', !state.editZones);
+      if (state.editZones) state.editImage = false;
+      syncEditButtons();
       renderAllCanvases();
     });
     ui.closeZoneBtn.addEventListener('click', () => {
@@ -1567,3 +1579,9 @@
 
   init().catch(err => setStatus(String(err), true));
 })();
+    const syncEditButtons = () => {
+      ui.editImageBtn.classList.toggle('primary', state.editImage);
+      ui.editImageBtn.classList.toggle('ghost', !state.editImage);
+      ui.editZonesBtn.classList.toggle('primary', state.editZones);
+      ui.editZonesBtn.classList.toggle('ghost', !state.editZones);
+    };
