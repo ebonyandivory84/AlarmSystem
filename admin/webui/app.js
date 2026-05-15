@@ -70,6 +70,7 @@
     editZones: false,
     floorLayouts: { EG: null, OG: null },
     dragResize: null,
+    dragZonePoint: null,
     canvasHistory: [],
     floorRatios: { EG: 0.907, OG: 0.906 }
   };
@@ -431,6 +432,7 @@
       const pts = (layout.zones?.[z] || []);
       if (pts.length < 1) continue;
       const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+      poly.dataset.zonePoly = z;
       poly.setAttribute('points', pts.map(p => `${p[0]},${p[1]}`).join(' '));
       poly.setAttribute('fill', 'none');
       poly.setAttribute('stroke', zmap[z]);
@@ -556,7 +558,7 @@
     canvas.addEventListener('click', e => {
       if (!state.editZones) return;
       const t = e.target;
-      if (t.closest('.resize-handle')) return;
+      if (t.closest('.resize-handle') || t.closest('.image-resize-handles') || t.closest('[data-zone-point]')) return;
       const rect = canvas.getBoundingClientRect();
       const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
       const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
@@ -570,6 +572,18 @@
     });
 
     canvas.addEventListener('pointerdown', e => {
+      const zonePoint = e.target.closest('[data-zone-point]');
+      if (zonePoint && state.editZones) {
+        const [zone, idxRaw] = String(zonePoint.dataset.zonePoint || '').split(':');
+        const idx = Number(idxRaw);
+        const l = getCurrentLayout();
+        if (!zone || !Number.isInteger(idx) || !Array.isArray(l.zones?.[zone]) || !l.zones[zone][idx]) return;
+        e.preventDefault();
+        snapshotCanvasState();
+        state.dragZonePoint = { zone, idx };
+        canvas.setPointerCapture(e.pointerId);
+        return;
+      }
       const h = e.target.closest('.resize-handle');
       const onFrame = e.target.closest('.image-resize-handles');
       if ((!h && !onFrame) || !state.editZones) return;
@@ -581,6 +595,18 @@
       canvas.setPointerCapture(e.pointerId);
     });
     canvas.addEventListener('pointermove', e => {
+      if (state.dragZonePoint) {
+        const rect = canvas.getBoundingClientRect();
+        const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+        const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+        const l = getCurrentLayout();
+        const z = state.dragZonePoint.zone;
+        const i = state.dragZonePoint.idx;
+        if (!Array.isArray(l.zones?.[z]) || !l.zones[z][i]) return;
+        l.zones[z][i] = [Number(x.toFixed(2)), Number(y.toFixed(2))];
+        refreshEditorZonePreview(canvas, l, z);
+        return;
+      }
       if (!state.dragResize) return;
       const rect = canvas.getBoundingClientRect();
       const dx = ((e.clientX - state.dragResize.startX) / rect.width) * 100;
@@ -611,7 +637,36 @@
       writeFloorLayoutsToConfig();
       renderAllCanvases();
     });
-    canvas.addEventListener('pointerup', () => { state.dragResize = null; });
+    canvas.addEventListener('pointerup', () => {
+      if (state.dragZonePoint) {
+        state.dragZonePoint = null;
+        writeFloorLayoutsToConfig();
+        renderAllCanvases();
+      }
+      state.dragResize = null;
+    });
+    canvas.addEventListener('pointercancel', () => {
+      state.dragZonePoint = null;
+      state.dragResize = null;
+    });
+  }
+
+  function refreshEditorZonePreview(canvas, layout, zone) {
+    const pts = layout.zones?.[zone] || [];
+    const poly = canvas.querySelector(`.zone-editor-overlay [data-zone-poly="${zone}"]`);
+    if (poly) poly.setAttribute('points', pts.map(p => `${p[0]},${p[1]}`).join(' '));
+    const circles = canvas.querySelectorAll('.zone-editor-overlay [data-zone-point]');
+    circles.forEach(node => {
+      const [z, idxRaw] = String(node.dataset.zonePoint || '').split(':');
+      if (z !== zone) return;
+      const idx = Number(idxRaw);
+      const p = pts[idx];
+      if (!p) return;
+      node.setAttribute('cx', String(p[0]));
+      node.setAttribute('cy', String(p[1]));
+    });
+    const zoneEl = canvas.querySelector(`.zone[data-zone="${zone}"]`);
+    if (zoneEl) zoneEl.style.clipPath = `polygon(${pts.map(pt => `${pt[0]}% ${pt[1]}%`).join(',')})`;
   }
 
   function bindPoolDrop() {
