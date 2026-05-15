@@ -71,6 +71,7 @@
     floorLayouts: { EG: null, OG: null },
     dragResize: null,
     dragZonePoint: null,
+    suppressZoneClickOnce: false,
     canvasHistory: [],
     floorRatios: { EG: 0.907, OG: 0.906 }
   };
@@ -557,6 +558,10 @@
     canvas.dataset.boundEditor = '1';
     canvas.addEventListener('click', e => {
       if (!state.editZones) return;
+      if (state.suppressZoneClickOnce) {
+        state.suppressZoneClickOnce = false;
+        return;
+      }
       const t = e.target;
       if (t.closest('.resize-handle') || t.closest('.image-resize-handles') || t.closest('[data-zone-point]')) return;
       const rect = canvas.getBoundingClientRect();
@@ -581,6 +586,7 @@
         e.preventDefault();
         snapshotCanvasState();
         state.dragZonePoint = { zone, idx };
+        state.suppressZoneClickOnce = true;
         canvas.setPointerCapture(e.pointerId);
         return;
       }
