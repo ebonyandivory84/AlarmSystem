@@ -196,6 +196,21 @@
     if (zone === 'aussenhaut') return 'zone-color-aussenhaut';
     return 'zone-color-perimeter';
   }
+  function entityIcon(kind) {
+    if (kind === 'pirSensorsTable') return '👣';
+    if (kind === 'contactSensorsTable') return '🪟';
+    if (kind === 'camerasTable' || kind === 'personDetectionTable') return '📷';
+    if (kind === 'presenceSensorsTable') return '👤';
+    return '•';
+  }
+  function detectZoneByCanvasPos(xPct, yPct) {
+    const dx = xPct - 50;
+    const dy = yPct - 50;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d <= 21.5) return 'innenraum';
+    if (d <= 35) return 'aussenhaut';
+    return 'perimeter';
+  }
 
   function ensureEntityPositions() {
     const buckets = { perimeter: [], aussenhaut: [], innenraum: [] };
@@ -244,10 +259,11 @@
 
   function drawEntity(canvas, e, detailed) {
     const el = document.createElement('div');
-    el.className = (detailed ? 'chip ' : 'dot ') + zoneClass(e.zone);
+    el.className = (detailed ? 'chip ' : 'mini-node ') + zoneClass(e.zone);
     el.title = e.label;
     el.draggable = true;
     if (detailed) el.textContent = e.label;
+    else el.textContent = entityIcon(e.kind);
     el.style.left = `${Math.max(2, Math.min(98, Number(e.posX || 50)))}%`;
     el.style.top = `${Math.max(2, Math.min(98, Number(e.posY || 50)))}%`;
     el.addEventListener('dragstart', ev => ev.dataTransfer.setData('text/plain', JSON.stringify({ kind:e.kind, idx:e.idx })));
@@ -279,17 +295,18 @@
   }
 
   function bindCanvasDrops(canvas) {
+    if (canvas.dataset.boundDnD === '1') return;
+    canvas.dataset.boundDnD = '1';
     canvas.addEventListener('dragover', e => e.preventDefault());
     canvas.addEventListener('drop', e => {
       e.preventDefault();
       try {
         const p = JSON.parse(e.dataTransfer.getData('text/plain'));
-        const zoneEl = e.target.closest('.zone');
-        if (!zoneEl) return;
-        const rect = zoneEl.getBoundingClientRect();
+        const rect = canvas.getBoundingClientRect();
         const x = ((e.clientX - rect.left) / rect.width) * 100;
         const y = ((e.clientY - rect.top) / rect.height) * 100;
-        setEntity(p.kind, p.idx, { zone: zoneEl.dataset.zone, posX: Math.max(2, Math.min(98, x)), posY: Math.max(2, Math.min(98, y)) });
+        const zone = detectZoneByCanvasPos(x, y);
+        setEntity(p.kind, p.idx, { zone, posX: Math.max(2, Math.min(98, x)), posY: Math.max(2, Math.min(98, y)) });
         renderAllCanvases();
       } catch {
         setStatus('Ungültiger Drag&Drop-Inhalt', true);
