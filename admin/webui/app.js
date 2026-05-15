@@ -366,13 +366,13 @@
   function entityIcon(entity) {
     const kind = entity.kind;
     if (kind === 'pirSensorsTable') {
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2a8.8 8.8 0 018.8 8.8V21H3.2V12A8.8 8.8 0 0112 3.2z"></path><circle cx="12" cy="8.7" r="2"></circle><path d="M8 15.8a4 4 0 018 0"></path></svg>';
+      return '<span class="sensor-dot dot-pir" aria-hidden="true"></span>';
     }
     if (kind === 'contactSensorsTable') {
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 18.7h10.8"></path><path d="M4.5 5.2v13.5"></path><path d="M4.5 5.2l9.3-1.7v17l-9.3-1.8"></path><path d="M16.8 4.8h2.7v14.4h-2.7"></path><circle cx="11" cy="12" r="0.9"></circle></svg>';
+      return '<span class="sensor-dot dot-contact" aria-hidden="true"></span>';
     }
     if (kind === 'camerasTable' || kind === 'personDetectionTable') {
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7.5" width="12.5" height="9" rx="1.4"></rect><path d="M15.5 9.6L20.7 6.6h.3v10.8h-.3l-5.2-3"></path><circle cx="9.2" cy="12" r="2.3"></circle></svg>';
+      return '<span class="sensor-dot dot-cam" aria-hidden="true"></span>';
     }
     if (kind === 'presenceSensorsTable') {
       const t = String(entity.shortLabel || 'P');
@@ -581,6 +581,7 @@
     const el = document.createElement('div');
     el.className = (detailed ? 'chip ' : 'mini-node ') + zoneClass(e.zone);
     if (!detailed && e.kind === 'presenceSensorsTable') el.classList.add('presence-node');
+    if (!detailed && ['pirSensorsTable','contactSensorsTable','camerasTable','personDetectionTable'].includes(e.kind)) el.classList.add('sensor-dot-node');
     el.title = e.label;
     el.draggable = true;
     if (detailed) el.textContent = e.label;

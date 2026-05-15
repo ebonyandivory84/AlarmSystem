@@ -104,6 +104,11 @@ label{display:grid;gap:6px;min-width:220px} input,select,textarea{background:var
 .dot{position:absolute;width:12px;height:12px;border-radius:50%;border:1px solid rgba(20,20,20,.35);cursor:grab;transform:translate(-50%,-50%)}
 .mini-node{position:absolute;width:42px;height:42px;display:flex;align-items:center;justify-content:center;border-radius:11px;border:1px solid rgba(20,20,20,.35);cursor:grab;transform:translate(-50%,-50%);font-size:17px;line-height:1;background:#ecf0f3;color:#0f1115}
 .mini-node svg{width:28px;height:28px;display:block;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.mini-node.sensor-dot-node{width:20px;height:20px;border-radius:50%;background:transparent;border:1px solid rgba(12,12,12,.45)}
+.sensor-dot{display:block;width:12px;height:12px;border-radius:50%;border:1px solid rgba(10,10,10,.55)}
+.sensor-dot.dot-pir{background:#ff3a3a}
+.sensor-dot.dot-contact{background:#ffd84d}
+.sensor-dot.dot-cam{background:#39a6ff}
 .mini-node.presence-node{font-size:18px;font-weight:800;letter-spacing:.4px;color:#0f1115}
 .mini-node .presence-letter{display:block;line-height:1}
 .zone-color-perimeter svg,.zone-color-aussenhaut svg,.zone-color-innenraum svg{stroke:currentColor}
