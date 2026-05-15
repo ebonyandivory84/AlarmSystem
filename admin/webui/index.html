@@ -24,7 +24,40 @@
     </header>
 
     <main id="overviewPage" class="page">
-      <section class="card">
+      <section class="card canvas-shell">
+        <div id="miniCanvas" class="zone-canvas floor-eg"></div>
+        <div class="canvas-overlay status-mini">
+          <div id="statusShield" class="status-shield disarmed" aria-live="polite">🛡️ UNSCHARF</div>
+          <pre id="statusBox" class="status ok">Bereit</pre>
+        </div>
+        <div class="canvas-overlay controls-card">
+          <div class="row">
+            <button id="armAlarmBtn" class="btn" title="Alarm scharf">Alarm +</button>
+            <button id="disarmAlarmBtn" class="btn" title="Alarm unscharf">Alarm -</button>
+            <button id="armPerimeterBtn" class="btn" title="Perimeter scharf">Perim +</button>
+            <button id="disarmPerimeterBtn" class="btn" title="Perimeter unscharf">Perim -</button>
+            <button id="armCamerasBtn" class="btn" title="Kameras scharf">Cam +</button>
+            <button id="disarmCamerasBtn" class="btn" title="Kameras unscharf">Cam -</button>
+            <button id="floorEgBtn" class="btn primary" title="Erdgeschoss">EG</button>
+            <button id="floorOgBtn" class="btn ghost" title="Obergeschoss">OG</button>
+            <button id="tidyCanvasBtn" class="btn" title="Automatisch aufräumen">⟲</button>
+            <button id="openCanvasBtn" class="btn" title="Maximieren">⛶</button>
+          </div>
+        </div>
+        <div class="canvas-overlay editor-strip">
+          <button id="editZonesBtn" class="btn ghost" title="Zonen-Editor ein/aus">✎</button>
+          <select id="editZoneSelect" title="Aktive Zone">
+            <option value="innenraum">innenraum</option>
+            <option value="aussenhaut">aussenhaut</option>
+            <option value="perimeter">perimeter</option>
+          </select>
+          <button id="closeZoneBtn" class="btn" title="Linie schließen">⬢</button>
+          <button id="clearZoneBtn" class="btn danger" title="Zone löschen">⌫</button>
+          <button id="resetImageRectBtn" class="btn" title="Bildgröße zurücksetzen">⬚</button>
+          <span id="miniHoverInfo" class="muted">Hover: -</span>
+        </div>
+      </section>
+      <section class="card hidden" aria-hidden="true">
         <h2>Live-Status</h2>
         <div class="row">
           <span id="liveMode" class="status-chip">Mode: -</span>
@@ -33,50 +66,6 @@
           <span id="livePerimeter" class="status-chip">Perimeter: -</span>
           <span id="liveCameras" class="status-chip">Kameras: -</span>
         </div>
-      </section>
-
-      <section class="card">
-        <h2>Manuelle Steuerung</h2>
-        <div class="row">
-          <button id="armAlarmBtn" class="btn" title="Setzt den Alarmzustand auf scharf (armStateId=true).">Alarm scharf</button>
-          <button id="disarmAlarmBtn" class="btn" title="Setzt den Alarmzustand auf unscharf (armStateId=false).">Alarm unscharf</button>
-          <button id="armPerimeterBtn" class="btn" title="Setzt Perimeter-Schutz auf scharf (perimeterStateId=true).">Perimeter scharf</button>
-          <button id="disarmPerimeterBtn" class="btn" title="Setzt Perimeter-Schutz auf unscharf (perimeterStateId=false).">Perimeter unscharf</button>
-          <button id="armCamerasBtn" class="btn" title="Aktiviert Kameraalarme (cameraAlarmOnIdsJson / cctvArmedId).">Kameras scharf</button>
-          <button id="disarmCamerasBtn" class="btn" title="Deaktiviert Kameraalarme (cameraAlarmOffIdsJson / cctvDisarmedId).">Kameras unscharf</button>
-        </div>
-      </section>
-
-      <section class="grid2">
-        <article class="card canvas-full">
-          <div class="canvas-head">
-            <h2>Zonen-Canvas</h2>
-            <div class="row">
-              <button id="floorEgBtn" class="btn primary">EG</button>
-              <button id="floorOgBtn" class="btn ghost">OG</button>
-              <button id="editZonesBtn" class="btn ghost">Zonen editieren</button>
-              <select id="editZoneSelect">
-                <option value="innenraum">innenraum</option>
-                <option value="aussenhaut">aussenhaut</option>
-                <option value="perimeter">perimeter</option>
-              </select>
-              <button id="closeZoneBtn" class="btn">Linie schließen</button>
-              <button id="clearZoneBtn" class="btn danger">Zone löschen</button>
-              <button id="resetImageRectBtn" class="btn">Bildgröße Reset</button>
-              <button id="tidyCanvasBtn" class="btn">Aufräumen</button>
-              <button id="openCanvasBtn" class="btn">Maximieren</button>
-            </div>
-          </div>
-          <p class="muted">Miniansicht mit Punkten. Hover zeigt Namen.</p>
-          <p id="miniHoverInfo" class="muted">Hover: -</p>
-          <div id="miniCanvas" class="zone-canvas floor-eg"></div>
-        </article>
-      </section>
-
-      <section class="card">
-        <h2>Status</h2>
-        <div id="statusShield" class="status-shield disarmed" aria-live="polite">🛡️ UNSCHARF</div>
-        <pre id="statusBox" class="status ok">Bereit</pre>
       </section>
     </main>
 
