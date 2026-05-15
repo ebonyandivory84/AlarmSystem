@@ -472,7 +472,7 @@
       bg.setAttribute('y', String(ws.bgY));
       bg.setAttribute('width', String(ws.bgW));
       bg.setAttribute('height', String(ws.bgH));
-      bg.setAttribute('preserveAspectRatio', 'none');
+      bg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
       svg.appendChild(bg);
     }
     if (model.perimeter && Number(model.perimeter.w || 0) > 0 && Number(model.perimeter.h || 0) > 0) {
@@ -1365,7 +1365,7 @@
     let html = '';
     if (view.showBg) {
       const href = designerBgForFloor().replace(/"/g, '&quot;');
-      html += `<image class="designer-bg" href="${href}" x="${ws.bgX}" y="${ws.bgY}" width="${ws.bgW}" height="${ws.bgH}" preserveAspectRatio="none"></image>`;
+      html += `<image class="designer-bg" href="${href}" x="${ws.bgX}" y="${ws.bgY}" width="${ws.bgW}" height="${ws.bgH}" preserveAspectRatio="xMidYMid meet"></image>`;
     }
     html += '<g class="designer-grid">';
     for (let x = 0; x <= ws.w; x += grid) html += `<line x1="${x}" y1="0" x2="${x}" y2="${ws.h}"></line>`;
