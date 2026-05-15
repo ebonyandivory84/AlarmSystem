@@ -475,9 +475,10 @@
       const pts = layout.zones?.[z] || [];
       if (!Array.isArray(pts) || pts.length < 2) continue;
       const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+      poly.dataset.zone = z;
+      poly.setAttribute('class', `zone-outline ${z}`);
       poly.setAttribute('points', pts.map(p => `${p[0]},${p[1]}`).join(' '));
       poly.setAttribute('fill', 'none');
-      poly.setAttribute('stroke', '#7cf2a5');
       poly.setAttribute('stroke-width', '0.45');
       poly.setAttribute('stroke-linecap', 'round');
       poly.setAttribute('stroke-linejoin', 'round');
@@ -552,9 +553,15 @@
     const per = canvas.querySelector('.zone.perimeter');
     const aus = canvas.querySelector('.zone.aussenhaut');
     const inn = canvas.querySelector('.zone.innenraum');
+    const perOutline = canvas.querySelector('.zone-static-overlay .zone-outline.perimeter');
+    const ausOutline = canvas.querySelector('.zone-static-overlay .zone-outline.aussenhaut');
+    const innOutline = canvas.querySelector('.zone-static-overlay .zone-outline.innenraum');
     if (per) per.classList.toggle('armed-zone', !!state.live.perimeterArmed);
     if (aus) aus.classList.toggle('armed-zone', !!state.live.aussenArmed);
     if (inn) inn.classList.toggle('armed-zone', !!state.live.innenArmed);
+    if (perOutline) perOutline.classList.toggle('armed-zone', !!state.live.perimeterArmed);
+    if (ausOutline) ausOutline.classList.toggle('armed-zone', !!state.live.aussenArmed);
+    if (innOutline) innOutline.classList.toggle('armed-zone', !!state.live.innenArmed);
   }
 
   function getRulesMap(){ try { return JSON.parse(state.config.rulesJson || '{}'); } catch { return {}; } }
