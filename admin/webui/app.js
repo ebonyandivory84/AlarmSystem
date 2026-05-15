@@ -45,6 +45,21 @@
   };
 
   const globalSpec = [['defaultEntryDelaySec','number'],['defaultExitDelaySec','number'],['eventDedupeMs','number'],['heartbeatTimeoutSec','number'],['snapshotSendDelayMs','number'],['snapshotBurstCount','number'],['snapshotBurstIntervalMs','number'],['autoArmDelaySec','number'],['bedtimeHour','number'],['bedtimeLightThreshold','number'],['simulationMode','boolean'],['cameraNightModeEnabled','boolean'],['cameraNightModeArmsCameras','boolean']];
+  const globalHelp = {
+    defaultEntryDelaySec: 'Eingangsverzoegerung in Sekunden: Zeit zwischen Trigger und Alarmstart beim Betreten.',
+    defaultExitDelaySec: 'Ausgangsverzoegerung in Sekunden: Zeitfenster zum Verlassen nach dem Scharfschalten.',
+    eventDedupeMs: 'Entprellzeit in Millisekunden: gleiche Events in diesem Zeitraum werden zusammengefasst.',
+    heartbeatTimeoutSec: 'Timeout in Sekunden fuer Heartbeat/Ueberwachung: danach gilt eine Quelle als inaktiv.',
+    snapshotSendDelayMs: 'Verzoegerung in Millisekunden bis Snapshot-Versand nach Trigger.',
+    snapshotBurstCount: 'Anzahl der Snapshots pro Ereignis (Burst).',
+    snapshotBurstIntervalMs: 'Abstand in Millisekunden zwischen Snapshots innerhalb eines Bursts.',
+    autoArmDelaySec: 'Wartezeit in Sekunden bis zur automatischen Scharfschaltung (z. B. nach Abwesenheit).',
+    bedtimeHour: 'Stunde (0-23) fuer Nachtlogik/Schlafenszeit-Regeln.',
+    bedtimeLightThreshold: 'Helligkeitsschwelle fuer Abend/Nacht-Automation (je nach Datenquelle).',
+    simulationMode: 'Testmodus: Logik laeuft simuliert, ohne reale Alarmaktionen auszufuehren (falls im Adapter so genutzt).',
+    cameraNightModeEnabled: 'Aktiviert die Kamera-Nachtmodus-Logik im Adapter.',
+    cameraNightModeArmsCameras: 'Wenn aktiv, werden Kameras im Nachtmodus automatisch scharf geschaltet.'
+  };
   const dpSpec = ['armStateId','perimeterStateId','triggerStateId','sirenStateId','displayId','clearDisplayId','buzzerId','ledRedId','ledYellowId','standbyId','motionSensorId','panicStateId','fingerprintStateId','pinStateId','statusId'];
 
   const setStatus = (m,e=false) => { ui.status.textContent = m; ui.status.classList.toggle('err', e); };
@@ -386,6 +401,7 @@
     for (const [k,t] of globalSpec) {
       const w = document.createElement('label');
       w.textContent = k;
+      w.title = globalHelp[k] || k;
       const i = document.createElement(t === 'boolean' ? 'select' : 'input');
       i.dataset.key = k;
       if (t === 'number') { i.type = 'number'; i.value = String(Number(state.config[k] ?? 0)); }
