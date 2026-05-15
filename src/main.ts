@@ -46,6 +46,16 @@ interface ZoneDelayDef {
   exitDelaySec: number;
 }
 
+interface ZoneActionDef {
+  key: string;
+  label: string;
+  zone: Zone;
+  datapointId: string;
+  onValue: string | boolean | number;
+  offValue?: string | boolean | number;
+  pulseMs?: number;
+}
+
 interface TelegramInstanceDef {
   instance: string;
   token?: string;
@@ -114,6 +124,7 @@ interface Config {
   sensors: SensorDef[];
   personDetections: PersonDetectionDef[];
   cameras: CameraDef[];
+  zoneActions: ZoneActionDef[];
   zoneDelays: Record<Zone, { entryDelaySec: number; exitDelaySec: number }>;
   telegramInstances: TelegramInstanceDef[];
   telegramTargets: TelegramTargetDef[];
@@ -167,6 +178,7 @@ class AlarmSystemAdapter extends utils.Adapter {
       .concat(this.parseSensorTable(n.presenceSensorsTable, 'presence'));
     const personDetections = this.parsePersonDetectionTable(n.personDetectionTable);
     const cameras = this.parseCamerasTable(n.camerasTable);
+    const zoneActions = this.parseZoneActionsTable(n.zoneActionsTable);
 
     return {
       dedupeMs: this.toNumber(n.eventDedupeMs, 1000),
@@ -254,6 +266,7 @@ class AlarmSystemAdapter extends utils.Adapter {
       sensors,
       personDetections,
       cameras,
+      zoneActions,
       zoneDelays: this.parseZoneDelays(n.zoneDelaysTable, this.toNumber(n.defaultEntryDelaySec, 20), this.toNumber(n.defaultExitDelaySec, 10)),
       telegramInstances: this.parseTelegramInstances(n.telegramInstancesTable),
       telegramTargets: this.parseTelegramTargets(n.telegramTargetsTable)
@@ -315,6 +328,26 @@ class AlarmSystemAdapter extends utils.Adapter {
       password: r.password ? String(r.password) : undefined,
       personDetectionDp: r.personDetectionDp ? String(r.personDetectionDp) : undefined
     }));
+  }
+
+  private parseZoneActionsTable(rows: any): ZoneActionDef[] {
+    if (!Array.isArray(rows)) return [];
+    return rows
+      .filter(r => r?.datapointId)
+      .map((r: any) => {
+        const rawOn = r.onValue === undefined || r.onValue === null || String(r.onValue).trim() === '' ? 'true' : String(r.onValue).trim();
+        const rawOff = r.offValue === undefined || r.offValue === null || String(r.offValue).trim() === '' ? '' : String(r.offValue).trim();
+        const pulseMs = Math.max(0, this.toNumber(r.pulseMs, 0));
+        return {
+          key: String(r.key || r.datapointId),
+          label: String(r.label || r.key || r.datapointId),
+          zone: this.parseZone(r.zone),
+          datapointId: String(r.datapointId),
+          onValue: this.parseScalar(rawOn),
+          offValue: rawOff ? this.parseScalar(rawOff) : undefined,
+          pulseMs: pulseMs > 0 ? pulseMs : undefined
+        };
+      });
   }
 
   private parseTelegramInstances(rows: any): TelegramInstanceDef[] {
@@ -426,6 +459,13 @@ class AlarmSystemAdapter extends utils.Adapter {
           then: `Snapshot(s) senden${c.alarmDatapoint ? ', Kamera-Alarm setzen' : ''}${c.ledDatapoint ? ', LED setzen' : ''} (bei scharfer Zone oder Night-Mode, falls aktiviert)`
         });
       }
+    }
+
+    for (const a of this.cfg.zoneActions) {
+      rules.push({
+        if: `Alarmtrigger in Zone ${a.zone} (${a.label})`,
+        then: `Setze ${a.datapointId} auf ${String(a.onValue)}${a.pulseMs ? ` und nach ${a.pulseMs}ms auf ${String(a.offValue ?? false)}` : ''}`
+      });
     }
 
     rules.push({
@@ -727,9 +767,25 @@ class AlarmSystemAdapter extends utils.Adapter {
       this.countdownTimer = null;
       await this.setStateAsync('runtime.mode', 'alarm', true);
       await this.setOutput(this.cfg.sirenStateId, true);
+      await this.executeZoneActions(zone, caseId);
       await this.sendTelegramText(`🚨 Alarm ausgelöst: ${label} (${zone}) | ${caseId}`);
       await this.logEvent('alarm', 'alarm_activated', `Alarm activated (${label}/${zone})`, caseId);
     }, entrySec * 1000) ?? null;
+  }
+
+  private async executeZoneActions(zone: Zone, caseId: string): Promise<void> {
+    const actions = this.cfg.zoneActions.filter(a => a.zone === zone);
+    for (const a of actions) {
+      await this.setOutput(a.datapointId, a.onValue);
+      await this.logEvent('info', 'zone_action_on', `Zone action ${a.label}: ${a.datapointId}=${String(a.onValue)}`, caseId);
+      if (a.pulseMs && a.pulseMs > 0) {
+        const offVal = a.offValue !== undefined ? a.offValue : false;
+        this.setTimeout(async () => {
+          await this.setOutput(a.datapointId, offVal);
+          await this.logEvent('info', 'zone_action_off', `Zone action reset ${a.label}: ${a.datapointId}=${String(offVal)}`, caseId);
+        }, a.pulseMs);
+      }
+    }
   }
 
   private async handlePanic(active: boolean): Promise<void> {

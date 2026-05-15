@@ -554,6 +554,7 @@
         "exitDelaySec": 10
       }
     ],
+    "zoneActionsTable": [],
     "statusId": "mqtt.1.AlarmCenter.Status",
     "checkRedId": "mqtt.1.AlarmCenter.CheckRed",
     "checkYellowId": "mqtt.1.AlarmCenter.CheckYellow",

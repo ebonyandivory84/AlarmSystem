@@ -66,6 +66,10 @@ label{display:grid;gap:6px;min-width:220px} input,select,textarea{background:var
 }
 .dot{position:absolute;width:12px;height:12px;border-radius:50%;border:1px solid rgba(20,20,20,.35);cursor:grab;transform:translate(-50%,-50%)}
 .mini-node{position:absolute;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border-radius:6px;border:1px solid rgba(20,20,20,.35);cursor:grab;transform:translate(-50%,-50%);font-size:13px;line-height:1}
+.mini-node svg{width:14px;height:14px;display:block;fill:none;stroke:#0f1115;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.zone-color-perimeter svg{stroke:#111}
+.zone-color-aussenhaut svg{stroke:#17120d}
+.zone-color-innenraum svg{stroke:#211013}
 .chip{position:absolute;border-radius:999px;padding:5px 9px;font-size:11px;cursor:grab;user-select:none;border:1px solid rgba(20,20,20,.35);color:#111;transform:translate(-50%,-50%);max-width:210px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dot,.mini-node,.chip{pointer-events:auto}
 .zone-color-innenraum{background:var(--zone-in)}

@@ -121,6 +121,29 @@
 
       <section class="card"><h2>Globale Parameter</h2><div class="fields" id="globalFields"></div></section>
       <section class="card">
+        <h2>Zonen-Aktoren bei Alarmtrigger</h2>
+        <div class="fields">
+          <label>Zone<select id="zoneActionZone"><option value="perimeter">perimeter</option><option value="aussenhaut">aussenhaut</option><option value="innenraum">innenraum</option></select></label>
+          <label>Key<input id="zoneActionKey" type="text" placeholder="z.B. licht_eg" /></label>
+          <label>Label<input id="zoneActionLabel" type="text" placeholder="z.B. Licht EG" /></label>
+          <label>
+            Datapoint ID
+            <span class="input-wrap">
+              <input id="zoneActionId" class="state-input" list="stateIds" type="text" />
+              <button id="browseZoneActionIdBtn" class="icon-btn" type="button" title="Objektbrowser öffnen">🔎</button>
+            </span>
+          </label>
+          <label>On-Value<input id="zoneActionOnValue" type="text" placeholder="true / 1 / on" /></label>
+          <label>Off-Value (optional)<input id="zoneActionOffValue" type="text" placeholder="false / 0 / off" /></label>
+          <label>Pulse ms (optional)<input id="zoneActionPulseMs" type="number" min="0" placeholder="z.B. 10000" /></label>
+        </div>
+        <div class="row">
+          <button id="addZoneActionBtn" class="btn">Aktor hinzufügen</button>
+          <span id="zoneActionResult" class="muted"></span>
+        </div>
+        <div id="zoneActionsList" class="sensor-list" style="margin-top:10px"></div>
+      </section>
+      <section class="card">
         <details id="advancedDpSection">
           <summary>Erweitert: AlarmCenter / Kern-Datapoints</summary>
           <div class="fields" id="dpFields" style="margin-top:10px"></div>

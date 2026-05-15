@@ -34,6 +34,8 @@
     pageSettingsBtn: $('pageSettingsBtn'),
     panicBtn: $('panicToggleBtn'),
     shield: $('statusShield'),
+    zoneActionsList: $('zoneActionsList'),
+    zoneActionResult: $('zoneActionResult'),
     pinModal: $('pinModal'),
     pinDots: $('pinDots'),
     pinHint: $('pinHint')
@@ -182,6 +184,7 @@
     ['pirSensorsTable','contactSensorsTable','presenceSensorsTable','personDetectionTable','camerasTable'].forEach(k => {
       if (!Array.isArray(state.config[k])) state.config[k] = [];
     });
+    if (!Array.isArray(state.config.zoneActionsTable)) state.config.zoneActionsTable = [];
   }
 
   function getEntities() {
@@ -226,11 +229,19 @@
     return 'zone-color-perimeter';
   }
   function entityIcon(kind) {
-    if (kind === 'pirSensorsTable') return '👣';
-    if (kind === 'contactSensorsTable') return '🪟';
-    if (kind === 'camerasTable' || kind === 'personDetectionTable') return '📷';
-    if (kind === 'presenceSensorsTable') return '👤';
-    return '•';
+    if (kind === 'pirSensorsTable') {
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 9.3c0 1 .8 1.8 1.8 1.8s1.8-.8 1.8-1.8-.8-1.8-1.8-1.8-1.8.8-1.8 1.8zm4.5-1.7c0 1 .8 1.8 1.8 1.8s1.8-.8 1.8-1.8-.8-1.8-1.8-1.8-1.8.8-1.8 1.8zm-7 3.7c0 .9.7 1.6 1.6 1.6s1.6-.7 1.6-1.6-.7-1.6-1.6-1.6-1.6.7-1.6 1.6zm4.4 2.8c-1.7 0-3 1.4-3 3.1 0 2.8 2.1 5.1 4.8 5.1 2.5 0 4.4-2.1 4.4-4.3 0-2.2-1.8-3.9-3.9-3.9h-2.3z"/></svg>';
+    }
+    if (kind === 'contactSensorsTable') {
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18.5h9V5.2L4 6.8v11.7zm11.6-1.2H20m-4.4-9.8H20m-4.4 4.9H20"/></svg>';
+    }
+    if (kind === 'camerasTable' || kind === 'personDetectionTable') {
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 8.5h10.2l2.1-2.2h2.7v11.4H4.5V8.5zm6.3 2.2a3.6 3.6 0 100 7.2 3.6 3.6 0 000-7.2z"/></svg>';
+    }
+    if (kind === 'presenceSensorsTable') {
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5a3.1 3.1 0 110 6.2A3.1 3.1 0 0112 5zm-6 13.5c.6-3 2.7-4.7 6-4.7s5.4 1.7 6 4.7H6z"/></svg>';
+    }
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"/></svg>';
   }
   function detectZoneByCanvasPos(xPct, yPct) {
     const dx = xPct - 50;
@@ -317,7 +328,7 @@
     el.title = e.label;
     el.draggable = true;
     if (detailed) el.textContent = e.label;
-    else el.textContent = entityIcon(e.kind);
+    else el.innerHTML = entityIcon(e.kind);
     el.style.left = `${Math.max(2, Math.min(98, Number(e.posX || 50)))}%`;
     el.style.top = `${Math.max(2, Math.min(98, Number(e.posY || 50)))}%`;
     el.addEventListener('dragstart', ev => ev.dataTransfer.setData('text/plain', JSON.stringify({ kind:e.kind, idx:e.idx })));
@@ -454,6 +465,53 @@
       state.config[k] = spec[1] === 'number' ? Number(el.value || 0) : (el.value === 'true');
     });
     ui.dp.querySelectorAll('[data-key]').forEach(el => { state.config[el.dataset.key] = el.value || ''; });
+  }
+
+  function renderZoneActions() {
+    ensureTables();
+    if (!ui.zoneActionsList) return;
+    const rows = state.config.zoneActionsTable || [];
+    if (!rows.length) {
+      ui.zoneActionsList.innerHTML = '<div class="muted">Keine Zonen-Aktoren konfiguriert.</div>';
+      return;
+    }
+    ui.zoneActionsList.innerHTML = rows.map((r, idx) => {
+      const zone = String(r.zone || 'perimeter');
+      const label = String(r.label || r.key || r.datapointId || `action_${idx + 1}`);
+      const dp = String(r.datapointId || '');
+      const onValue = r.onValue === undefined || r.onValue === null ? 'true' : String(r.onValue);
+      const offValue = r.offValue === undefined || r.offValue === null || String(r.offValue) === '' ? '-' : String(r.offValue);
+      const pulse = Number(r.pulseMs || 0) > 0 ? `${Number(r.pulseMs)}ms` : '-';
+      return `<div class="sensor-item"><span>${label} [${zone}]<br><span class="muted">${dp} | on=${onValue} | off=${offValue} | pulse=${pulse}</span></span><button class="btn danger" data-del-zone-action="${idx}">Löschen</button></div>`;
+    }).join('');
+  }
+
+  function addZoneAction() {
+    ensureTables();
+    const zone = String(($('zoneActionZone').value || 'perimeter')).trim();
+    const key = String(($('zoneActionKey').value || '').trim());
+    const label = String(($('zoneActionLabel').value || '').trim());
+    const datapointId = String(($('zoneActionId').value || '').trim());
+    const onValueRaw = String(($('zoneActionOnValue').value || '').trim() || 'true');
+    const offValueRaw = String(($('zoneActionOffValue').value || '').trim());
+    const pulseMsRaw = Number($('zoneActionPulseMs').value || 0);
+    if (!datapointId) {
+      setStatus('Aktor-Datapoint ID fehlt', true);
+      if (ui.zoneActionResult) ui.zoneActionResult.textContent = 'Datapoint ID fehlt';
+      return;
+    }
+    const row = {
+      key: key || datapointId,
+      label: label || key || datapointId,
+      zone: ['perimeter', 'aussenhaut', 'innenraum'].includes(zone) ? zone : 'perimeter',
+      datapointId,
+      onValue: onValueRaw,
+      offValue: offValueRaw || '',
+      pulseMs: Number.isFinite(pulseMsRaw) && pulseMsRaw > 0 ? Math.round(pulseMsRaw) : 0
+    };
+    state.config.zoneActionsTable.push(row);
+    renderZoneActions();
+    if (ui.zoneActionResult) ui.zoneActionResult.textContent = `Hinzugefügt: ${row.label}`;
   }
 
   function addNewEntity() {
@@ -673,6 +731,7 @@
     rebuildProfileSelect();
     renderFields();
     renderAllCanvases();
+    renderZoneActions();
   }
 
   async function reloadFromInstance() {
@@ -755,9 +814,11 @@
     $('saveProfileBtn').addEventListener('click', saveAsProfile);
     $('deleteProfileBtn').addEventListener('click', deleteProfile);
     $('addSensorBtn').addEventListener('click', addNewEntity);
+    $('addZoneActionBtn').addEventListener('click', addZoneAction);
     $('tidyCanvasBtn').addEventListener('click', tidyCanvasLayout);
 
     $('browseNewIdBtn').addEventListener('click', () => openObjectBrowser($('newId')));
+    $('browseZoneActionIdBtn').addEventListener('click', () => openObjectBrowser($('zoneActionId')));
     $('closeBrowserBtn').addEventListener('click', closeObjectBrowser);
     ui.objectSearch.addEventListener('input', renderObjectResults);
     ui.objectResults.addEventListener('click', ev => {
@@ -819,6 +880,17 @@
       });
     });
     ui.panicBtn.addEventListener('click', () => togglePanic().catch(e => setStatus(String(e), true)));
+    if (ui.zoneActionsList) {
+      ui.zoneActionsList.addEventListener('click', ev => {
+        const btn = ev.target.closest('[data-del-zone-action]');
+        if (!btn) return;
+        const idx = Number(btn.getAttribute('data-del-zone-action'));
+        if (!Number.isInteger(idx) || idx < 0) return;
+        ensureTables();
+        state.config.zoneActionsTable.splice(idx, 1);
+        renderZoneActions();
+      });
+    }
 
     await refreshLiveStatus();
     await refreshPanicButton();
