@@ -70,7 +70,8 @@
     editZones: false,
     floorLayouts: { EG: null, OG: null },
     dragResize: null,
-    canvasHistory: []
+    canvasHistory: [],
+    floorRatios: { EG: 0.84, OG: 0.84 }
   };
   const DISARM_PIN = '1492';
 
@@ -553,8 +554,9 @@
       const dy = ((e.clientY - state.dragResize.startY) / rect.height) * 100;
       const l = getCurrentLayout();
       const s = state.dragResize.start;
+      const ratio = getFloorRatio(state.currentFloor);
       let w = s.w;
-      let h = s.h;
+      let h = s.w / ratio;
       let x = s.x;
       let y = s.y;
       if (state.dragResize.corner === 'move') {
@@ -563,8 +565,7 @@
       } else {
         if (state.dragResize.corner === 'se' || state.dragResize.corner === 'ne') w = Math.max(20, s.w + dx);
         else w = Math.max(20, s.w - dx);
-        if (state.dragResize.corner === 'se' || state.dragResize.corner === 'sw') h = Math.max(20, s.h + dy);
-        else h = Math.max(20, s.h - dy);
+        h = w / ratio;
         if (state.dragResize.corner === 'nw' || state.dragResize.corner === 'sw') x = s.x + (s.w - w);
         if (state.dragResize.corner === 'nw' || state.dragResize.corner === 'ne') y = s.y + (s.h - h);
       }
@@ -663,6 +664,49 @@
     document.documentElement.style.setProperty('--floor-og-image', `url('${og.replace(/'/g, "\\'")}')`);
     if (ui.floorplanEgInput) ui.floorplanEgInput.value = eg;
     if (ui.floorplanOgInput) ui.floorplanOgInput.value = og;
+    void loadFloorImageRatio('EG', eg);
+    void loadFloorImageRatio('OG', og);
+  }
+
+  function getFloorRatio(floor) {
+    const f = floor === 'OG' ? 'OG' : 'EG';
+    const r = Number(state.floorRatios[f] || 0.84);
+    return Number.isFinite(r) && r > 0 ? r : 0.84;
+  }
+
+  function fitRectToRatio(rect, ratio) {
+    const out = { ...rect };
+    out.h = out.w / ratio;
+    if (out.h > 100) {
+      out.h = 100;
+      out.w = out.h * ratio;
+    }
+    if (out.w > 100) {
+      out.w = 100;
+      out.h = out.w / ratio;
+    }
+    out.x = Math.max(0, Math.min(100 - out.w, out.x));
+    out.y = Math.max(0, Math.min(100 - out.h, out.y));
+    return out;
+  }
+
+  function loadFloorImageRatio(floor, src) {
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => {
+        if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+          state.floorRatios[floor] = img.naturalWidth / img.naturalHeight;
+          const l = state.floorLayouts[floor] || defaultLayout();
+          l.imageRect = fitRectToRatio(l.imageRect || { x: 8, y: 6, w: 84, h: 88 }, getFloorRatio(floor));
+          state.floorLayouts[floor] = l;
+          writeFloorLayoutsToConfig();
+          renderAllCanvases();
+        }
+        resolve();
+      };
+      img.onerror = () => resolve();
+      img.src = src;
+    });
   }
 
   function ensureFloorLayouts() {
@@ -720,8 +764,8 @@
       state.config[k] = spec[1] === 'number' ? Number(el.value || 0) : (el.value === 'true');
     });
     ui.dp.querySelectorAll('[data-key]').forEach(el => { state.config[el.dataset.key] = el.value || ''; });
-    state.config.floorplanEgImage = String(ui.floorplanEgInput?.value || './assets/floorplan-dashboard.jpg').trim();
-    state.config.floorplanOgImage = String(ui.floorplanOgInput?.value || state.config.floorplanEgImage || './assets/floorplan-dashboard.jpg').trim();
+    state.config.floorplanEgImage = String(ui.floorplanEgInput?.value || './assets/EG.jpg').trim();
+    state.config.floorplanOgImage = String(ui.floorplanOgInput?.value || state.config.floorplanEgImage || './assets/OG.jpg').trim();
   }
 
   function renderZoneActions() {
@@ -1111,7 +1155,11 @@
     ui.resetImageRectBtn.addEventListener('click', () => {
       const l = getCurrentLayout();
       snapshotCanvasState();
-      l.imageRect = { x: 8, y: 6, w: 84, h: 88 };
+      const ratio = getFloorRatio(state.currentFloor);
+      let w = 84;
+      let h = w / ratio;
+      if (h > 88) { h = 88; w = h * ratio; }
+      l.imageRect = { x: 8, y: 6, w, h };
       writeFloorLayoutsToConfig();
       renderAllCanvases();
     });
