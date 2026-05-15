@@ -1226,6 +1226,8 @@
     if (!svg) return;
     const m = getDesignerFloorModel();
     const view = getDesignerFloorView();
+    const activeTool = String(ui.designerTool?.value || 'select');
+    svg.classList.toggle('erase-mode', activeTool === 'erase');
     if (ui.designerGrid) ui.designerGrid.value = String(Math.max(4, Number(state.designer.grid || 12)));
     if (ui.designerSnapBtn) ui.designerSnapBtn.textContent = `Snap: ${state.designer.snap ? 'an' : 'aus'}`;
     if (ui.designerBgBtn) ui.designerBgBtn.textContent = `Hintergrund: ${view.showBg ? 'an' : 'aus'}`;
@@ -1243,7 +1245,7 @@
     if (m.perimeter) {
       html += `<rect class="designer-perimeter" x="${m.perimeter.x}" y="${m.perimeter.y}" width="${m.perimeter.w}" height="${m.perimeter.h}"></rect>`;
     }
-    const showWallHandles = ['select', 'wall'].includes(String(ui.designerTool?.value || 'select'));
+    const showWallHandles = ['select', 'wall'].includes(activeTool);
     for (const w of (m.walls || [])) {
       const cls = m.outerWallIds?.includes(w.id) ? 'designer-wall outer' : 'designer-wall';
       html += `<polyline class="${cls}" data-wall-id="${w.id}" points="${(w.points || []).map(p => `${p.x},${p.y}`).join(' ')}"></polyline>`;
@@ -1286,6 +1288,36 @@
       const wallPointEl = e.target.closest('[data-wall-point]');
       const wallEl = e.target.closest('[data-wall-id]');
       const itemEl = e.target.closest('[data-item-id]');
+      if (tool === 'erase') {
+        if (itemEl) {
+          const itemId = Number(itemEl.getAttribute('data-item-id'));
+          if (Number.isInteger(itemId)) {
+            snapshotDesignerState();
+            m.items = (m.items || []).filter(it => Number(it.id) !== itemId);
+            if (Number(m.lastBeamItemId) === itemId) {
+              const beams = (m.items || []).filter(it => String(it.type || '') === 'beam');
+              m.lastBeamItemId = beams.length ? Number(beams[beams.length - 1].id) : null;
+            }
+            saveDesignerData();
+            renderDesigner();
+            renderAllCanvases();
+          }
+          return;
+        }
+        const wallIdRaw = wallPointEl
+          ? String(wallPointEl.getAttribute('data-wall-point') || '').split(':')[0]
+          : (wallEl ? String(wallEl.getAttribute('data-wall-id') || '') : '');
+        const wallId = Number(wallIdRaw);
+        if (Number.isInteger(wallId)) {
+          snapshotDesignerState();
+          m.walls = (m.walls || []).filter(w => Number(w.id) !== wallId);
+          m.outerWallIds = (m.outerWallIds || []).filter(id => Number(id) !== wallId);
+          saveDesignerData();
+          renderDesigner();
+          renderAllCanvases();
+        }
+        return;
+      }
       const canMoveExisting = tool !== 'outer' && tool !== 'perimeter';
       if (canMoveExisting && wallPointEl) {
         const [wallIdRaw, pointIdxRaw] = String(wallPointEl.getAttribute('data-wall-point') || '').split(':');
