@@ -366,7 +366,9 @@
   function addZones(canvas) {
     canvas.innerHTML = '';
     const l = state.floorLayouts[state.currentFloor] || defaultLayout();
-    const rect = l.imageRect || { x: 8, y: 6, w: 84, h: 88 };
+    const ratio = getFloorRatio(state.currentFloor);
+    l.imageRect = fitRectToRatio(l.imageRect || { x: 8, y: 6, w: 84, h: 88 }, ratio);
+    const rect = l.imageRect;
     canvas.style.setProperty('--img-x', `${rect.x}%`);
     canvas.style.setProperty('--img-y', `${rect.y}%`);
     canvas.style.setProperty('--img-w', `${rect.w}%`);
