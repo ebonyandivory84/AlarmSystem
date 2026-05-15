@@ -602,7 +602,12 @@
         if (state.dragResize.corner === 'nw' || state.dragResize.corner === 'sw') x = s.x + (s.w - w);
         if (state.dragResize.corner === 'nw' || state.dragResize.corner === 'ne') y = s.y + (s.h - h);
       }
-      l.imageRect = { x: Math.max(0, Math.min(100 - w, x)), y: Math.max(0, Math.min(100 - h, y)), w: Math.min(100, w), h: Math.min(100, h) };
+      l.imageRect = {
+        x,
+        y,
+        w: Math.max(20, Math.min(300, w)),
+        h: Math.max(20 / ratio, Math.min(300 / ratio, h))
+      };
       writeFloorLayoutsToConfig();
       renderAllCanvases();
     });
