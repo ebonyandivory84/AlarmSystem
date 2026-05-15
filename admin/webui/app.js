@@ -1363,6 +1363,16 @@
   }
 
   async function init() {
+    const syncEditButtons = () => {
+      if (ui.editImageBtn) {
+        ui.editImageBtn.classList.toggle('primary', state.editImage);
+        ui.editImageBtn.classList.toggle('ghost', !state.editImage);
+      }
+      if (ui.editZonesBtn) {
+        ui.editZonesBtn.classList.toggle('primary', state.editZones);
+        ui.editZonesBtn.classList.toggle('ghost', !state.editZones);
+      }
+    };
     connectSocket();
     bindPoolDrop();
     bindModal();
@@ -1579,9 +1589,3 @@
 
   init().catch(err => setStatus(String(err), true));
 })();
-    const syncEditButtons = () => {
-      ui.editImageBtn.classList.toggle('primary', state.editImage);
-      ui.editImageBtn.classList.toggle('ghost', !state.editImage);
-      ui.editZonesBtn.classList.toggle('primary', state.editZones);
-      ui.editZonesBtn.classList.toggle('ghost', !state.editZones);
-    };
