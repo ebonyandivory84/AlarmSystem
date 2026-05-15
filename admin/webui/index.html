@@ -28,7 +28,6 @@
         <div id="miniCanvas" class="zone-canvas floor-eg"></div>
         <div class="canvas-overlay status-mini">
           <div id="statusShield" class="status-shield disarmed" aria-live="polite">🛡️ UNSCHARF</div>
-          <pre id="statusBox" class="status ok">Bereit</pre>
         </div>
         <div class="canvas-overlay controls-card">
           <div class="row">
@@ -38,11 +37,18 @@
             <button id="disarmPerimeterBtn" class="btn" title="Perimeter unscharf">Perim off</button>
             <button id="armCamerasBtn" class="btn" title="Kameras scharf">Cam on</button>
             <button id="disarmCamerasBtn" class="btn" title="Kameras unscharf">Cam off</button>
+          </div>
+        </div>
+        <div class="canvas-overlay canvas-tools">
+          <div class="row">
             <button id="floorEgBtn" class="btn primary" title="Erdgeschoss">EG</button>
             <button id="floorOgBtn" class="btn ghost" title="Obergeschoss">OG</button>
             <button id="tidyCanvasBtn" class="btn" title="Automatisch aufräumen">🧹</button>
             <button id="openCanvasBtn" class="btn" title="Maximieren">⛶</button>
           </div>
+        </div>
+        <div class="canvas-overlay status-text-box">
+          <pre id="statusBox" class="status ok">Bereit</pre>
         </div>
         <div class="canvas-overlay editor-strip">
           <button id="editZonesBtn" class="btn ghost" title="Zonen-Editor ein/aus">✎</button>
