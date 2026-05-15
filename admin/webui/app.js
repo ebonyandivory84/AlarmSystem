@@ -27,7 +27,10 @@
     livePerimeter: $('livePerimeter'),
     liveAussenhaut: $('liveAussenhaut'),
     liveInnenraum: $('liveInnenraum'),
-    liveCameras: $('liveCameras')
+    liveCameras: $('liveCameras'),
+    pinModal: $('pinModal'),
+    pinDots: $('pinDots'),
+    pinHint: $('pinHint')
   };
 
   const state = {
@@ -41,8 +44,11 @@
     stateIds: [],
     selectedEntity: null,
     objectTarget: null,
-    live: { perimeterArmed: false, aussenArmed: false, innenArmed: false }
+    live: { perimeterArmed: false, aussenArmed: false, innenArmed: false },
+    pinInput: '',
+    pinTargetAction: null
   };
+  const DISARM_PIN = '1492';
 
   const globalSpec = [['defaultEntryDelaySec','number'],['defaultExitDelaySec','number'],['eventDedupeMs','number'],['heartbeatTimeoutSec','number'],['snapshotSendDelayMs','number'],['snapshotBurstCount','number'],['snapshotBurstIntervalMs','number'],['autoArmDelaySec','number'],['bedtimeHour','number'],['bedtimeLightThreshold','number'],['simulationMode','boolean'],['cameraNightModeEnabled','boolean'],['cameraNightModeArmsCameras','boolean']];
   const globalHelp = {
@@ -495,6 +501,46 @@
     setStatus('Manuelle Aktion ausgeführt');
   }
 
+  function renderPinDots() {
+    if (!ui.pinDots) return;
+    const dots = Array.from(ui.pinDots.querySelectorAll('.pin-dot'));
+    dots.forEach((d, i) => d.classList.toggle('filled', i < state.pinInput.length));
+  }
+
+  function closePinModal() {
+    state.pinInput = '';
+    state.pinTargetAction = null;
+    renderPinDots();
+    if (ui.pinHint) ui.pinHint.textContent = 'PIN: 4-stellig';
+    ui.pinModal.classList.add('hidden');
+  }
+
+  function openPinModal(action) {
+    state.pinTargetAction = action;
+    state.pinInput = '';
+    renderPinDots();
+    if (ui.pinHint) ui.pinHint.textContent = 'PIN: 4-stellig';
+    ui.pinModal.classList.remove('hidden');
+  }
+
+  async function onPinDigit(d) {
+    if (!/^\d$/.test(String(d))) return;
+    if (state.pinInput.length >= 4) return;
+    state.pinInput += String(d);
+    renderPinDots();
+    if (state.pinInput.length < 4) return;
+    if (state.pinInput !== DISARM_PIN) {
+      if (ui.pinHint) ui.pinHint.textContent = 'Falsche PIN';
+      state.pinInput = '';
+      renderPinDots();
+      return;
+    }
+    const action = state.pinTargetAction;
+    closePinModal();
+    if (!action) return;
+    await manualControl(action);
+  }
+
   async function loadTriggerLogForDate(day) {
     if (!day) return;
     const base = `${state.instanceId}.diagnostics`;
@@ -689,11 +735,28 @@
     $('loadTriggerLogBtn').addEventListener('click', () => loadTriggerLogForDate(ui.logDate.value));
 
     $('armAlarmBtn').addEventListener('click', () => manualControl('armAlarm').catch(e => setStatus(String(e), true)));
-    $('disarmAlarmBtn').addEventListener('click', () => manualControl('disarmAlarm').catch(e => setStatus(String(e), true)));
+    $('disarmAlarmBtn').addEventListener('click', () => openPinModal('disarmAlarm'));
     $('armPerimeterBtn').addEventListener('click', () => manualControl('armPerimeter').catch(e => setStatus(String(e), true)));
-    $('disarmPerimeterBtn').addEventListener('click', () => manualControl('disarmPerimeter').catch(e => setStatus(String(e), true)));
+    $('disarmPerimeterBtn').addEventListener('click', () => openPinModal('disarmPerimeter'));
     $('armCamerasBtn').addEventListener('click', () => manualControl('armCameras').catch(e => setStatus(String(e), true)));
-    $('disarmCamerasBtn').addEventListener('click', () => manualControl('disarmCameras').catch(e => setStatus(String(e), true)));
+    $('disarmCamerasBtn').addEventListener('click', () => openPinModal('disarmCameras'));
+
+    $('closePinBtn').addEventListener('click', closePinModal);
+    $('pinClearBtn').addEventListener('click', () => {
+      state.pinInput = '';
+      renderPinDots();
+      if (ui.pinHint) ui.pinHint.textContent = 'PIN: 4-stellig';
+    });
+    $('pinBackBtn').addEventListener('click', () => {
+      state.pinInput = state.pinInput.slice(0, -1);
+      renderPinDots();
+      if (ui.pinHint) ui.pinHint.textContent = 'PIN: 4-stellig';
+    });
+    document.querySelectorAll('.numpad [data-pin]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        void onPinDigit(btn.getAttribute('data-pin')).catch(e => setStatus(String(e), true));
+      });
+    });
 
     await refreshLiveStatus();
     setInterval(() => { void refreshLiveStatus(); }, 2000);

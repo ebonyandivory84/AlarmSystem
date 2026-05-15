@@ -6,7 +6,7 @@
   <title>AlarmSystem WebUI</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
-<body>
+<body class="theme-black">
   <div class="app">
     <header class="topbar">
       <div>
@@ -148,6 +148,32 @@
       <div class="row">
         <button id="saveEntityRuleBtn" class="btn">Für Element speichern</button>
         <button id="applyZoneRuleBtn" class="btn">Auf alle in dieser Zone anwenden</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="pinModal" class="modal hidden">
+    <div class="modal-inner pin-inner">
+      <button id="closePinBtn" class="modal-close">X</button>
+      <h2>Entschärfen bestätigen</h2>
+      <p class="muted">Bitte PIN eingeben, um unscharf zu schalten.</p>
+      <div id="pinDots" class="pin-dots" aria-live="polite">
+        <span class="pin-dot"></span><span class="pin-dot"></span><span class="pin-dot"></span><span class="pin-dot"></span>
+      </div>
+      <p id="pinHint" class="muted">PIN: 4-stellig</p>
+      <div class="numpad">
+        <button class="btn num" data-pin="1">1</button>
+        <button class="btn num" data-pin="2">2</button>
+        <button class="btn num" data-pin="3">3</button>
+        <button class="btn num" data-pin="4">4</button>
+        <button class="btn num" data-pin="5">5</button>
+        <button class="btn num" data-pin="6">6</button>
+        <button class="btn num" data-pin="7">7</button>
+        <button class="btn num" data-pin="8">8</button>
+        <button class="btn num" data-pin="9">9</button>
+        <button id="pinClearBtn" class="btn ghost">C</button>
+        <button class="btn num" data-pin="0">0</button>
+        <button id="pinBackBtn" class="btn ghost">⌫</button>
       </div>
     </div>
   </div>
