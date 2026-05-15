@@ -106,6 +106,10 @@
         OG: { showBg: true, useInOverviewOnly: false }
       },
       dragItemId: null,
+      dragWallId: null,
+      dragWallPoint: null,
+      dragWallStart: null,
+      dragWallOrig: null,
       drawingWall: null,
       drawingPerimeter: null
     }
@@ -167,7 +171,7 @@
       perimeter: []
     }
   });
-  const defaultDesignerFloor = () => ({ items: [], walls: [], outerWallIds: [], perimeter: null, nextId: 1 });
+  const defaultDesignerFloor = () => ({ items: [], walls: [], outerWallIds: [], perimeter: null, nextId: 1, lastBeamItemId: null });
   const defaultDesignerView = () => ({ showBg: true, useInOverviewOnly: false });
 
   const normalizeInstanceId = v => {
@@ -1137,6 +1141,32 @@
     return { x: snapDesigner(Math.max(0, Math.min(1000, p.x))), y: snapDesigner(Math.max(0, Math.min(700, p.y))) };
   }
 
+  function findDesignerWallById(model, wallId) {
+    return (model.walls || []).find(w => Number(w.id) === Number(wallId));
+  }
+
+  function isSamePoint(a, b) {
+    return Math.abs(Number(a?.x) - Number(b?.x)) < 0.5 && Math.abs(Number(a?.y) - Number(b?.y)) < 0.5;
+  }
+
+  function linkWallBetweenBeams(model, fromBeam, toBeam) {
+    if (!fromBeam || !toBeam) return;
+    if (isSamePoint(fromBeam, toBeam)) return;
+    const exists = (model.walls || []).some(w => {
+      const pts = Array.isArray(w.points) ? w.points : [];
+      if (pts.length !== 2) return false;
+      return (isSamePoint(pts[0], fromBeam) && isSamePoint(pts[1], toBeam))
+        || (isSamePoint(pts[0], toBeam) && isSamePoint(pts[1], fromBeam));
+    });
+    if (exists) return;
+    const wallId = model.nextId || 1;
+    model.nextId = wallId + 1;
+    model.walls.push({
+      id: wallId,
+      points: [{ x: fromBeam.x, y: fromBeam.y }, { x: toBeam.x, y: toBeam.y }]
+    });
+  }
+
   function renderDesigner() {
     const svg = ui.designerSvg;
     if (!svg) return;
@@ -1159,9 +1189,16 @@
     if (m.perimeter) {
       html += `<rect class="designer-perimeter" x="${m.perimeter.x}" y="${m.perimeter.y}" width="${m.perimeter.w}" height="${m.perimeter.h}"></rect>`;
     }
+    const showWallHandles = ['select', 'wall'].includes(String(ui.designerTool?.value || 'select'));
     for (const w of (m.walls || [])) {
       const cls = m.outerWallIds?.includes(w.id) ? 'designer-wall outer' : 'designer-wall';
       html += `<polyline class="${cls}" data-wall-id="${w.id}" points="${(w.points || []).map(p => `${p.x},${p.y}`).join(' ')}"></polyline>`;
+      if (showWallHandles) {
+        for (let i = 0; i < (w.points || []).length; i++) {
+          const p = w.points[i];
+          html += `<circle class="designer-wall-point" data-wall-point="${w.id}:${i}" cx="${p.x}" cy="${p.y}" r="5"></circle>`;
+        }
+      }
     }
     for (const it of (m.items || [])) {
       const itemType = String(it.type || 'item');
@@ -1190,10 +1227,46 @@
       const tool = String(ui.designerTool?.value || 'select');
       const m = getDesignerFloorModel();
       const p = svgPoint(e);
+      const wallPointEl = e.target.closest('[data-wall-point]');
+      const wallEl = e.target.closest('[data-wall-id]');
+      const itemEl = e.target.closest('[data-item-id]');
+      if (tool === 'select' || tool === 'wall') {
+        if (wallPointEl) {
+          const [wallIdRaw, pointIdxRaw] = String(wallPointEl.getAttribute('data-wall-point') || '').split(':');
+          const wallId = Number(wallIdRaw);
+          const pointIdx = Number(pointIdxRaw);
+          if (!Number.isInteger(wallId) || !Number.isInteger(pointIdx)) return;
+          const wall = findDesignerWallById(m, wallId);
+          if (!wall || !Array.isArray(wall.points) || !wall.points[pointIdx]) return;
+          state.designer.dragWallPoint = { wallId, pointIdx };
+          svg.setPointerCapture(e.pointerId);
+          return;
+        }
+        if (wallEl) {
+          const wallId = Number(wallEl.getAttribute('data-wall-id'));
+          const wall = findDesignerWallById(m, wallId);
+          if (Number.isInteger(wallId) && wall && Array.isArray(wall.points)) {
+            state.designer.dragWallId = wallId;
+            state.designer.dragWallStart = { x: p.x, y: p.y };
+            state.designer.dragWallOrig = wall.points.map(pt => ({ x: Number(pt.x), y: Number(pt.y) }));
+            svg.setPointerCapture(e.pointerId);
+            return;
+          }
+        }
+      }
       if (tool === 'place') {
+        const itemType = String(ui.designerItemType?.value || 'door');
         const id = m.nextId || 1;
         m.nextId = id + 1;
-        m.items.push({ id, type: String(ui.designerItemType?.value || 'door'), x: p.x, y: p.y, r: 0 });
+        const newItem = { id, type: itemType, x: p.x, y: p.y, r: 0 };
+        const lastBeam = (itemType === 'beam')
+          ? (m.items || []).find(it => Number(it.id) === Number(m.lastBeamItemId) && String(it.type || '') === 'beam')
+          : null;
+        m.items.push(newItem);
+        if (itemType === 'beam') {
+          linkWallBetweenBeams(m, lastBeam, newItem);
+          m.lastBeamItemId = id;
+        }
         saveDesignerData();
         renderDesigner();
         renderAllCanvases();
@@ -1211,7 +1284,6 @@
         return;
       }
       if (tool === 'outer') {
-        const wallEl = e.target.closest('[data-wall-id]');
         if (!wallEl) return;
         const id = Number(wallEl.getAttribute('data-wall-id'));
         m.outerWallIds = Array.isArray(m.outerWallIds) ? m.outerWallIds : [];
@@ -1222,7 +1294,6 @@
         renderAllCanvases();
         return;
       }
-      const itemEl = e.target.closest('[data-item-id]');
       if (tool === 'select' && itemEl) {
         state.designer.dragItemId = Number(itemEl.getAttribute('data-item-id'));
         svg.setPointerCapture(e.pointerId);
@@ -1232,6 +1303,28 @@
       const tool = String(ui.designerTool?.value || 'select');
       const m = getDesignerFloorModel();
       const p = svgPoint(e);
+      if ((tool === 'select' || tool === 'wall') && state.designer.dragWallPoint) {
+        const info = state.designer.dragWallPoint;
+        const wall = findDesignerWallById(m, info.wallId);
+        if (wall && Array.isArray(wall.points) && wall.points[info.pointIdx]) {
+          wall.points[info.pointIdx] = { x: p.x, y: p.y };
+          renderDesigner();
+        }
+        return;
+      }
+      if ((tool === 'select' || tool === 'wall') && state.designer.dragWallId && state.designer.dragWallStart && Array.isArray(state.designer.dragWallOrig)) {
+        const wall = findDesignerWallById(m, state.designer.dragWallId);
+        if (wall && Array.isArray(wall.points)) {
+          const dx = p.x - Number(state.designer.dragWallStart.x || 0);
+          const dy = p.y - Number(state.designer.dragWallStart.y || 0);
+          wall.points = state.designer.dragWallOrig.map(orig => ({
+            x: snapDesigner(Math.max(0, Math.min(1000, Number(orig.x) + dx))),
+            y: snapDesigner(Math.max(0, Math.min(700, Number(orig.y) + dy)))
+          }));
+          renderDesigner();
+        }
+        return;
+      }
       if (tool === 'select' && state.designer.dragItemId) {
         const it = m.items.find(x => x.id === state.designer.dragItemId);
         if (!it) return;
@@ -1250,15 +1343,28 @@
     svg.addEventListener('pointerup', () => {
       const tool = String(ui.designerTool?.value || 'select');
       const m = getDesignerFloorModel();
+      let changed = false;
       if (tool === 'select' && state.designer.dragItemId) {
         state.designer.dragItemId = null;
-        saveDesignerData();
-        renderAllCanvases();
+        changed = true;
+      }
+      if ((tool === 'select' || tool === 'wall') && state.designer.dragWallPoint) {
+        state.designer.dragWallPoint = null;
+        changed = true;
+      }
+      if ((tool === 'select' || tool === 'wall') && state.designer.dragWallId) {
+        state.designer.dragWallId = null;
+        state.designer.dragWallStart = null;
+        state.designer.dragWallOrig = null;
+        changed = true;
       }
       if (tool === 'perimeter' && state.designer.drawingPerimeter) {
         const r = state.designer.drawingPerimeter;
         m.perimeter = { x: r.x, y: r.y, w: r.w, h: r.h };
         state.designer.drawingPerimeter = null;
+        changed = true;
+      }
+      if (changed) {
         saveDesignerData();
         renderDesigner();
         renderAllCanvases();
@@ -1277,6 +1383,13 @@
       }
       state.designer.drawingWall = null;
       renderDesigner();
+    });
+    svg.addEventListener('pointercancel', () => {
+      state.designer.dragItemId = null;
+      state.designer.dragWallId = null;
+      state.designer.dragWallPoint = null;
+      state.designer.dragWallStart = null;
+      state.designer.dragWallOrig = null;
     });
   }
 
