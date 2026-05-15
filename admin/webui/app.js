@@ -330,13 +330,13 @@
   function entityIcon(entity) {
     const kind = entity.kind;
     if (kind === 'pirSensorsTable') {
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"></circle><path d="M4.5 20a7.5 7.5 0 0 1 15 0"></path></svg>';
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2a8.8 8.8 0 018.8 8.8V21H3.2V12A8.8 8.8 0 0112 3.2z"></path><circle cx="12" cy="8.7" r="2"></circle><path d="M8 15.8a4 4 0 018 0"></path></svg>';
     }
     if (kind === 'contactSensorsTable') {
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19h10"></path><path d="M5 5v14"></path><path d="M5 5l8-1.5v17L5 19"></path><path d="M16 5h3v14h-3"></path><circle cx="10.8" cy="12" r="0.8"></circle></svg>';
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 18.7h10.8"></path><path d="M4.5 5.2v13.5"></path><path d="M4.5 5.2l9.3-1.7v17l-9.3-1.8"></path><path d="M16.8 4.8h2.7v14.4h-2.7"></path><circle cx="11" cy="12" r="0.9"></circle></svg>';
     }
     if (kind === 'camerasTable' || kind === 'personDetectionTable') {
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="8" width="11" height="8" rx="1"></rect><path d="M14.5 10l4-3h2v10h-2l-4-3"></path><circle cx="9" cy="12" r="2.2"></circle></svg>';
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7.5" width="12.5" height="9" rx="1.4"></rect><path d="M15.5 9.6L20.7 6.6h.3v10.8h-.3l-5.2-3"></path><circle cx="9.2" cy="12" r="2.3"></circle></svg>';
     }
     if (kind === 'presenceSensorsTable') {
       const t = String(entity.shortLabel || 'P');
@@ -413,7 +413,27 @@
       d.style.clipPath = `polygon(${poly.map(pt => `${pt[0]}% ${pt[1]}%`).join(',')})`;
       canvas.appendChild(d);
     });
+    renderStaticZoneOverlay(canvas, l);
     if (state.editZones) renderZoneEditorOverlay(canvas, l);
+  }
+
+  function renderStaticZoneOverlay(canvas, layout) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'zone-static-overlay');
+    svg.setAttribute('viewBox', '0 0 100 100');
+    for (const z of ['perimeter', 'aussenhaut', 'innenraum']) {
+      const pts = layout.zones?.[z] || [];
+      if (!Array.isArray(pts) || pts.length < 2) continue;
+      const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+      poly.setAttribute('points', pts.map(p => `${p[0]},${p[1]}`).join(' '));
+      poly.setAttribute('fill', 'none');
+      poly.setAttribute('stroke', '#7cf2a5');
+      poly.setAttribute('stroke-width', '0.45');
+      poly.setAttribute('stroke-linecap', 'round');
+      poly.setAttribute('stroke-linejoin', 'round');
+      svg.appendChild(poly);
+    }
+    canvas.appendChild(svg);
   }
 
   function calcImageFrameInCanvas(canvas, rect, imageRatio) {
