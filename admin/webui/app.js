@@ -923,6 +923,14 @@
     el.classList.add(armed ? 'armed' : 'disarmed');
   }
 
+  function setControlPair(onBtn, offBtn, isOn) {
+    if (!onBtn || !offBtn) return;
+    onBtn.classList.remove('state-on', 'state-off');
+    offBtn.classList.remove('state-on', 'state-off');
+    if (isOn) onBtn.classList.add('state-on');
+    else offBtn.classList.add('state-off');
+  }
+
   function paintShield(mode) {
     if (!ui.shield) return;
     ui.shield.classList.remove('armed', 'perimeter', 'disarmed');
@@ -976,6 +984,9 @@
     paintChip(ui.liveAussenhaut, aussenArmed);
     paintChip(ui.liveInnenraum, innenArmed);
     paintChip(ui.liveCameras, camerasArmed);
+    setControlPair($('armAlarmBtn'), $('disarmAlarmBtn'), asArmed(allDp?.val) || innenArmed);
+    setControlPair($('armPerimeterBtn'), $('disarmPerimeterBtn'), asArmed(perDp?.val) || perimeterArmed || aussenArmed);
+    setControlPair($('armCamerasBtn'), $('disarmCamerasBtn'), asArmed(cam?.val) || camerasArmed);
     // Keep canvas blink logic aligned with effective armed evaluation
     // (datapoints + zone states), not only raw zone states.
     state.live.perimeterArmed = perimeterArmed;
