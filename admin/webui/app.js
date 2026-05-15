@@ -208,7 +208,7 @@
     const dx = xPct - 50;
     const dy = yPct - 50;
     const d = Math.sqrt(dx * dx + dy * dy);
-    if (d <= 21.5) return 'innenraum';
+    if (d <= 21) return 'innenraum';
     if (d <= 35) return 'aussenhaut';
     return 'perimeter';
   }
@@ -222,9 +222,25 @@
       const n = miss.length;
       for (let i=0;i<n;i++) {
         const angle = (i / n) * Math.PI * 2;
-        const ring = z === 'innenraum' ? 20 : z === 'aussenhaut' ? 28 : 36;
-        const x = 50 + Math.cos(angle) * ring;
-        const y = 50 + Math.sin(angle) * ring;
+        // Place elements inside zone AREAS (donuts), not on border lines
+        let rMin = 0;
+        let rMax = 0;
+        if (z === 'innenraum') {
+          rMin = 6;
+          rMax = 19;
+        } else if (z === 'aussenhaut') {
+          rMin = 23;
+          rMax = 33;
+        } else {
+          rMin = 37;
+          rMax = 45;
+        }
+        const bands = 3;
+        const bandIdx = i % bands;
+        const frac = (bandIdx + 0.5) / bands;
+        const radius = rMin + (rMax - rMin) * frac;
+        const x = 50 + Math.cos(angle) * radius;
+        const y = 50 + Math.sin(angle) * radius;
         setEntity(miss[i].kind, miss[i].idx, { posX: Math.max(4, Math.min(96, x)), posY: Math.max(4, Math.min(96, y)) });
       }
     }
