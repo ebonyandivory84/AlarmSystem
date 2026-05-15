@@ -54,7 +54,9 @@
     objectTarget: null,
     live: { perimeterArmed: false, aussenArmed: false, innenArmed: false },
     pinInput: '',
-    pinTargetAction: null
+    pinTargetAction: null,
+    stateIdsLoaded: false,
+    stateIdsLoading: null
   };
   const DISARM_PIN = '1492';
 
@@ -162,6 +164,15 @@
       if (typeof state.socket.getObjectView === 'function') state.socket.getObjectView('system', 'state', { startkey:'', endkey:'\u9999' }, (a,b) => parse(b || a));
       else state.socket.emit('getObjectView', 'system', 'state', { startkey:'', endkey:'\u9999' }, (a,b) => parse(b || a));
     });
+  }
+
+  async function ensureStateIdsLoaded() {
+    if (state.stateIdsLoaded) return;
+    if (state.stateIdsLoading) return state.stateIdsLoading;
+    state.stateIdsLoading = loadStateIds()
+      .then(() => { state.stateIdsLoaded = true; })
+      .finally(() => { state.stateIdsLoading = null; });
+    return state.stateIdsLoading;
   }
 
   function ensureProfiles() {
@@ -535,7 +546,8 @@
     state.objectTarget = targetInput;
     ui.objectModal.classList.remove('hidden');
     ui.objectSearch.value = targetInput.value || '';
-    renderObjectResults();
+    ui.objectResults.innerHTML = '<div class="muted">Lade Objekte…</div>';
+    void ensureStateIdsLoaded().then(() => renderObjectResults());
     ui.objectSearch.focus();
   }
 
@@ -750,12 +762,11 @@
     state.config = clone(state.instanceObj.native);
     ensureTables();
     ui.instance.textContent = `Instanz: ${state.instanceId}`;
-    await loadStateIds();
     renderAll();
     const today = new Date().toISOString().slice(0,10);
     ui.logDate.value = today;
-    await loadTriggerLogForDate(today);
-    setStatus('Aktuelle Instanzdaten geladen');
+    ui.logView.textContent = 'Log noch nicht geladen. Bitte "Log laden" klicken.';
+    setStatus('Aktuelle Instanzdaten geladen (schneller Startmodus)');
   }
 
   function bindModal() {
