@@ -125,7 +125,11 @@
       drawingWall: null,
       drawingWallCursor: null,
       wallFinishCooldownUntil: 0,
-      drawingPerimeter: null
+      drawingPerimeter: null,
+      selectedItemId: null,
+      dragResizeItemId: null,
+      dragResizeStart: null,
+      dragResizeOrig: null
     },
     designerHistory: []
   };
@@ -461,6 +465,7 @@
   function renderDesignerOverviewOverlay(canvas, useFrame = false, withBg = false) {
     const model = getDesignerFloorModel(true);
     if (!model || !hasDesignerGeometry(true)) return;
+    normalizeDesignerItems(model);
     const ws = getDesignerWorkspace(true);
     const view = getDesignerFloorView(true);
     const wrap = document.createElement('div');
@@ -480,56 +485,16 @@
       bg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
       svg.appendChild(bg);
     }
+    let html = '';
     if (model.perimeter && Number(model.perimeter.w || 0) > 0 && Number(model.perimeter.h || 0) > 0) {
-      const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      r.setAttribute('class', 'designer-perimeter');
-      r.setAttribute('x', String(Number(model.perimeter.x)));
-      r.setAttribute('y', String(Number(model.perimeter.y)));
-      r.setAttribute('width', String(Number(model.perimeter.w)));
-      r.setAttribute('height', String(Number(model.perimeter.h)));
-      svg.appendChild(r);
+      html += `<rect class="designer-perimeter" x="${Number(model.perimeter.x)}" y="${Number(model.perimeter.y)}" width="${Number(model.perimeter.w)}" height="${Number(model.perimeter.h)}"></rect>`;
     }
     for (const wall of (model.walls || [])) {
-      const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-      const isOuter = Array.isArray(model.outerWallIds) && model.outerWallIds.includes(wall.id);
-      line.setAttribute('class', isOuter ? 'designer-wall outer' : 'designer-wall');
-      line.setAttribute('fill', 'none');
-      line.setAttribute('points', (wall.points || []).map(p => `${Number(p.x)},${Number(p.y)}`).join(' '));
-      svg.appendChild(line);
+      const cls = Array.isArray(model.outerWallIds) && model.outerWallIds.includes(wall.id) ? 'designer-wall outer' : 'designer-wall';
+      html += `<polyline class="${cls}" fill="none" points="${(wall.points || []).map(p => `${Number(p.x)},${Number(p.y)}`).join(' ')}"></polyline>`;
     }
-    for (const item of (model.items || [])) {
-      const itemType = String(item.type || 'item');
-      const isBeam = itemType === 'beam';
-      const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-      g.setAttribute('class', `designer-item${isBeam ? ' beam' : ''}`);
-      const x = Number(item.x);
-      const y = Number(item.y);
-      g.setAttribute('transform', `translate(${x},${y}) rotate(${Number(item.r || 0)})`);
-      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      if (isBeam) {
-        rect.setAttribute('x', '-11');
-        rect.setAttribute('y', '-11');
-        rect.setAttribute('width', '22');
-        rect.setAttribute('height', '22');
-        rect.setAttribute('rx', '2.2');
-      } else {
-        rect.setAttribute('x', '-18');
-        rect.setAttribute('y', '-12');
-        rect.setAttribute('width', '36');
-        rect.setAttribute('height', '24');
-        rect.setAttribute('rx', '4');
-      }
-      g.appendChild(rect);
-      if (!isBeam) {
-        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        text.setAttribute('x', '0');
-        text.setAttribute('y', '4');
-        text.setAttribute('text-anchor', 'middle');
-        text.textContent = itemType.slice(0, 3).toUpperCase();
-        g.appendChild(text);
-      }
-      svg.appendChild(g);
-    }
+    for (const item of (model.items || [])) html += svgForDesignerItem(item, { handles: false, selected: false });
+    svg.innerHTML += html;
     wrap.appendChild(svg);
     canvas.appendChild(wrap);
   }
@@ -1263,6 +1228,10 @@
       state.designer.dragWallOrig = null;
       state.designer.drawingWall = null;
       state.designer.drawingWallCursor = null;
+      state.designer.selectedItemId = null;
+      state.designer.dragResizeItemId = null;
+      state.designer.dragResizeStart = null;
+      state.designer.dragResizeOrig = null;
       state.designer.drawingPerimeter = null;
       saveDesignerData();
       renderDesigner();
@@ -1299,6 +1268,131 @@
 
   function isSamePoint(a, b) {
     return Math.abs(Number(a?.x) - Number(b?.x)) < 0.5 && Math.abs(Number(a?.y) - Number(b?.y)) < 0.5;
+  }
+
+  function defaultDesignerItemSpec(typeRaw) {
+    const type = String(typeRaw || '');
+    if (type === 'door') return { w: 48, h: 48, r: 0 };
+    if (type === 'garage') return { w: 150, h: 70, r: 0 };
+    if (type === 'stairs') return { w: 160, h: 56, r: 0 };
+    if (type === 'wc') return { w: 42, h: 34, r: 0 };
+    if (type === 'kitchen') return { w: 160, h: 60, r: 0 };
+    if (type === 'stove') return { w: 70, h: 50, r: 0 };
+    if (type === 'cabinet') return { w: 80, h: 40, r: 0 };
+    if (type === 'sofa') return { w: 110, h: 56, r: 0 };
+    if (type === 'tableRound') return { w: 96, h: 96, r: 0 };
+    if (type === 'tableRect' || type === 'table') return { w: 130, h: 78, r: 0 };
+    if (type === 'chair') return { w: 28, h: 28, r: 0 };
+    if (type === 'beam') return { w: 22, h: 22, r: 0 };
+    return { w: 72, h: 46, r: 0 };
+  }
+
+  function itemSupportsResize(typeRaw) {
+    const type = String(typeRaw || '');
+    return type !== 'beam';
+  }
+
+  function normalizeDesignerItems(model) {
+    if (!model || !Array.isArray(model.items)) return;
+    for (const it of model.items) {
+      if (!it) continue;
+      if (String(it.type || '') === 'table') it.type = 'tableRect';
+      const d = defaultDesignerItemSpec(it.type);
+      if (!Number.isFinite(Number(it.w)) || Number(it.w) < 8) it.w = d.w;
+      if (!Number.isFinite(Number(it.h)) || Number(it.h) < 8) it.h = d.h;
+      if (!Number.isFinite(Number(it.r))) it.r = d.r;
+      if (!Number.isFinite(Number(it.x))) it.x = 0;
+      if (!Number.isFinite(Number(it.y))) it.y = 0;
+    }
+  }
+
+  function svgForDesignerItem(it, opts = {}) {
+    const type = String(it.type || 'item');
+    const w = Math.max(8, Number(it.w || defaultDesignerItemSpec(type).w));
+    const h = Math.max(8, Number(it.h || defaultDesignerItemSpec(type).h));
+    const hw = w / 2;
+    const hh = h / 2;
+    const isSelected = !!opts.selected;
+    const handles = !!opts.handles;
+    let inner = '';
+    if (type === 'door') {
+      const r = Math.min(w, h);
+      inner += `<line x1="${-hw}" y1="${hh}" x2="${-hw}" y2="${-hh}" class="arch-stroke"></line>`;
+      inner += `<line x1="${-hw}" y1="${hh}" x2="${hw}" y2="${hh}" class="arch-stroke"></line>`;
+      inner += `<path d="M ${-hw} ${hh} A ${r} ${r} 0 0 1 ${hw} ${-hh}" class="arch-soft"></path>`;
+    } else if (type === 'cabinet') {
+      inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="2"></rect>`;
+      inner += `<line x1="${-hw}" y1="${-hh}" x2="${hw}" y2="${hh}" class="arch-stroke"></line>`;
+      inner += `<line x1="${hw}" y1="${-hh}" x2="${-hw}" y2="${hh}" class="arch-stroke"></line>`;
+    } else if (type === 'kitchen') {
+      inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="2"></rect>`;
+      inner += `<rect x="${-hw + 6}" y="${-hh + 6}" width="${Math.max(8, w - 12)}" height="${Math.max(8, h - 12)}" rx="2" class="arch-soft-fill"></rect>`;
+    } else if (type === 'stove') {
+      inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="3"></rect>`;
+      const ox = w * 0.22; const oy = h * 0.22; const rr = Math.max(3, Math.min(w, h) * 0.12);
+      inner += `<circle cx="${-ox}" cy="${-oy}" r="${rr}" class="arch-stroke"></circle>`;
+      inner += `<circle cx="${ox}" cy="${-oy}" r="${rr}" class="arch-stroke"></circle>`;
+      inner += `<circle cx="${-ox}" cy="${oy}" r="${rr}" class="arch-stroke"></circle>`;
+      inner += `<circle cx="${ox}" cy="${oy}" r="${rr}" class="arch-stroke"></circle>`;
+    } else if (type === 'sofa') {
+      inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="8"></rect>`;
+      inner += `<rect x="${-hw + 8}" y="${-hh + 8}" width="${Math.max(8, w - 16)}" height="${Math.max(8, h - 16)}" rx="6" class="arch-soft-fill"></rect>`;
+    } else if (type === 'stairs') {
+      inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="2"></rect>`;
+      const steps = Math.max(3, Math.round(w / 18));
+      for (let i = 1; i < steps; i++) {
+        const x = -hw + (i * w) / steps;
+        inner += `<line x1="${x}" y1="${-hh}" x2="${x}" y2="${hh}" class="arch-stroke"></line>`;
+      }
+    } else if (type === 'tableRect') {
+      inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="6"></rect>`;
+      const c = Math.max(1, Math.floor(w / 44));
+      for (let i = 0; i < c; i++) {
+        const x = -hw + ((i + 0.5) * w) / c;
+        inner += `<rect x="${x - 8}" y="${-hh - 14}" width="16" height="10" rx="2" class="arch-soft-fill"></rect>`;
+        inner += `<rect x="${x - 8}" y="${hh + 4}" width="16" height="10" rx="2" class="arch-soft-fill"></rect>`;
+      }
+      const side = Math.max(1, Math.floor(h / 44));
+      for (let i = 0; i < side; i++) {
+        const y = -hh + ((i + 0.5) * h) / side;
+        inner += `<rect x="${-hw - 14}" y="${y - 5}" width="10" height="16" rx="2" class="arch-soft-fill"></rect>`;
+        inner += `<rect x="${hw + 4}" y="${y - 5}" width="10" height="16" rx="2" class="arch-soft-fill"></rect>`;
+      }
+    } else if (type === 'tableRound') {
+      const rr = Math.min(hw, hh) - 2;
+      inner += `<circle cx="0" cy="0" r="${rr}"></circle>`;
+      const chairs = Math.max(4, Math.round((2 * Math.PI * rr) / 36));
+      for (let i = 0; i < chairs; i++) {
+        const a = (i / chairs) * Math.PI * 2;
+        const cx = Math.cos(a) * (rr + 14);
+        const cy = Math.sin(a) * (rr + 14);
+        inner += `<rect x="${cx - 6}" y="${cy - 4}" width="12" height="8" rx="2" transform="rotate(${(a * 180) / Math.PI} ${cx} ${cy})" class="arch-soft-fill"></rect>`;
+      }
+    } else if (type === 'wc') {
+      inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="8"></rect>`;
+      inner += `<ellipse cx="0" cy="2" rx="${Math.max(5, hw - 8)}" ry="${Math.max(4, hh - 10)}" class="arch-soft-fill"></ellipse>`;
+    } else if (type === 'garage') {
+      inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="2"></rect>`;
+      for (let y = -hh + 10; y < hh; y += 10) inner += `<line x1="${-hw}" y1="${y}" x2="${hw}" y2="${y}" class="arch-stroke"></line>`;
+    } else if (type === 'beam') {
+      inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="2.2"></rect>`;
+    } else if (type === 'chair') {
+      inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="2"></rect>`;
+    } else {
+      inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="4"></rect>`;
+      inner += `<text x="0" y="4" text-anchor="middle">${type.slice(0, 3).toUpperCase()}</text>`;
+    }
+    let controls = '';
+    if (handles) {
+      const rx = hw + 14;
+      const ry = -hh - 14;
+      controls += `<g class="designer-item-rotate" data-item-rotate="${it.id}" transform="translate(${rx},${ry})"><circle cx="0" cy="0" r="8"></circle><path d="M -3 1 A 4 4 0 1 1 3 -1"></path></g>`;
+      if (itemSupportsResize(type)) {
+        controls += `<rect class="designer-item-resize" data-item-resize="${it.id}" x="${hw - 5}" y="${hh - 5}" width="10" height="10" rx="2"></rect>`;
+      }
+    }
+    const cls = `designer-item${type === 'beam' ? ' beam' : ''}${isSelected ? ' selected' : ''}`;
+    return `<g class="${cls}" data-item-id="${it.id}" transform="translate(${Number(it.x) || 0},${Number(it.y) || 0}) rotate(${Number(it.r || 0)})">${inner}${controls}</g>`;
   }
 
   function linkWallBetweenBeams(model, fromBeam, toBeam) {
@@ -1366,6 +1460,7 @@
     if (!svg) return;
     const m = getDesignerFloorModel();
     syncAutoBeamWalls(m);
+    normalizeDesignerItems(m);
     const view = getDesignerFloorView();
     const ws = getDesignerWorkspace();
     const activeTool = String(ui.designerTool?.value || 'select');
@@ -1407,14 +1502,9 @@
         }
       }
     }
+    const showItemHandles = activeTool === 'select' || activeTool === 'place';
     for (const it of (m.items || [])) {
-      const itemType = String(it.type || 'item');
-      const isBeam = itemType === 'beam';
-      if (isBeam) {
-        html += `<g class="designer-item beam" data-item-id="${it.id}" transform="translate(${it.x},${it.y}) rotate(${it.r || 0})"><rect x="-11" y="-11" width="22" height="22" rx="2.2"></rect></g>`;
-      } else {
-        html += `<g class="designer-item" data-item-id="${it.id}" transform="translate(${it.x},${it.y}) rotate(${it.r || 0})"><rect x="-18" y="-12" width="36" height="24" rx="4"></rect><text x="0" y="4" text-anchor="middle">${itemType.slice(0,3).toUpperCase()}</text></g>`;
-      }
+      html += svgForDesignerItem(it, { handles: showItemHandles && Number(state.designer.selectedItemId) === Number(it.id), selected: Number(state.designer.selectedItemId) === Number(it.id) });
     }
     if (state.designer.drawingWall && state.designer.drawingWall.length > 0) {
       const pts = state.designer.drawingWall.slice();
@@ -1441,6 +1531,8 @@
       const wallPointEl = e.target.closest('[data-wall-point]');
       const wallEl = e.target.closest('[data-wall-id]');
       const itemEl = e.target.closest('[data-item-id]');
+      const rotateEl = e.target.closest('[data-item-rotate]');
+      const resizeEl = e.target.closest('[data-item-resize]');
       const itemType = String(ui.designerItemType?.value || 'door');
       if (tool === 'place' && itemType === 'beam' && itemEl) {
         const targetId = Number(itemEl.getAttribute('data-item-id'));
@@ -1463,6 +1555,7 @@
           if (Number.isInteger(itemId)) {
             snapshotDesignerState();
             m.items = (m.items || []).filter(it => Number(it.id) !== itemId);
+            if (Number(state.designer.selectedItemId) === itemId) state.designer.selectedItemId = null;
             syncAutoBeamWalls(m);
             if (Number(m.lastBeamItemId) === itemId) {
               const beams = (m.items || []).filter(it => String(it.type || '') === 'beam');
@@ -1490,6 +1583,33 @@
       }
       const isWallDrawingActive = tool === 'wall' && Array.isArray(state.designer.drawingWall) && state.designer.drawingWall.length > 0;
       const canMoveExisting = tool !== 'outer' && tool !== 'perimeter' && !isWallDrawingActive;
+      if (canMoveExisting && rotateEl) {
+        const itemId = Number(rotateEl.getAttribute('data-item-rotate'));
+        const it = findDesignerItemById(m, itemId);
+        if (it) {
+          snapshotDesignerState();
+          it.r = Number((Number(it.r || 0) + 15).toFixed(2));
+          state.designer.selectedItemId = itemId;
+          saveDesignerData();
+          renderDesigner();
+          renderAllCanvases();
+        }
+        return;
+      }
+      if (canMoveExisting && resizeEl) {
+        const itemId = Number(resizeEl.getAttribute('data-item-resize'));
+        const it = findDesignerItemById(m, itemId);
+        if (it && itemSupportsResize(it.type)) {
+          snapshotDesignerState();
+          state.designer.selectedItemId = itemId;
+          state.designer.dragResizeItemId = itemId;
+          state.designer.dragResizeStart = { x: p.x, y: p.y };
+          state.designer.dragResizeOrig = { w: Number(it.w || defaultDesignerItemSpec(it.type).w), h: Number(it.h || defaultDesignerItemSpec(it.type).h) };
+          svg.setPointerCapture(e.pointerId);
+          renderDesigner();
+        }
+        return;
+      }
       if (canMoveExisting && wallPointEl) {
         const [wallIdRaw, pointIdxRaw] = String(wallPointEl.getAttribute('data-wall-point') || '').split(':');
         const wallId = Number(wallIdRaw);
@@ -1517,7 +1637,16 @@
       if (canMoveExisting && itemEl) {
         snapshotDesignerState();
         state.designer.dragItemId = Number(itemEl.getAttribute('data-item-id'));
+        state.designer.selectedItemId = state.designer.dragItemId;
         svg.setPointerCapture(e.pointerId);
+        renderDesigner();
+        return;
+      }
+      if (tool === 'select' && !itemEl && !wallEl && !wallPointEl) {
+        if (state.designer.selectedItemId !== null) {
+          state.designer.selectedItemId = null;
+          renderDesigner();
+        }
         return;
       }
       if (tool === 'place') {
@@ -1536,6 +1665,7 @@
           linkWallBetweenBeams(m, lastBeam, newItem);
           m.lastBeamItemId = id;
         }
+        state.designer.selectedItemId = id;
         saveDesignerData();
         renderDesigner();
         renderAllCanvases();
@@ -1592,6 +1722,25 @@
         } else {
           return;
         }
+      }
+      if (state.designer.dragResizeItemId && state.designer.dragResizeStart && state.designer.dragResizeOrig) {
+        const it = findDesignerItemById(m, state.designer.dragResizeItemId);
+        if (!it) return;
+        const dx = p.x - Number(state.designer.dragResizeStart.x || 0);
+        const dy = p.y - Number(state.designer.dragResizeStart.y || 0);
+        const baseW = Number(state.designer.dragResizeOrig.w || defaultDesignerItemSpec(it.type).w);
+        const baseH = Number(state.designer.dragResizeOrig.h || defaultDesignerItemSpec(it.type).h);
+        let nextW = snapDesigner(Math.max(12, baseW + (dx * 2)));
+        let nextH = snapDesigner(Math.max(12, baseH + (dy * 2)));
+        if (String(it.type || '') === 'tableRound') {
+          const s = Math.max(nextW, nextH);
+          nextW = s;
+          nextH = s;
+        }
+        it.w = nextW;
+        it.h = nextH;
+        renderDesigner();
+        return;
       }
       if (state.designer.dragWallPoint) {
         const info = state.designer.dragWallPoint;
@@ -1665,6 +1814,12 @@
         return;
       }
       let changed = false;
+      if (state.designer.dragResizeItemId) {
+        state.designer.dragResizeItemId = null;
+        state.designer.dragResizeStart = null;
+        state.designer.dragResizeOrig = null;
+        changed = true;
+      }
       if (state.designer.dragItemId) {
         state.designer.dragItemId = null;
         changed = true;
@@ -1708,6 +1863,9 @@
     svg.addEventListener('pointercancel', () => {
       state.designer.pendingBeamConnect = null;
       state.designer.wallFinishCooldownUntil = 0;
+      state.designer.dragResizeItemId = null;
+      state.designer.dragResizeStart = null;
+      state.designer.dragResizeOrig = null;
       state.designer.dragItemId = null;
       state.designer.dragWallId = null;
       state.designer.dragWallPoint = null;
@@ -2329,6 +2487,10 @@
         state.designer.dragWallOrig = null;
         state.designer.drawingWall = null;
         state.designer.drawingWallCursor = null;
+        state.designer.selectedItemId = null;
+        state.designer.dragResizeItemId = null;
+        state.designer.dragResizeStart = null;
+        state.designer.dragResizeOrig = null;
         state.designer.wallFinishCooldownUntil = 0;
         state.designer.drawingPerimeter = null;
         saveDesignerData();
