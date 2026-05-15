@@ -69,7 +69,8 @@
     currentFloor: 'EG',
     editZones: false,
     floorLayouts: { EG: null, OG: null },
-    dragResize: null
+    dragResize: null,
+    canvasHistory: []
   };
   const DISARM_PIN = '1492';
 
@@ -373,15 +374,14 @@
     bg.className = 'floorplan-image';
     canvas.appendChild(bg);
     ['perimeter','aussenhaut','innenraum'].forEach(z => {
+      const poly = l.zones?.[z];
+      if (!Array.isArray(poly) || poly.length < 3) return;
       const d = document.createElement('div');
       d.className = `zone ${z}`;
       d.dataset.zone = z;
       const label = z === 'aussenhaut' ? 'außenhaut' : z;
       d.innerHTML = `<span>${label}</span>`;
-      const poly = l.zones?.[z];
-      if (Array.isArray(poly) && poly.length >= 3) {
-        d.style.clipPath = `polygon(${poly.map(pt => `${pt[0]}% ${pt[1]}%`).join(',')})`;
-      }
+      d.style.clipPath = `polygon(${poly.map(pt => `${pt[0]}% ${pt[1]}%`).join(',')})`;
       canvas.appendChild(d);
     });
     if (state.editZones) renderZoneEditorOverlay(canvas, l);
@@ -507,6 +507,7 @@
         const x = ((e.clientX - rect.left) / rect.width) * 100;
         const y = ((e.clientY - rect.top) / rect.height) * 100;
         const zone = detectZoneByCanvasPos(x, y);
+        snapshotCanvasState();
         setEntity(p.kind, p.idx, { zone, posX: Math.max(2, Math.min(98, x)), posY: Math.max(2, Math.min(98, y)) });
         renderAllCanvases();
       } catch {
@@ -527,6 +528,7 @@
       const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
       const zone = ui.editZoneSelect.value;
       const l = getCurrentLayout();
+      snapshotCanvasState();
       if (!Array.isArray(l.zones[zone])) l.zones[zone] = [];
       l.zones[zone].push([Number(x.toFixed(2)), Number(y.toFixed(2))]);
       writeFloorLayoutsToConfig();
@@ -535,10 +537,12 @@
 
     canvas.addEventListener('pointerdown', e => {
       const h = e.target.closest('.resize-handle');
-      if (!h || !state.editZones) return;
+      const onFrame = e.target.closest('.image-resize-handles');
+      if ((!h && !onFrame) || !state.editZones) return;
       e.preventDefault();
-      const corner = h.dataset.corner;
+      const corner = h ? h.dataset.corner : 'move';
       const l = getCurrentLayout();
+      snapshotCanvasState();
       state.dragResize = { corner, startX: e.clientX, startY: e.clientY, start: { ...l.imageRect } };
       canvas.setPointerCapture(e.pointerId);
     });
@@ -549,15 +553,21 @@
       const dy = ((e.clientY - state.dragResize.startY) / rect.height) * 100;
       const l = getCurrentLayout();
       const s = state.dragResize.start;
-      const ratio = s.w / s.h;
       let w = s.w;
-      if (state.dragResize.corner === 'se' || state.dragResize.corner === 'ne') w = Math.max(20, s.w + dx);
-      else w = Math.max(20, s.w - dx);
-      let h = w / ratio;
+      let h = s.h;
       let x = s.x;
       let y = s.y;
-      if (state.dragResize.corner === 'nw' || state.dragResize.corner === 'sw') x = s.x + (s.w - w);
-      if (state.dragResize.corner === 'nw' || state.dragResize.corner === 'ne') y = s.y + (s.h - h);
+      if (state.dragResize.corner === 'move') {
+        x = s.x + dx;
+        y = s.y + dy;
+      } else {
+        if (state.dragResize.corner === 'se' || state.dragResize.corner === 'ne') w = Math.max(20, s.w + dx);
+        else w = Math.max(20, s.w - dx);
+        if (state.dragResize.corner === 'se' || state.dragResize.corner === 'sw') h = Math.max(20, s.h + dy);
+        else h = Math.max(20, s.h - dy);
+        if (state.dragResize.corner === 'nw' || state.dragResize.corner === 'sw') x = s.x + (s.w - w);
+        if (state.dragResize.corner === 'nw' || state.dragResize.corner === 'ne') y = s.y + (s.h - h);
+      }
       l.imageRect = { x: Math.max(0, Math.min(100 - w, x)), y: Math.max(0, Math.min(100 - h, y)), w: Math.min(100, w), h: Math.min(100, h) };
       writeFloorLayoutsToConfig();
       renderAllCanvases();
@@ -593,6 +603,7 @@
 
   function tidyCanvasLayout() {
     ensureTables();
+    snapshotCanvasState();
     const groups = ['pirSensorsTable','contactSensorsTable','presenceSensorsTable','personDetectionTable','camerasTable'];
     for (const g of groups) {
       for (const row of state.config[g]) {
@@ -661,6 +672,35 @@
     const eg = base.EG && typeof base.EG === 'object' ? base.EG : defaultLayout();
     const og = base.OG && typeof base.OG === 'object' ? base.OG : defaultLayout();
     state.floorLayouts = { EG: eg, OG: og };
+  }
+
+  function snapshotCanvasState() {
+    state.canvasHistory.push(JSON.stringify({
+      floorLayouts: state.floorLayouts,
+      pir: state.config.pirSensorsTable,
+      contact: state.config.contactSensorsTable,
+      presence: state.config.presenceSensorsTable,
+      person: state.config.personDetectionTable,
+      cams: state.config.camerasTable
+    }));
+    if (state.canvasHistory.length > 60) state.canvasHistory.shift();
+  }
+
+  function undoCanvasStep() {
+    const snap = state.canvasHistory.pop();
+    if (!snap) return;
+    try {
+      const s = JSON.parse(snap);
+      state.floorLayouts = s.floorLayouts || state.floorLayouts;
+      state.config.pirSensorsTable = s.pir || state.config.pirSensorsTable;
+      state.config.contactSensorsTable = s.contact || state.config.contactSensorsTable;
+      state.config.presenceSensorsTable = s.presence || state.config.presenceSensorsTable;
+      state.config.personDetectionTable = s.person || state.config.personDetectionTable;
+      state.config.camerasTable = s.cams || state.config.camerasTable;
+      writeFloorLayoutsToConfig();
+      renderAllCanvases();
+      setStatus('Letzter Schritt rückgängig');
+    } catch {}
   }
 
   function writeFloorLayoutsToConfig() {
@@ -1052,6 +1092,7 @@
       const z = ui.editZoneSelect.value;
       const l = getCurrentLayout();
       const pts = l.zones[z] || [];
+      snapshotCanvasState();
       if (pts.length >= 3 && (pts[0][0] !== pts[pts.length - 1][0] || pts[0][1] !== pts[pts.length - 1][1])) {
         pts.push([pts[0][0], pts[0][1]]);
       }
@@ -1061,12 +1102,15 @@
     ui.clearZoneBtn.addEventListener('click', () => {
       const z = ui.editZoneSelect.value;
       const l = getCurrentLayout();
+      snapshotCanvasState();
       l.zones[z] = [];
       writeFloorLayoutsToConfig();
       renderAllCanvases();
     });
+    $('undoCanvasBtn').addEventListener('click', undoCanvasStep);
     ui.resetImageRectBtn.addEventListener('click', () => {
       const l = getCurrentLayout();
+      snapshotCanvasState();
       l.imageRect = { x: 8, y: 6, w: 84, h: 88 };
       writeFloorLayoutsToConfig();
       renderAllCanvases();
