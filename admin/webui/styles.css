@@ -1,33 +1,7 @@
 :root { --bg:#070707; --bg-soft:#111111; --bg-soft-2:#151515; --text:#f5f6f8; --muted:#b4b8bf; --line:#2a2a2a; --line-strong:#3a3a3a; --accent:#3f8cff; --accent-2:#1fce8d; --danger:#ff4d57; --zone-in:#f3a6a6; --zone-out:#f4c28f; --zone-per:#f4e7a8; }
 *{box-sizing:border-box} body{margin:0;color:var(--text);background:#030403;font-family:"Space Grotesk","Segoe UI",sans-serif;position:relative;min-height:100vh;overflow-x:hidden}
-body::before{
-  content:"";
-  position:fixed;
-  left:-12vw;
-  right:-12vw;
-  bottom:-18vh;
-  height:68vh;
-  pointer-events:none;
-  transform-origin:50% 100%;
-  transform:perspective(900px) rotateX(70deg);
-  background:
-    radial-gradient(circle at 50% 2%, rgba(31,206,141,.38), rgba(31,206,141,0) 30%),
-    repeating-linear-gradient(90deg, rgba(73,255,150,.78) 0 2px, rgba(73,255,150,0) 2px 74px),
-    repeating-linear-gradient(180deg, rgba(73,255,150,.72) 0 2px, rgba(73,255,150,0) 2px 74px);
-  filter:drop-shadow(0 0 8px rgba(53,244,130,.42));
-  opacity:.98;
-  z-index:0;
-}
-body::after{
-  content:"";
-  position:fixed;
-  inset:0;
-  pointer-events:none;
-  background:
-    radial-gradient(circle at 50% 42%, rgba(46,255,138,.22) 0, rgba(46,255,138,0) 14%),
-    linear-gradient(180deg, rgba(0,0,0,.02) 0%, rgba(0,0,0,.38) 56%, rgba(0,0,0,.72) 100%);
-  z-index:0;
-}
+body::before{content:none}
+body::after{content:none}
 .app{max-width:1320px;margin:0 auto;padding:14px 22px 94px;display:grid;gap:12px;min-height:100dvh}.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
 .app{position:relative;z-index:1}
 .page{display:grid;gap:12px}

@@ -66,6 +66,10 @@
     designerZoomOutBtn: $('designerZoomOutBtn'),
     designerZoomInBtn: $('designerZoomInBtn'),
     designerZoomInfo: $('designerZoomInfo'),
+    designerMoveUpBtn: $('designerMoveUpBtn'),
+    designerMoveDownBtn: $('designerMoveDownBtn'),
+    designerMoveLeftBtn: $('designerMoveLeftBtn'),
+    designerMoveRightBtn: $('designerMoveRightBtn'),
     designerBgBtn: $('designerBgBtn'),
     designerUseOnlyBtn: $('designerUseOnlyBtn'),
     designerPublishBtn: $('designerPublishBtn'),
@@ -183,7 +187,7 @@
     }
   });
   const defaultDesignerFloor = () => ({ items: [], walls: [], outerWallIds: [], perimeter: null, nextId: 1, lastBeamItemId: null });
-  const defaultDesignerView = () => ({ showBg: true, useInOverviewOnly: false, workspaceScale: 1 });
+  const defaultDesignerView = () => ({ showBg: true, useInOverviewOnly: false, workspaceScale: 1, bgOffsetX: 0, bgOffsetY: 0 });
 
   const normalizeInstanceId = v => {
     let out = String(v || '').trim();
@@ -458,6 +462,7 @@
     const model = getDesignerFloorModel(true);
     if (!model || !hasDesignerGeometry(true)) return;
     const ws = getDesignerWorkspace(true);
+    const view = getDesignerFloorView(true);
     const wrap = document.createElement('div');
     wrap.className = 'designer-overview-overlay';
     if (useFrame) wrap.classList.add('use-frame');
@@ -468,8 +473,8 @@
       const bg = document.createElementNS('http://www.w3.org/2000/svg', 'image');
       bg.setAttribute('class', 'designer-bg');
       bg.setAttribute('href', designerBgForFloor(true));
-      bg.setAttribute('x', String(ws.bgX));
-      bg.setAttribute('y', String(ws.bgY));
+      bg.setAttribute('x', String(ws.bgX + Number(view.bgOffsetX || 0)));
+      bg.setAttribute('y', String(ws.bgY + Number(view.bgOffsetY || 0)));
       bg.setAttribute('width', String(ws.bgW));
       bg.setAttribute('height', String(ws.bgH));
       bg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
@@ -1135,6 +1140,9 @@
     if (!state.designer.floorView[f] || typeof state.designer.floorView[f] !== 'object') {
       state.designer.floorView[f] = defaultDesignerView();
     }
+    state.designer.floorView[f].workspaceScale = normalizedWorkspaceScale(state.designer.floorView[f].workspaceScale);
+    state.designer.floorView[f].bgOffsetX = Number.isFinite(Number(state.designer.floorView[f].bgOffsetX)) ? Number(state.designer.floorView[f].bgOffsetX) : 0;
+    state.designer.floorView[f].bgOffsetY = Number.isFinite(Number(state.designer.floorView[f].bgOffsetY)) ? Number(state.designer.floorView[f].bgOffsetY) : 0;
     return state.designer.floorView[f];
   }
 
@@ -1177,6 +1185,18 @@
       model.perimeter.x = Number(model.perimeter.x || 0) + dx;
       model.perimeter.y = Number(model.perimeter.y || 0) + dy;
     }
+  }
+
+  function moveDesignerPlan(dx, dy) {
+    const model = getDesignerFloorModel();
+    const view = getDesignerFloorView();
+    snapshotDesignerState();
+    shiftDesignerModel(model, dx, dy);
+    view.bgOffsetX = Number(view.bgOffsetX || 0) + dx;
+    view.bgOffsetY = Number(view.bgOffsetY || 0) + dy;
+    saveDesignerData();
+    renderDesigner();
+    renderAllCanvases();
   }
 
   function designerBgForFloor(preferCurrentFloor = false) {
@@ -1365,7 +1385,9 @@
     let html = '';
     if (view.showBg) {
       const href = designerBgForFloor().replace(/"/g, '&quot;');
-      html += `<image class="designer-bg" href="${href}" x="${ws.bgX}" y="${ws.bgY}" width="${ws.bgW}" height="${ws.bgH}" preserveAspectRatio="xMidYMid meet"></image>`;
+      const bgX = ws.bgX + Number(view.bgOffsetX || 0);
+      const bgY = ws.bgY + Number(view.bgOffsetY || 0);
+      html += `<image class="designer-bg" href="${href}" x="${bgX}" y="${bgY}" width="${ws.bgW}" height="${ws.bgH}" preserveAspectRatio="xMidYMid meet"></image>`;
     }
     html += '<g class="designer-grid">';
     for (let x = 0; x <= ws.w; x += grid) html += `<line x1="${x}" y1="0" x2="${x}" y2="${ws.h}"></line>`;
@@ -2227,6 +2249,18 @@
         renderDesigner();
         renderAllCanvases();
       });
+    }
+    if (ui.designerMoveUpBtn) {
+      ui.designerMoveUpBtn.addEventListener('click', () => moveDesignerPlan(0, -Number(state.designer.grid || 12)));
+    }
+    if (ui.designerMoveDownBtn) {
+      ui.designerMoveDownBtn.addEventListener('click', () => moveDesignerPlan(0, Number(state.designer.grid || 12)));
+    }
+    if (ui.designerMoveLeftBtn) {
+      ui.designerMoveLeftBtn.addEventListener('click', () => moveDesignerPlan(-Number(state.designer.grid || 12), 0));
+    }
+    if (ui.designerMoveRightBtn) {
+      ui.designerMoveRightBtn.addEventListener('click', () => moveDesignerPlan(Number(state.designer.grid || 12), 0));
     }
     if (ui.designerBgBtn) {
       ui.designerBgBtn.addEventListener('click', () => {
