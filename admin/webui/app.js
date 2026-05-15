@@ -504,13 +504,15 @@
     const zInn = await getState(`${p}.zones.innenraum.armed`);
     const cam = await getState(state.config.cctvArmedId || '');
 
-    const perimeterArmed = asArmed(perDp?.val) || asArmed(zPer?.val) || asArmed(zAus?.val);
-    const allArmed = asArmed(allDp?.val) || asArmed(zInn?.val);
-    const innenArmed = asArmed(allDp?.val) || asArmed(zInn?.val);
-    const aussenArmed = asArmed(perDp?.val) || asArmed(zAus?.val);
+    const rawPerimeter = asArmed(perDp?.val) || asArmed(zPer?.val) || asArmed(zAus?.val);
+    const rawAll = asArmed(allDp?.val) || asArmed(zInn?.val);
+    const allArmed = rawAll;
+    const innenArmed = rawAll || asArmed(zInn?.val);
+    const aussenArmed = rawAll || rawPerimeter || asArmed(zAus?.val);
+    const perimeterArmed = rawAll || rawPerimeter || asArmed(zPer?.val);
     const camerasArmed = asArmed(cam?.val);
 
-    const modeText = (perimeterArmed || allArmed) ? 'armed' : 'disarmed';
+    const modeText = (perimeterArmed || aussenArmed || innenArmed || allArmed) ? 'armed' : 'disarmed';
     ui.liveMode.textContent = `Mode: ${modeText}`;
     ui.livePerimeter.textContent = `Perimeter: ${perimeterArmed ? 'scharf' : 'unscharf'}`;
     ui.liveAussenhaut.textContent = `Aussenhaut: ${aussenArmed ? 'scharf' : 'unscharf'}`;
