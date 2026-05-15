@@ -100,8 +100,10 @@ label{display:grid;gap:6px;min-width:220px} input,select,textarea{background:var
 .resize-handle.sw{left:-7px;bottom:-7px;cursor:nesw-resize}
 .resize-handle.se{right:-7px;bottom:-7px;cursor:nwse-resize}
 .dot{position:absolute;width:12px;height:12px;border-radius:50%;border:1px solid rgba(20,20,20,.35);cursor:grab;transform:translate(-50%,-50%)}
-.mini-node{position:absolute;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid rgba(20,20,20,.35);cursor:grab;transform:translate(-50%,-50%);font-size:13px;line-height:1}
-.mini-node svg{width:18px;height:18px;display:block;fill:none;stroke:#0f1115;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.mini-node{position:absolute;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:10px;border:1px solid rgba(20,20,20,.35);cursor:grab;transform:translate(-50%,-50%);font-size:15px;line-height:1}
+.mini-node svg{width:24px;height:24px;display:block;fill:none;stroke:#0f1115;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.mini-node.presence-node{font-size:18px;font-weight:800;letter-spacing:.4px;color:#0f1115}
+.mini-node .presence-letter{display:block;line-height:1}
 .zone-color-perimeter svg{stroke:#111}
 .zone-color-aussenhaut svg{stroke:#17120d}
 .zone-color-innenraum svg{stroke:#211013}

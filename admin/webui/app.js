@@ -330,17 +330,17 @@
   function entityIcon(entity) {
     const kind = entity.kind;
     if (kind === 'pirSensorsTable') {
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 019 9v9H3v-9a9 9 0 019-9zm0 5.2a1.8 1.8 0 100 3.6 1.8 1.8 0 000-3.6zm0 5.4a4.8 4.8 0 00-4.8 4.8h9.6a4.8 4.8 0 00-4.8-4.8z"/></svg>';
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8a9.2 9.2 0 019.2 9.2V21H2.8V12A9.2 9.2 0 0112 2.8zm0 4.6a2.1 2.1 0 100 4.2 2.1 2.1 0 000-4.2zm0 5.8a5.1 5.1 0 00-5.1 5.1h10.2a5.1 5.1 0 00-5.1-5.1z"/></svg>';
     }
     if (kind === 'contactSensorsTable') {
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h9v16H5zM16.5 7h2.5M16.5 12h2.5M16.5 17h2.5"/></svg>';
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 3.5h10v17h-10zM17 6.8h2.5M17 12h2.5M17 17.2h2.5M11.5 12h1"/></svg>';
     }
     if (kind === 'camerasTable' || kind === 'personDetectionTable') {
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h11l3-2h2v12h-2l-3-2H4zM9.5 10.2a2.8 2.8 0 100 5.6 2.8 2.8 0 000-5.6z"/></svg>';
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.8 8.2h10.4l3-2.2h2.9v12h-2.9l-3-2.2H3.8zM10 10.1a3 3 0 100 5.9 3 3 0 000-5.9z"/></svg>';
     }
     if (kind === 'presenceSensorsTable') {
       const t = String(entity.shortLabel || 'P');
-      return `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.2"></circle><text x="12" y="15" text-anchor="middle" font-size="9" font-weight="800" fill="currentColor" stroke="none">${t}</text></svg>`;
+      return `<span class="presence-letter">${t}</span>`;
     }
     return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"/></svg>';
   }
@@ -520,6 +520,7 @@
   function drawEntity(canvas, e, detailed) {
     const el = document.createElement('div');
     el.className = (detailed ? 'chip ' : 'mini-node ') + zoneClass(e.zone);
+    if (!detailed && e.kind === 'presenceSensorsTable') el.classList.add('presence-node');
     el.title = e.label;
     el.draggable = true;
     if (detailed) el.textContent = e.label;
