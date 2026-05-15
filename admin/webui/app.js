@@ -62,6 +62,7 @@
     selectedEntity: null,
     objectTarget: null,
     live: { perimeterArmed: false, aussenArmed: false, innenArmed: false },
+    presenceByPerson: { sebastian: false, teresa: false },
     pinInput: '',
     pinTargetAction: null,
     stateIdsLoaded: false,
@@ -98,6 +99,26 @@
   const setStatus = (m,e=false) => { ui.status.textContent = m; ui.status.classList.toggle('err', e); };
   const clone = v => JSON.parse(JSON.stringify(v));
   const asArmed = v => v === true || v === 1 || ['true','1','on','armed','aktiv'].includes(String(v ?? '').toLowerCase());
+  function inferPresencePerson(meta) {
+    const s = `${String(meta?.label || '')} ${String(meta?.key || '')} ${String(meta?.id || '')}`.toLowerCase();
+    if (s.includes('sebastian')) return 'sebastian';
+    if (s.includes('teresa')) return 'teresa';
+    return null;
+  }
+  function presenceShortLabel(person) {
+    if (person === 'sebastian') return 'S';
+    if (person === 'teresa') return 'T';
+    return 'P';
+  }
+  function isPresenceHome(row, val) {
+    const raw = String(val ?? '').trim().toLowerCase();
+    const csv = String(row?.activeValuesCsv || '').trim().toLowerCase();
+    if (csv) {
+      const allowed = csv.split(',').map(x => x.trim()).filter(Boolean);
+      if (allowed.length > 0) return allowed.includes(raw);
+    }
+    return asArmed(val);
+  }
   const readStateVal = s => (s && typeof s === 'object' && Object.prototype.hasOwnProperty.call(s, 'val')) ? s.val : s;
   const defaultLayout = () => ({
     imageRect: { x: 8, y: 6, w: 84, h: 88 },
@@ -247,7 +268,33 @@
     });
     add(state.config.pirSensorsTable, 'pirSensorsTable', r => r?.id);
     add(state.config.contactSensorsTable, 'contactSensorsTable', r => r?.id);
-    add(state.config.presenceSensorsTable, 'presenceSensorsTable', r => r?.id);
+    const presenceByPerson = {};
+    (state.config.presenceSensorsTable || []).forEach((r, idx) => {
+      const id = r?.id;
+      if (!r || !id) return;
+      const person = inferPresencePerson(r);
+      if (!person || presenceByPerson[person]) return;
+      const floor = 'EG';
+      const home = !!state.presenceByPerson[person];
+      const isSeb = person === 'sebastian';
+      const dynamicZone = home ? 'innenraum' : 'perimeter';
+      const dynamicX = home ? (isSeb ? 47 : 53) : (isSeb ? 5 : 11);
+      const dynamicY = home ? 52 : 52;
+      rows.push({
+        kind: 'presenceSensorsTable',
+        idx,
+        entityKey: String(r.key || id),
+        label: String(r.label || r.key || id),
+        shortLabel: presenceShortLabel(person),
+        person,
+        zone: dynamicZone,
+        floor,
+        posX: dynamicX,
+        posY: dynamicY,
+        hasPos: true
+      });
+      presenceByPerson[person] = true;
+    });
     add(state.config.personDetectionTable, 'personDetectionTable', r => r?.id);
     add(state.config.camerasTable, 'camerasTable', r => r?.personDetectionDp || r?.snapshotUrl || r?.ip);
     return rows;
@@ -280,18 +327,20 @@
     if (zone === 'aussenhaut') return 'zone-color-aussenhaut';
     return 'zone-color-perimeter';
   }
-  function entityIcon(kind) {
+  function entityIcon(entity) {
+    const kind = entity.kind;
     if (kind === 'pirSensorsTable') {
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 9.3c0 1 .8 1.8 1.8 1.8s1.8-.8 1.8-1.8-.8-1.8-1.8-1.8-1.8.8-1.8 1.8zm4.5-1.7c0 1 .8 1.8 1.8 1.8s1.8-.8 1.8-1.8-.8-1.8-1.8-1.8-1.8.8-1.8 1.8zm-7 3.7c0 .9.7 1.6 1.6 1.6s1.6-.7 1.6-1.6-.7-1.6-1.6-1.6-1.6.7-1.6 1.6zm4.4 2.8c-1.7 0-3 1.4-3 3.1 0 2.8 2.1 5.1 4.8 5.1 2.5 0 4.4-2.1 4.4-4.3 0-2.2-1.8-3.9-3.9-3.9h-2.3z"/></svg>';
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 019 9v9H3v-9a9 9 0 019-9zm0 5.2a1.8 1.8 0 100 3.6 1.8 1.8 0 000-3.6zm0 5.4a4.8 4.8 0 00-4.8 4.8h9.6a4.8 4.8 0 00-4.8-4.8z"/></svg>';
     }
     if (kind === 'contactSensorsTable') {
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18.5h9V5.2L4 6.8v11.7zm11.6-1.2H20m-4.4-9.8H20m-4.4 4.9H20"/></svg>';
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h9v16H5zM16.5 7h2.5M16.5 12h2.5M16.5 17h2.5"/></svg>';
     }
     if (kind === 'camerasTable' || kind === 'personDetectionTable') {
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 8.5h10.2l2.1-2.2h2.7v11.4H4.5V8.5zm6.3 2.2a3.6 3.6 0 100 7.2 3.6 3.6 0 000-7.2z"/></svg>';
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h11l3-2h2v12h-2l-3-2H4zM9.5 10.2a2.8 2.8 0 100 5.6 2.8 2.8 0 000-5.6z"/></svg>';
     }
     if (kind === 'presenceSensorsTable') {
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5a3.1 3.1 0 110 6.2A3.1 3.1 0 0112 5zm-6 13.5c.6-3 2.7-4.7 6-4.7s5.4 1.7 6 4.7H6z"/></svg>';
+      const t = String(entity.shortLabel || 'P');
+      return `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.2"></circle><text x="12" y="15" text-anchor="middle" font-size="9" font-weight="800" fill="currentColor" stroke="none">${t}</text></svg>`;
     }
     return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"/></svg>';
   }
@@ -322,46 +371,16 @@
   }
 
   function ensureEntityPositions() {
-    const buckets = { perimeter: [], aussenhaut: [], innenraum: [] };
-    getEntities().filter(e => e.zone !== 'pool').forEach(e => { if (buckets[e.zone]) buckets[e.zone].push(e); });
-    for (const z of ['perimeter','aussenhaut','innenraum']) {
-      const list = buckets[z];
-      const miss = list.filter(x => !x.hasPos);
-      const n = miss.length;
-      for (let i = 0; i < n; i++) {
-        const col = Math.floor(Math.sqrt(n));
-        const cols = Math.max(2, col);
-        const rows = Math.ceil(n / cols);
-        const c = i % cols;
-        const r = Math.floor(i / cols);
-        let x = 50;
-        let y = 50;
-        if (z === 'innenraum') {
-          x = 22 + ((c + 1) * (56 / (cols + 1)));
-          y = 14 + ((r + 1) * (72 / (rows + 1)));
-        } else if (z === 'aussenhaut') {
-          const perimeterBandPoints = [
-            [18, 11], [31, 11], [44, 11], [57, 11], [70, 11], [82, 11],
-            [82, 24], [82, 37], [82, 50], [82, 63], [82, 76], [82, 89],
-            [69, 89], [56, 89], [43, 89], [30, 89], [18, 89],
-            [18, 76], [18, 63], [18, 50], [18, 37], [18, 24]
-          ];
-          const p = perimeterBandPoints[i % perimeterBandPoints.length];
-          x = p[0];
-          y = p[1];
-        } else {
-          const outerBandPoints = [
-            [6, 6], [18, 6], [30, 6], [42, 6], [54, 6], [66, 6], [78, 6], [90, 6],
-            [94, 16], [94, 28], [94, 40], [94, 52], [94, 64], [94, 76], [94, 88],
-            [82, 94], [70, 94], [58, 94], [46, 94], [34, 94], [22, 94], [10, 94],
-            [6, 82], [6, 70], [6, 58], [6, 46], [6, 34], [6, 22]
-          ];
-          const p = outerBandPoints[i % outerBandPoints.length];
-          x = p[0];
-          y = p[1];
-        }
-        setEntity(miss[i].kind, miss[i].idx, { posX: Math.max(2, Math.min(98, x)), posY: Math.max(2, Math.min(98, y)) });
-      }
+    const missing = getEntities().filter(e => e.zone !== 'pool' && e.kind !== 'presenceSensorsTable' && !e.hasPos);
+    const n = missing.length;
+    if (!n) return;
+    const startY = 8;
+    const endY = 92;
+    const step = n > 1 ? ((endY - startY) / (n - 1)) : 0;
+    for (let i = 0; i < n; i++) {
+      const x = 6;
+      const y = startY + (i * step);
+      setEntity(missing[i].kind, missing[i].idx, { posX: Number(x.toFixed(2)), posY: Number(y.toFixed(2)) });
     }
   }
 
@@ -504,7 +523,7 @@
     el.title = e.label;
     el.draggable = true;
     if (detailed) el.textContent = e.label;
-    else el.innerHTML = entityIcon(e.kind);
+    else el.innerHTML = entityIcon(e);
     el.style.left = `${Math.max(2, Math.min(98, Number(e.posX || 50)))}%`;
     el.style.top = `${Math.max(2, Math.min(98, Number(e.posY || 50)))}%`;
     el.addEventListener('dragstart', ev => ev.dataTransfer.setData('text/plain', JSON.stringify({ kind:e.kind, idx:e.idx })));
@@ -1068,6 +1087,16 @@
     const zAus = await getState(`${p}.zones.aussenhaut.armed`);
     const zInn = await getState(`${p}.zones.innenraum.armed`);
     const cam = await getState(state.config.cctvArmedId || '');
+    const prevPresence = state.presenceByPerson || { sebastian: false, teresa: false };
+    const presenceRows = Array.isArray(state.config.presenceSensorsTable) ? state.config.presenceSensorsTable : [];
+    const presenceByPerson = { sebastian: false, teresa: false };
+    for (const row of presenceRows) {
+      const person = inferPresencePerson(row);
+      if (!person || presenceByPerson[person]) continue;
+      const st = await getState(String(row.id || ''));
+      presenceByPerson[person] = isPresenceHome(row, st?.val);
+    }
+    state.presenceByPerson = presenceByPerson;
 
     const rawPerimeter = asArmed(perDp?.val) || asArmed(zPer?.val) || asArmed(zAus?.val);
     const rawAll = asArmed(allDp?.val) || asArmed(zInn?.val);
@@ -1105,6 +1134,9 @@
     state.live.innenArmed = innenArmed;
     applyZoneArmedVisuals(ui.mini);
     applyZoneArmedVisuals(ui.full);
+    if (presenceByPerson.sebastian !== prevPresence.sebastian || presenceByPerson.teresa !== prevPresence.teresa) {
+      renderAllCanvases();
+    }
   }
 
   async function saveToInstance() {
