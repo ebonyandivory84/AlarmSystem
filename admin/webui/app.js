@@ -45,6 +45,8 @@
     shield: $('statusShield'),
     absenceCard: $('absenceCard'),
     absenceList: $('absenceList'),
+    presenceCard: $('presenceCard'),
+    presenceList: $('presenceList'),
     zoneActionsList: $('zoneActionsList'),
     zoneActionResult: $('zoneActionResult'),
     canvasEntitySearch: $('canvasEntitySearch'),
@@ -281,35 +283,13 @@
     add(state.config.pirSensorsTable, 'pirSensorsTable', r => r?.id);
     add(state.config.contactSensorsTable, 'contactSensorsTable', r => r?.id);
     const presenceByPerson = {};
-    (state.config.presenceSensorsTable || []).forEach((r, idx) => {
+    (state.config.presenceSensorsTable || []).forEach(r => {
       const id = r?.id;
       if (!r || !id) return;
       const person = inferPresencePerson(r);
       if (!person || presenceByPerson[person]) return;
-      const floor = 'EG';
       const home = !!state.presenceByPerson[person];
-      const isSeb = person === 'sebastian';
-      if (!home) {
-        presenceByPerson[person] = true;
-        return;
-      }
-      const dynamicZone = 'innenraum';
-      const dynamicX = isSeb ? 47 : 53;
-      const dynamicY = 52;
-      rows.push({
-        kind: 'presenceSensorsTable',
-        idx,
-        entityKey: String(r.key || id),
-        label: String(r.label || r.key || id),
-        shortLabel: presenceShortLabel(person),
-        person,
-        avatarPath: presenceAvatarPath(person),
-        zone: dynamicZone,
-        floor,
-        posX: dynamicX,
-        posY: dynamicY,
-        hasPos: true
-      });
+      void home;
       presenceByPerson[person] = true;
     });
     add(state.config.personDetectionTable, 'personDetectionTable', r => r?.id);
@@ -645,21 +625,16 @@
     });
   }
 
-  function renderAbsenceCard() {
-    if (!ui.absenceCard || !ui.absenceList) return;
+  function renderPresenceCards() {
+    if (!ui.absenceCard || !ui.absenceList || !ui.presenceCard || !ui.presenceList) return;
     const away = [];
-    if (!state.presenceByPerson.sebastian) away.push({ person: 'sebastian', label: 'Sebastian' });
-    if (!state.presenceByPerson.teresa) away.push({ person: 'teresa', label: 'Teresa' });
-    if (away.length === 0) {
-      ui.absenceCard.classList.add('hidden');
-      ui.absenceList.innerHTML = '';
-      return;
-    }
-    ui.absenceCard.classList.remove('hidden');
-    ui.absenceList.innerHTML = away.map(a => {
-      const img = presenceAvatarPath(a.person);
-      return `<div class="legend-row"><span class="presence-avatar tiny" style="background-image:url('${img.replace(/'/g, "\\'")}')"></span></div>`;
-    }).join('');
+    const home = [];
+    if (state.presenceByPerson.sebastian) home.push({ person: 'sebastian' }); else away.push({ person: 'sebastian' });
+    if (state.presenceByPerson.teresa) home.push({ person: 'teresa' }); else away.push({ person: 'teresa' });
+    ui.absenceCard.classList.toggle('hidden', away.length === 0);
+    ui.presenceCard.classList.toggle('hidden', home.length === 0);
+    ui.absenceList.innerHTML = away.map(a => `<div class="legend-row"><span class="presence-avatar tiny" style="background-image:url('${presenceAvatarPath(a.person).replace(/'/g, "\\'")}')"></span></div>`).join('');
+    ui.presenceList.innerHTML = home.map(a => `<div class="legend-row"><span class="presence-avatar tiny" style="background-image:url('${presenceAvatarPath(a.person).replace(/'/g, "\\'")}')"></span></div>`).join('');
   }
 
   function renderCanvasEntitiesList() {
@@ -858,7 +833,7 @@
     renderCanvas(ui.mini, false);
     if (ui.full) renderCanvas(ui.full, true);
     renderPool();
-    renderAbsenceCard();
+    renderPresenceCards();
     renderCanvasEntitiesList();
     bindCanvasDrops(ui.mini);
     if (ui.full) bindCanvasDrops(ui.full);
@@ -1212,6 +1187,13 @@
     else offBtn.classList.add('state-off');
   }
 
+  function setToggleButton(btn, label, isOn) {
+    if (!btn) return;
+    btn.textContent = `${label} ${isOn ? 'on' : 'off'}`;
+    btn.classList.toggle('toggle-on', !!isOn);
+    btn.classList.toggle('toggle-off', !isOn);
+  }
+
   function paintShield(mode) {
     if (!ui.shield) return;
     ui.shield.classList.remove('armed', 'perimeter', 'disarmed');
@@ -1276,9 +1258,9 @@
     paintChip(ui.liveAussenhaut, aussenArmed);
     paintChip(ui.liveInnenraum, innenArmed);
     paintChip(ui.liveCameras, camerasArmed);
-    setControlPair($('armAlarmBtn'), $('disarmAlarmBtn'), asArmed(allDp?.val) || innenArmed);
-    setControlPair($('armPerimeterBtn'), $('disarmPerimeterBtn'), asArmed(perDp?.val) || perimeterArmed || aussenArmed);
-    setControlPair($('armCamerasBtn'), $('disarmCamerasBtn'), asArmed(cam?.val) || camerasArmed);
+    setToggleButton($('toggleAlarmBtn'), 'Alarm', asArmed(allDp?.val) || innenArmed);
+    setToggleButton($('togglePerimeterBtn'), 'Perimeter', asArmed(perDp?.val) || perimeterArmed || aussenArmed);
+    setToggleButton($('toggleCamerasBtn'), 'Camera', asArmed(cam?.val) || camerasArmed);
     // Keep canvas blink logic aligned with effective armed evaluation
     // (datapoints + zone states), not only raw zone states.
     state.live.perimeterArmed = perimeterArmed;
@@ -1540,12 +1522,36 @@
 
     $('loadTriggerLogBtn').addEventListener('click', () => loadTriggerLogForDate(ui.logDate.value));
 
-    $('armAlarmBtn').addEventListener('click', () => manualControl('armAlarm').catch(e => setStatus(String(e), true)));
-    $('disarmAlarmBtn').addEventListener('click', () => openPinModal('disarmAlarm'));
-    $('armPerimeterBtn').addEventListener('click', () => manualControl('armPerimeter').catch(e => setStatus(String(e), true)));
-    $('disarmPerimeterBtn').addEventListener('click', () => openPinModal('disarmPerimeter'));
-    $('armCamerasBtn').addEventListener('click', () => manualControl('armCameras').catch(e => setStatus(String(e), true)));
-    $('disarmCamerasBtn').addEventListener('click', () => openPinModal('disarmCameras'));
+    $('toggleAlarmBtn').addEventListener('click', async () => {
+      try {
+        const st = await getState(state.config.armStateId || '');
+        const toOn = !asArmed(st?.val);
+        if (toOn) await manualControl('armAlarm');
+        else openPinModal('disarmAlarm');
+      } catch (e) {
+        setStatus(String(e), true);
+      }
+    });
+    $('togglePerimeterBtn').addEventListener('click', async () => {
+      try {
+        const st = await getState(state.config.perimeterStateId || '');
+        const toOn = !asArmed(st?.val);
+        if (toOn) await manualControl('armPerimeter');
+        else openPinModal('disarmPerimeter');
+      } catch (e) {
+        setStatus(String(e), true);
+      }
+    });
+    $('toggleCamerasBtn').addEventListener('click', async () => {
+      try {
+        const st = await getState(state.config.cctvArmedId || '');
+        const toOn = !asArmed(st?.val);
+        if (toOn) await manualControl('armCameras');
+        else openPinModal('disarmCameras');
+      } catch (e) {
+        setStatus(String(e), true);
+      }
+    });
 
     $('closePinBtn').addEventListener('click', closePinModal);
     $('pinClearBtn').addEventListener('click', () => {
