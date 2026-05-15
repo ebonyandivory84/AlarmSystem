@@ -29,8 +29,10 @@
     liveInnenraum: $('liveInnenraum'),
     liveCameras: $('liveCameras'),
     overviewPage: $('overviewPage'),
+    designerPage: $('designerPage'),
     settingsPage: $('settingsPage'),
     pageOverviewBtn: $('pageOverviewBtn'),
+    pageDesignerBtn: $('pageDesignerBtn'),
     pageSettingsBtn: $('pageSettingsBtn'),
     floorEgBtn: $('floorEgBtn'),
     floorOgBtn: $('floorOgBtn'),
@@ -55,7 +57,16 @@
     floorplanOgInput: $('floorplanOgInput'),
     pinModal: $('pinModal'),
     pinDots: $('pinDots'),
-    pinHint: $('pinHint')
+    pinHint: $('pinHint'),
+    designerFloor: $('designerFloor'),
+    designerTool: $('designerTool'),
+    designerItemType: $('designerItemType'),
+    designerGrid: $('designerGrid'),
+    designerSnapBtn: $('designerSnapBtn'),
+    designerBgBtn: $('designerBgBtn'),
+    designerCopyFloorBtn: $('designerCopyFloorBtn'),
+    designerClearBtn: $('designerClearBtn'),
+    designerSvg: $('designerSvg')
   };
 
   const state = {
@@ -84,6 +95,7 @@
     suppressZoneClickOnce: false,
     canvasHistory: [],
     floorRatios: { EG: 0.907, OG: 0.906 }
+    ,designer: { EG: null, OG: null, snap: true, showBg: true, grid: 12, dragItemId: null, drawingWall: null, drawingPerimeter: null }
   };
   const DISARM_PIN = '1492';
 
@@ -142,6 +154,7 @@
       perimeter: []
     }
   });
+  const defaultDesignerFloor = () => ({ items: [], walls: [], outerWallIds: [], perimeter: null, nextId: 1 });
 
   const normalizeInstanceId = v => {
     let out = String(v || '').trim();
@@ -957,6 +970,176 @@
     state.floorLayouts = { EG: eg, OG: og };
   }
 
+  function ensureDesignerData() {
+    let parsed = null;
+    try { parsed = JSON.parse(String(state.config.floorplanDesignerJson || '{}')); } catch {}
+    const base = parsed && typeof parsed === 'object' ? parsed : {};
+    state.designer.EG = base.EG && typeof base.EG === 'object' ? base.EG : defaultDesignerFloor();
+    state.designer.OG = base.OG && typeof base.OG === 'object' ? base.OG : defaultDesignerFloor();
+    if (!Number.isFinite(Number(state.designer.grid)) || Number(state.designer.grid) < 4) state.designer.grid = 12;
+  }
+
+  function saveDesignerData() {
+    state.config.floorplanDesignerJson = JSON.stringify({ EG: state.designer.EG, OG: state.designer.OG });
+  }
+
+  function getDesignerFloorModel() {
+    const f = (ui.designerFloor?.value === 'OG') ? 'OG' : 'EG';
+    if (!state.designer[f]) state.designer[f] = defaultDesignerFloor();
+    return state.designer[f];
+  }
+
+  function designerBgForFloor() {
+    return (ui.designerFloor?.value === 'OG')
+      ? String(state.config.floorplanOgImage || './assets/OG.jpg')
+      : String(state.config.floorplanEgImage || './assets/EG.jpg');
+  }
+
+  function snapDesigner(v) {
+    const g = Math.max(4, Number(state.designer.grid || 12));
+    if (!state.designer.snap) return v;
+    return Math.round(v / g) * g;
+  }
+
+  function svgPoint(evt) {
+    const svg = ui.designerSvg;
+    const pt = svg.createSVGPoint();
+    pt.x = evt.clientX;
+    pt.y = evt.clientY;
+    const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+    return { x: snapDesigner(Math.max(0, Math.min(1000, p.x))), y: snapDesigner(Math.max(0, Math.min(700, p.y))) };
+  }
+
+  function renderDesigner() {
+    const svg = ui.designerSvg;
+    if (!svg) return;
+    const m = getDesignerFloorModel();
+    if (ui.designerGrid) ui.designerGrid.value = String(Math.max(4, Number(state.designer.grid || 12)));
+    if (ui.designerSnapBtn) ui.designerSnapBtn.textContent = `Snap: ${state.designer.snap ? 'an' : 'aus'}`;
+    if (ui.designerBgBtn) ui.designerBgBtn.textContent = `Hintergrund: ${state.designer.showBg ? 'an' : 'aus'}`;
+    const grid = Math.max(4, Number(state.designer.grid || 12));
+    let html = '';
+    if (state.designer.showBg) {
+      const href = designerBgForFloor().replace(/"/g, '&quot;');
+      html += `<image class="designer-bg" href="${href}" x="0" y="0" width="1000" height="700" preserveAspectRatio="xMidYMid meet"></image>`;
+    }
+    html += '<g class="designer-grid">';
+    for (let x = 0; x <= 1000; x += grid) html += `<line x1="${x}" y1="0" x2="${x}" y2="700"></line>`;
+    for (let y = 0; y <= 700; y += grid) html += `<line x1="0" y1="${y}" x2="1000" y2="${y}"></line>`;
+    html += '</g>';
+    if (m.perimeter) {
+      html += `<rect class="designer-perimeter" x="${m.perimeter.x}" y="${m.perimeter.y}" width="${m.perimeter.w}" height="${m.perimeter.h}"></rect>`;
+    }
+    for (const w of (m.walls || [])) {
+      const cls = m.outerWallIds?.includes(w.id) ? 'designer-wall outer' : 'designer-wall';
+      html += `<polyline class="${cls}" data-wall-id="${w.id}" points="${(w.points || []).map(p => `${p.x},${p.y}`).join(' ')}"></polyline>`;
+    }
+    for (const it of (m.items || [])) {
+      html += `<g class="designer-item" data-item-id="${it.id}" transform="translate(${it.x},${it.y}) rotate(${it.r || 0})"><rect x="-18" y="-12" width="36" height="24" rx="4"></rect><text x="0" y="4" text-anchor="middle">${String(it.type || 'item').slice(0,3).toUpperCase()}</text></g>`;
+    }
+    if (state.designer.drawingWall && state.designer.drawingWall.length > 0) {
+      html += `<polyline class="designer-wall" points="${state.designer.drawingWall.map(p => `${p.x},${p.y}`).join(' ')}"></polyline>`;
+    }
+    if (state.designer.drawingPerimeter) {
+      const r = state.designer.drawingPerimeter;
+      html += `<rect class="designer-perimeter" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}"></rect>`;
+    }
+    svg.innerHTML = html;
+  }
+
+  function bindDesignerInteractions() {
+    const svg = ui.designerSvg;
+    if (!svg || svg.dataset.boundDesigner === '1') return;
+    svg.dataset.boundDesigner = '1';
+    svg.addEventListener('pointerdown', e => {
+      const tool = String(ui.designerTool?.value || 'select');
+      const m = getDesignerFloorModel();
+      const p = svgPoint(e);
+      if (tool === 'place') {
+        const id = m.nextId || 1;
+        m.nextId = id + 1;
+        m.items.push({ id, type: String(ui.designerItemType?.value || 'door'), x: p.x, y: p.y, r: 0 });
+        saveDesignerData();
+        renderDesigner();
+        return;
+      }
+      if (tool === 'wall') {
+        if (!state.designer.drawingWall) state.designer.drawingWall = [];
+        state.designer.drawingWall.push({ x: p.x, y: p.y });
+        renderDesigner();
+        return;
+      }
+      if (tool === 'perimeter') {
+        state.designer.drawingPerimeter = { x: p.x, y: p.y, w: 0, h: 0, sx: p.x, sy: p.y };
+        renderDesigner();
+        return;
+      }
+      if (tool === 'outer') {
+        const wallEl = e.target.closest('[data-wall-id]');
+        if (!wallEl) return;
+        const id = Number(wallEl.getAttribute('data-wall-id'));
+        m.outerWallIds = Array.isArray(m.outerWallIds) ? m.outerWallIds : [];
+        if (m.outerWallIds.includes(id)) m.outerWallIds = m.outerWallIds.filter(x => x !== id);
+        else m.outerWallIds.push(id);
+        saveDesignerData();
+        renderDesigner();
+        return;
+      }
+      const itemEl = e.target.closest('[data-item-id]');
+      if (tool === 'select' && itemEl) {
+        state.designer.dragItemId = Number(itemEl.getAttribute('data-item-id'));
+        svg.setPointerCapture(e.pointerId);
+      }
+    });
+    svg.addEventListener('pointermove', e => {
+      const tool = String(ui.designerTool?.value || 'select');
+      const m = getDesignerFloorModel();
+      const p = svgPoint(e);
+      if (tool === 'select' && state.designer.dragItemId) {
+        const it = m.items.find(x => x.id === state.designer.dragItemId);
+        if (!it) return;
+        it.x = p.x; it.y = p.y;
+        renderDesigner();
+      }
+      if (tool === 'perimeter' && state.designer.drawingPerimeter) {
+        const r = state.designer.drawingPerimeter;
+        r.x = Math.min(r.sx, p.x);
+        r.y = Math.min(r.sy, p.y);
+        r.w = Math.abs(p.x - r.sx);
+        r.h = Math.abs(p.y - r.sy);
+        renderDesigner();
+      }
+    });
+    svg.addEventListener('pointerup', () => {
+      const tool = String(ui.designerTool?.value || 'select');
+      const m = getDesignerFloorModel();
+      if (tool === 'select' && state.designer.dragItemId) {
+        state.designer.dragItemId = null;
+        saveDesignerData();
+      }
+      if (tool === 'perimeter' && state.designer.drawingPerimeter) {
+        const r = state.designer.drawingPerimeter;
+        m.perimeter = { x: r.x, y: r.y, w: r.w, h: r.h };
+        state.designer.drawingPerimeter = null;
+        saveDesignerData();
+        renderDesigner();
+      }
+    });
+    svg.addEventListener('dblclick', () => {
+      if (String(ui.designerTool?.value || '') !== 'wall') return;
+      const m = getDesignerFloorModel();
+      const pts = state.designer.drawingWall || [];
+      if (pts.length >= 2) {
+        const id = m.nextId || 1;
+        m.nextId = id + 1;
+        m.walls.push({ id, points: pts.slice() });
+        saveDesignerData();
+      }
+      state.designer.drawingWall = null;
+      renderDesigner();
+    });
+  }
+
   function snapshotCanvasState() {
     state.canvasHistory.push(JSON.stringify({
       floorLayouts: state.floorLayouts,
@@ -1321,8 +1504,10 @@
     rebuildProfileSelect();
     renderFields();
     ensureFloorLayouts();
+    ensureDesignerData();
     applyFloorplanImages();
     renderAllCanvases();
+    renderDesigner();
     renderZoneActions();
   }
 
@@ -1342,6 +1527,7 @@
     state.config = clone(state.instanceObj.native);
     ensureTables();
     ensureFloorLayouts();
+    ensureDesignerData();
     ui.instance.textContent = `Instanz: ${state.instanceId}`;
     renderAll();
     const today = new Date().toISOString().slice(0,10);
@@ -1364,13 +1550,18 @@
   }
 
   function switchPage(page) {
-    const isOverview = page !== 'settings';
+    const isOverview = page === 'overview';
+    const isDesigner = page === 'designer';
+    const isSettings = page === 'settings';
     ui.overviewPage.classList.toggle('hidden', !isOverview);
-    ui.settingsPage.classList.toggle('hidden', isOverview);
+    ui.designerPage.classList.toggle('hidden', !isDesigner);
+    ui.settingsPage.classList.toggle('hidden', !isSettings);
     ui.pageOverviewBtn.classList.toggle('primary', isOverview);
     ui.pageOverviewBtn.classList.toggle('ghost', !isOverview);
-    ui.pageSettingsBtn.classList.toggle('primary', !isOverview);
-    ui.pageSettingsBtn.classList.toggle('ghost', isOverview);
+    ui.pageDesignerBtn.classList.toggle('primary', isDesigner);
+    ui.pageDesignerBtn.classList.toggle('ghost', !isDesigner);
+    ui.pageSettingsBtn.classList.toggle('primary', isSettings);
+    ui.pageSettingsBtn.classList.toggle('ghost', !isSettings);
   }
 
   async function refreshPanicButton() {
@@ -1415,7 +1606,51 @@
     $('reloadBtn').addEventListener('click', () => reloadFromInstance().catch(e => setStatus(String(e), true)));
     $('saveBtn').addEventListener('click', () => saveToInstance().catch(e => setStatus(String(e), true)));
     ui.pageOverviewBtn.addEventListener('click', () => switchPage('overview'));
+    ui.pageDesignerBtn.addEventListener('click', () => switchPage('designer'));
     ui.pageSettingsBtn.addEventListener('click', () => switchPage('settings'));
+    if (ui.designerFloor) {
+      ui.designerFloor.addEventListener('change', () => renderDesigner());
+    }
+    if (ui.designerTool) ui.designerTool.addEventListener('change', () => renderDesigner());
+    if (ui.designerItemType) ui.designerItemType.addEventListener('change', () => renderDesigner());
+    if (ui.designerGrid) {
+      ui.designerGrid.addEventListener('change', () => {
+        state.designer.grid = Math.max(4, Number(ui.designerGrid.value || 12));
+        renderDesigner();
+      });
+    }
+    if (ui.designerSnapBtn) {
+      ui.designerSnapBtn.addEventListener('click', () => {
+        state.designer.snap = !state.designer.snap;
+        ui.designerSnapBtn.textContent = `Snap: ${state.designer.snap ? 'an' : 'aus'}`;
+      });
+    }
+    if (ui.designerBgBtn) {
+      ui.designerBgBtn.addEventListener('click', () => {
+        state.designer.showBg = !state.designer.showBg;
+        ui.designerBgBtn.textContent = `Hintergrund: ${state.designer.showBg ? 'an' : 'aus'}`;
+        renderDesigner();
+      });
+    }
+    if (ui.designerCopyFloorBtn) {
+      ui.designerCopyFloorBtn.addEventListener('click', () => {
+        const from = (ui.designerFloor.value === 'OG') ? 'OG' : 'EG';
+        const to = from === 'EG' ? 'OG' : 'EG';
+        state.designer[to] = clone(state.designer[from] || defaultDesignerFloor());
+        saveDesignerData();
+        setStatus(`Designer von ${from} nach ${to} kopiert`);
+      });
+    }
+    if (ui.designerClearBtn) {
+      ui.designerClearBtn.addEventListener('click', () => {
+        const floor = (ui.designerFloor.value === 'OG') ? 'OG' : 'EG';
+        state.designer[floor] = defaultDesignerFloor();
+        saveDesignerData();
+        renderDesigner();
+        setStatus(`Designer ${floor} geleert`);
+      });
+    }
+    bindDesignerInteractions();
     ui.floorEgBtn.addEventListener('click', () => {
       state.currentFloor = 'EG';
       ui.floorEgBtn.classList.add('primary'); ui.floorEgBtn.classList.remove('ghost');

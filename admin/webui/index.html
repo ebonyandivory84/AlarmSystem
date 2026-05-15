@@ -15,6 +15,7 @@
       </div>
       <div class="page-switch">
         <button id="pageOverviewBtn" class="btn primary">Übersicht</button>
+        <button id="pageDesignerBtn" class="btn ghost">Grundriss-Designer</button>
         <button id="pageSettingsBtn" class="btn ghost">Einstellungen</button>
       </div>
       <div class="actions">
@@ -84,6 +85,27 @@
           <span id="liveAussenhaut" class="status-chip">Aussenhaut: -</span>
           <span id="livePerimeter" class="status-chip">Perimeter: -</span>
           <span id="liveCameras" class="status-chip">Kameras: -</span>
+        </div>
+      </section>
+    </main>
+
+    <main id="designerPage" class="page hidden">
+      <section class="card">
+        <h2>Grundriss-Designer</h2>
+        <div class="row">
+          <label>Etage<select id="designerFloor"><option value="EG">EG</option><option value="OG">OG</option></select></label>
+          <label>Werkzeug<select id="designerTool"><option value="select">Auswählen/Verschieben</option><option value="place">Objekt platzieren</option><option value="wall">Wand zeichnen</option><option value="outer">Außenhaut markieren</option><option value="perimeter">Perimeter Rechteck</option></select></label>
+          <label>Objekt<select id="designerItemType"><option value="door">Tür</option><option value="garage">Garage</option><option value="stairs">Treppe</option><option value="wc">WC</option><option value="kitchen">Küche</option><option value="sofa">Sofa</option><option value="table">Tisch</option><option value="chair">Stuhl</option></select></label>
+          <label>Raster px<input id="designerGrid" type="number" min="4" max="64" step="1" value="12" /></label>
+        </div>
+        <div class="row">
+          <button id="designerSnapBtn" class="btn primary">Snap: an</button>
+          <button id="designerBgBtn" class="btn">Hintergrund: an</button>
+          <button id="designerCopyFloorBtn" class="btn">Auf andere Etage kopieren</button>
+          <button id="designerClearBtn" class="btn danger">Designer leeren</button>
+        </div>
+        <div id="designerCanvasWrap" class="designer-wrap">
+          <svg id="designerSvg" class="designer-svg" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet"></svg>
         </div>
       </section>
     </main>
