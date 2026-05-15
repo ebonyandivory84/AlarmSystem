@@ -40,7 +40,8 @@
     activeProfile: 'default.json',
     stateIds: [],
     selectedEntity: null,
-    objectTarget: null
+    objectTarget: null,
+    live: { perimeterArmed: false, aussenArmed: false, innenArmed: false }
   };
 
   const globalSpec = [['defaultEntryDelaySec','number'],['defaultExitDelaySec','number'],['eventDedupeMs','number'],['heartbeatTimeoutSec','number'],['snapshotSendDelayMs','number'],['snapshotBurstCount','number'],['snapshotBurstIntervalMs','number'],['autoArmDelaySec','number'],['bedtimeHour','number'],['bedtimeLightThreshold','number'],['simulationMode','boolean'],['cameraNightModeEnabled','boolean'],['cameraNightModeArmsCameras','boolean']];
@@ -239,6 +240,15 @@
       canvas.appendChild(d);
     });
   }
+  function applyZoneArmedVisuals(canvas){
+    if (!canvas) return;
+    const per = canvas.querySelector('.zone.perimeter');
+    const aus = canvas.querySelector('.zone.aussenhaut');
+    const inn = canvas.querySelector('.zone.innenraum');
+    if (per) per.classList.toggle('armed-zone', !!state.live.perimeterArmed);
+    if (aus) aus.classList.toggle('armed-zone', !!state.live.aussenArmed);
+    if (inn) inn.classList.toggle('armed-zone', !!state.live.innenArmed);
+  }
 
   function getRulesMap(){ try { return JSON.parse(state.config.rulesJson || '{}'); } catch { return {}; } }
   function setRulesMap(m){ state.config.rulesJson = JSON.stringify(m); }
@@ -279,6 +289,7 @@
   function renderCanvas(target, detailed) {
     addZones(target);
     getEntities().filter(e => e.zone !== 'pool').forEach(e => drawEntity(target, e, detailed));
+    applyZoneArmedVisuals(target);
   }
 
   function renderPool() {
@@ -484,6 +495,11 @@
     paintChip(ui.liveAussenhaut, aussenArmed);
     paintChip(ui.liveInnenraum, innenArmed);
     paintChip(ui.liveCameras, camerasArmed);
+    state.live.perimeterArmed = perimeterArmed;
+    state.live.aussenArmed = aussenArmed;
+    state.live.innenArmed = innenArmed;
+    applyZoneArmedVisuals(ui.mini);
+    applyZoneArmedVisuals(ui.full);
   }
 
   async function saveToInstance() {
