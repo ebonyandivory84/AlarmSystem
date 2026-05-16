@@ -542,7 +542,10 @@
     return '';
   }
 
-  async function refreshAlertStates() {
+  async function refreshAlertStates(flags = {}) {
+    const fullArmed = !!flags.fullArmed;
+    const perimeterArmed = !!flags.perimeterArmed;
+    const camerasArmed = !!flags.camerasArmed;
     const next = { contact: {}, pir: {}, camera: {} };
     const readRows = async (rows, type, mode = 'activeValues') => {
       for (const row of (rows || [])) {
@@ -550,14 +553,22 @@
         const id = String((type === 'camera' ? row?.personDetectionDp : row?.id) || '');
         if (!key || !id) continue;
         const st = await getState(id);
+        const rawVal = st?.val;
         const raw = String(st?.val ?? '').trim().toLowerCase();
         let on = false;
         if (mode === 'detectValue') on = raw === String(row?.detectValue || 'human detected').trim().toLowerCase();
         else if (String(row?.activeValuesCsv || '').trim()) {
           const vals = String(row.activeValuesCsv).toLowerCase().split(',').map(x => x.trim()).filter(Boolean);
-          on = vals.includes(raw);
+          on = vals.includes(raw) || asArmed(rawVal);
         } else on = asArmed(st?.val);
-        if (on) next[type][key] = true;
+        if (type === 'pir' && !fullArmed) on = false;
+        if (type === 'contact' && !(fullArmed || perimeterArmed)) on = false;
+        if (type === 'camera' && !camerasArmed) on = false;
+        if (on) {
+          next[type][key] = true;
+          if (row?.id) next[type][String(row.id)] = true;
+          if (row?.personDetectionDp) next[type][String(row.personDetectionDp)] = true;
+        }
       }
     };
     await readRows(state.config.contactSensorsTable, 'contact', 'activeValues');
@@ -3000,7 +3011,6 @@
       presenceByPerson[person] = isPresenceHome(row, st?.val);
     }
     state.presenceByPerson = presenceByPerson;
-    await refreshAlertStates();
 
     const modeTextRaw = String(mode?.val || '').toLowerCase();
     const modePerimeter = modeTextRaw.includes('perimeter');
@@ -3049,8 +3059,10 @@
     state.live.innenArmed = innenArmed;
     state.live.fullArmed = fullArmed;
     state.live.innerFillArmed = innerFillArmed;
+    await refreshAlertStates({ fullArmed, perimeterArmed, camerasArmed });
     applyZoneArmedVisuals(ui.mini);
     applyZoneArmedVisuals(ui.full);
+    const alertsChanged = JSON.stringify(state.liveAlerts || {}) !== prevAlerts;
     const armedChanged = (
       prevLive.perimeterArmed !== perimeterArmed
       || prevLive.aussenArmed !== aussenArmed
@@ -3060,7 +3072,7 @@
     );
     if (
       armedChanged
-      || JSON.stringify(state.liveAlerts || {}) !== prevAlerts
+      || alertsChanged
       || presenceByPerson.sebastian !== prevPresence.sebastian
       || presenceByPerson.teresa !== prevPresence.teresa
     ) {
