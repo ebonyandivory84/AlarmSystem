@@ -471,6 +471,9 @@
     if (!model || !hasDesignerGeometry(true)) return;
     normalizeDesignerItems(model);
     const wallCutMap = doorCutsByWall(model);
+    const perimeterAlarm = !!state.live.perimeterArmed;
+    const outerAlarm = perimeterAlarm || !!state.live.aussenArmed;
+    const innerAlarm = !!state.live.innenArmed;
     const ws = getDesignerWorkspace(true);
     const view = getDesignerFloorView(true);
     const wrap = document.createElement('div');
@@ -491,11 +494,21 @@
       svg.appendChild(bg);
     }
     let html = '';
+    if (innerAlarm) {
+      const shell = outerShellPolygon(model);
+      if (Array.isArray(shell) && shell.length >= 3) {
+        html += `<polygon class="designer-inner-alarm" points="${wallPointsAttr(shell)}"></polygon>`;
+      }
+    }
     if (model.perimeter && Number(model.perimeter.w || 0) > 0 && Number(model.perimeter.h || 0) > 0) {
-      html += `<rect class="designer-perimeter" x="${Number(model.perimeter.x)}" y="${Number(model.perimeter.y)}" width="${Number(model.perimeter.w)}" height="${Number(model.perimeter.h)}"></rect>`;
+      const perCls = perimeterAlarm ? 'designer-perimeter designer-alarm' : 'designer-perimeter';
+      html += `<rect class="${perCls}" x="${Number(model.perimeter.x)}" y="${Number(model.perimeter.y)}" width="${Number(model.perimeter.w)}" height="${Number(model.perimeter.h)}"></rect>`;
     }
     for (const wall of (model.walls || [])) {
-      const cls = Array.isArray(model.outerWallIds) && model.outerWallIds.includes(wall.id) ? 'designer-wall outer' : 'designer-wall';
+      const isOuter = Array.isArray(model.outerWallIds) && model.outerWallIds.includes(wall.id);
+      const cls = isOuter
+        ? `designer-wall outer${outerAlarm ? ' designer-alarm' : ''}`
+        : 'designer-wall';
       html += wallRenderHtml(wall.points, wall.id, cls, false, wallCutMap);
     }
     for (const item of (model.items || [])) html += svgForDesignerItem(item, { handles: false, selected: false });
@@ -1298,6 +1311,126 @@
 
   function wallPointsAttr(points) {
     return points.map(p => `${p.x},${p.y}`).join(' ');
+  }
+
+  function polygonArea(points) {
+    const pts = Array.isArray(points) ? points : [];
+    if (pts.length < 3) return 0;
+    let a = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+      const q = pts[(i + 1) % pts.length];
+      a += (Number(p.x) * Number(q.y)) - (Number(q.x) * Number(p.y));
+    }
+    return a / 2;
+  }
+
+  function approxPointKey(p) {
+    const x = Math.round(Number(p.x) * 10) / 10;
+    const y = Math.round(Number(p.y) * 10) / 10;
+    return `${x},${y}`;
+  }
+
+  function outerShellPolygon(model) {
+    if (!model) return null;
+    const outerSet = new Set((model.outerWallIds || []).map(x => Number(x)).filter(Number.isFinite));
+    if (!outerSet.size) return null;
+    const outerWalls = (model.walls || []).filter(w => outerSet.has(Number(w.id)));
+    if (!outerWalls.length) return null;
+
+    // Prefer a directly drawn contour wall if present.
+    let bestPoly = null;
+    let bestArea = 0;
+    for (const wall of outerWalls) {
+      const ptsRaw = normalizeWallPoints(wall.points);
+      if (ptsRaw.length < 3) continue;
+      const closed = isSamePoint(ptsRaw[0], ptsRaw[ptsRaw.length - 1]);
+      const pts = closed ? ptsRaw.slice(0, -1) : ptsRaw.slice();
+      if (pts.length < 3) continue;
+      const a = Math.abs(polygonArea(pts));
+      if (a > bestArea) {
+        bestArea = a;
+        bestPoly = pts;
+      }
+    }
+    if (bestPoly && bestArea > 1) return bestPoly;
+
+    // Fallback: build loop from marked outer segments (typical when outer shell uses many 2-point walls).
+    const nodeMap = new Map();
+    const adj = new Map();
+    const edgeSet = new Set();
+    const addNode = (p) => {
+      const key = approxPointKey(p);
+      if (!nodeMap.has(key)) nodeMap.set(key, { x: Number(p.x), y: Number(p.y) });
+      if (!adj.has(key)) adj.set(key, new Set());
+      return key;
+    };
+    const edgeKey = (a, b) => (a < b ? `${a}|${b}` : `${b}|${a}`);
+    const addEdge = (a, b) => {
+      if (a === b) return;
+      adj.get(a).add(b);
+      adj.get(b).add(a);
+      edgeSet.add(edgeKey(a, b));
+    };
+
+    for (const wall of outerWalls) {
+      const pts = normalizeWallPoints(wall.points);
+      for (let i = 1; i < pts.length; i++) {
+        const p0 = pts[i - 1];
+        const p1 = pts[i];
+        if (isSamePoint(p0, p1)) continue;
+        const k0 = addNode(p0);
+        const k1 = addNode(p1);
+        addEdge(k0, k1);
+      }
+    }
+
+    if (!edgeSet.size || nodeMap.size < 3) return null;
+    const allDeg2 = Array.from(adj.values()).every(s => s.size === 2);
+    if (!allDeg2) return null;
+
+    let loopBest = null;
+    let loopAreaBest = 0;
+    while (edgeSet.size) {
+      const first = edgeSet.values().next().value;
+      const parts = String(first || '').split('|');
+      if (parts.length !== 2) break;
+      const start = parts[0];
+      let prev = start;
+      let curr = parts[1];
+      const path = [start, curr];
+      edgeSet.delete(first);
+      let guard = 0;
+      while (guard++ < 4000) {
+        if (curr === start) break;
+        const neigh = Array.from(adj.get(curr) || []);
+        if (!neigh.length) break;
+        let next = neigh.find(n => n !== prev) || neigh[0];
+        const ek = edgeKey(curr, next);
+        if (!edgeSet.has(ek)) {
+          if (next === start) {
+            path.push(next);
+          }
+          break;
+        }
+        edgeSet.delete(ek);
+        prev = curr;
+        curr = next;
+        path.push(curr);
+        if (curr === start) break;
+      }
+      if (path.length >= 4 && path[path.length - 1] === start) {
+        const poly = path.slice(0, -1).map(k => nodeMap.get(k)).filter(Boolean);
+        if (poly.length >= 3) {
+          const a = Math.abs(polygonArea(poly));
+          if (a > loopAreaBest) {
+            loopAreaBest = a;
+            loopBest = poly;
+          }
+        }
+      }
+    }
+    return loopBest && loopAreaBest > 1 ? loopBest : null;
   }
 
   function projectPointToSegment(px, py, a, b) {
