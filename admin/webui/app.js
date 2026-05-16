@@ -1489,8 +1489,8 @@
       setStatus('Kamera/PersonDetection kann nur an Kameraflächen zugeordnet werden', true);
       return;
     }
-    if (bindType === 'contact' && !['door', 'window', 'garagedoor'].includes(itemType)) {
-      setStatus('Tür-/Fensterkontakt nur an Tür, Fenster oder Garagentor zuordnen', true);
+    if (bindType === 'contact' && !['door', 'window', 'garagedoor', 'garage'].includes(itemType)) {
+      setStatus('Tür-/Fensterkontakt nur an Tür, Fenster, Garagentor oder Garage zuordnen', true);
       return;
     }
     snapshotDesignerState();
@@ -2281,7 +2281,7 @@
       const active = !!(bType && ((bKey && state.liveAlerts?.[bType]?.[bKey]) || (bId && state.liveAlerts?.[bType]?.[bId])));
       const hasBinding = !!bType;
       const isSurface = type === 'cameraZone' || type === 'pirZone';
-      const isContactVisual = ['door', 'window', 'garagedoor'].includes(type);
+      const isContactVisual = ['door', 'window', 'garagedoor', 'garage'].includes(type);
       const sensorPreview = state.designer.showSensorsPreview && hasBinding && !active
         && ((bType === 'pir' && type === 'pirZone') || (bType === 'camera' && type === 'cameraZone') || (bType === 'contact' && isContactVisual));
       if (isSurface && !active && !sensorPreview) continue;
