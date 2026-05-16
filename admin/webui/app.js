@@ -504,7 +504,7 @@
       }
     }
     if (model.perimeter && Number(model.perimeter.w || 0) > 0 && Number(model.perimeter.h || 0) > 0) {
-      const perCls = perimeterAlarm ? 'designer-perimeter designer-alarm' : 'designer-perimeter';
+      const perCls = perimeterAlarm ? 'designer-perimeter designer-alarm-line' : 'designer-perimeter';
       html += `<rect class="${perCls}" x="${Number(model.perimeter.x)}" y="${Number(model.perimeter.y)}" width="${Number(model.perimeter.w)}" height="${Number(model.perimeter.h)}"></rect>`;
     }
     for (const wall of (model.walls || [])) {
