@@ -2019,8 +2019,25 @@
       const a = cameraAnchorToLocal(it, w, h);
       const ax = Number(a.x);
       const ay = Number(a.y);
-      const dx = -ax;
-      const dy = -ay;
+      const edge = String(a.edge || 'top');
+      const t = Number(a.t || 0.5);
+      const edgeTol = 0.0001;
+      const isCorner = t <= edgeTol || t >= (1 - edgeTol);
+      let dx = 0;
+      let dy = 1;
+      if (isCorner) {
+        // Only corners use diagonal propagation (towards opposite corner).
+        dx = -ax;
+        dy = -ay;
+      } else if (edge === 'top') {
+        dx = 0; dy = 1;
+      } else if (edge === 'bottom') {
+        dx = 0; dy = -1;
+      } else if (edge === 'left') {
+        dx = 1; dy = 0;
+      } else if (edge === 'right') {
+        dx = -1; dy = 0;
+      }
       const dirLen = Math.hypot(dx, dy) || 1;
       const dirAng = Math.atan2(dy / dirLen, dx / dirLen);
       const spread = Math.PI * 0.34;
