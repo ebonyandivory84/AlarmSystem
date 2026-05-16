@@ -7,7 +7,9 @@
     status: $('statusBox'),
     instance: $('instanceLabel'),
     profile: $('profileSelect'),
-    pool: $('poolList'),
+    palettePirList: $('palettePirList'),
+    paletteContactList: $('paletteContactList'),
+    paletteCameraList: $('paletteCameraList'),
     global: $('globalFields'),
     dp: $('dpFields'),
     mini: $('miniCanvas'),
@@ -55,13 +57,16 @@
     canvasEntitiesList: $('canvasEntitiesList'),
     floorplanEgInput: $('floorplanEgInput'),
     floorplanOgInput: $('floorplanOgInput'),
+    floorplanEgUpload: $('floorplanEgUpload'),
+    floorplanOgUpload: $('floorplanOgUpload'),
+    uploadFloorplansBtn: $('uploadFloorplansBtn'),
     healthOverviewText: $('healthOverviewText'),
-    healthDoorHeartbeatIds: $('healthDoorHeartbeatIds'),
-    healthDoorOnlineIds: $('healthDoorOnlineIds'),
-    healthCameraConnectionIds: $('healthCameraConnectionIds'),
-    healthPirOnlineIds: $('healthPirOnlineIds'),
-    healthHeartbeatTimeoutSec: $('healthHeartbeatTimeoutSec'),
-    healthPirUseDoorHealth: $('healthPirUseDoorHealth'),
+    ruleHealthMode: $('ruleHealthMode'),
+    ruleHealthHeartbeatId: $('ruleHealthHeartbeatId'),
+    ruleHealthHeartbeatMaxSec: $('ruleHealthHeartbeatMaxSec'),
+    ruleHealthOnlineId: $('ruleHealthOnlineId'),
+    browseRuleHeartbeatIdBtn: $('browseRuleHeartbeatIdBtn'),
+    browseRuleOnlineIdBtn: $('browseRuleOnlineIdBtn'),
     pinModal: $('pinModal'),
     pinDots: $('pinDots'),
     pinHint: $('pinHint'),
@@ -180,10 +185,6 @@
     ui.status.textContent = m;
     ui.status.classList.toggle('err', e);
   };
-  const parseIdsCsv = raw => String(raw || '')
-    .split(',')
-    .map(x => x.trim())
-    .filter(Boolean);
   const isTruthyOnline = v => {
     if (v === true || v === 1) return true;
     const s = String(v ?? '').trim().toLowerCase();
@@ -339,17 +340,17 @@
   function ensureTables() {
     ['pirSensorsTable','contactSensorsTable','presenceSensorsTable','personDetectionTable','camerasTable'].forEach(k => {
       if (!Array.isArray(state.config[k])) state.config[k] = [];
+      for (const row of state.config[k]) ensureEntityHealthFields(row);
     });
     if (!Array.isArray(state.config.zoneActionsTable)) state.config.zoneActionsTable = [];
   }
 
-  function ensureHealthConfig() {
-    if (typeof state.config.healthDoorHeartbeatIdsCsv !== 'string') state.config.healthDoorHeartbeatIdsCsv = '';
-    if (typeof state.config.healthDoorOnlineIdsCsv !== 'string') state.config.healthDoorOnlineIdsCsv = '';
-    if (typeof state.config.healthCameraConnectionIdsCsv !== 'string') state.config.healthCameraConnectionIdsCsv = '';
-    if (typeof state.config.healthPirOnlineIdsCsv !== 'string') state.config.healthPirOnlineIdsCsv = '';
-    if (!Number.isFinite(Number(state.config.healthHeartbeatTimeoutSec))) state.config.healthHeartbeatTimeoutSec = 2;
-    if (typeof state.config.healthPirUseDoorHealth !== 'boolean') state.config.healthPirUseDoorHealth = true;
+  function ensureEntityHealthFields(row) {
+    if (!row || typeof row !== 'object') return;
+    if (typeof row.healthCheckMode !== 'string') row.healthCheckMode = 'none';
+    if (typeof row.healthHeartbeatId !== 'string') row.healthHeartbeatId = '';
+    if (!Number.isFinite(Number(row.healthHeartbeatMaxSec))) row.healthHeartbeatMaxSec = 2;
+    if (typeof row.healthOnlineId !== 'string') row.healthOnlineId = '';
   }
 
   function getEntities() {
@@ -766,6 +767,22 @@
   function defaultRule(){ return { enabled:true, onlyArmed:true, onlyNight:false, sirene:false, snapshot:true, telegram:true }; }
   function readRuleForm(){ return { enabled: $('ruleEnabled').value==='true', onlyArmed: $('ruleOnlyArmed').value==='true', onlyNight: $('ruleOnlyNight').value==='true', sirene: $('ruleSirene').value==='true', snapshot: $('ruleSnapshot').value==='true', telegram: $('ruleTelegram').value==='true' }; }
   function writeRuleForm(rule){ const r={...defaultRule(), ...(rule||{})}; $('ruleEnabled').value=String(r.enabled); $('ruleOnlyArmed').value=String(r.onlyArmed); $('ruleOnlyNight').value=String(r.onlyNight); $('ruleSirene').value=String(r.sirene); $('ruleSnapshot').value=String(r.snapshot); $('ruleTelegram').value=String(r.telegram); }
+  function readHealthForm() {
+    return {
+      healthCheckMode: String(ui.ruleHealthMode?.value || 'none'),
+      healthHeartbeatId: String(ui.ruleHealthHeartbeatId?.value || '').trim(),
+      healthHeartbeatMaxSec: Math.max(1, Number(ui.ruleHealthHeartbeatMaxSec?.value || 2)),
+      healthOnlineId: String(ui.ruleHealthOnlineId?.value || '').trim()
+    };
+  }
+  function writeHealthForm(row) {
+    const r = row || {};
+    ensureEntityHealthFields(r);
+    if (ui.ruleHealthMode) ui.ruleHealthMode.value = ['none', 'heartbeat', 'online'].includes(String(r.healthCheckMode || 'none')) ? String(r.healthCheckMode) : 'none';
+    if (ui.ruleHealthHeartbeatId) ui.ruleHealthHeartbeatId.value = String(r.healthHeartbeatId || '');
+    if (ui.ruleHealthHeartbeatMaxSec) ui.ruleHealthHeartbeatMaxSec.value = String(Math.max(1, Number(r.healthHeartbeatMaxSec || 2)));
+    if (ui.ruleHealthOnlineId) ui.ruleHealthOnlineId.value = String(r.healthOnlineId || '');
+  }
   function readZoneSel(){ return $('ruleZone').value; }
   function writeZoneSel(z){ $('ruleZone').value = z || 'perimeter'; }
   function readFloorSel(){ return $('ruleFloor').value === 'OG' ? 'OG' : 'EG'; }
@@ -864,6 +881,7 @@
     writeZoneSel(e.zone);
     writeFloorSel(e.floor || 'EG');
     writeRuleForm(getRulesMap()[ruleId(e)]);
+    writeHealthForm(state.config?.[e.kind]?.[e.idx] || null);
     refreshDesignerBindingPanel();
     if (openModal) ui.entityModal.classList.remove('hidden');
   }
@@ -906,17 +924,27 @@
     applyZoneArmedVisuals(target);
   }
 
-  function renderPool() {
-    ui.pool.innerHTML = '';
-    getEntities().filter(e => e.zone === 'pool').forEach(e => {
+  function renderPaletteColumns() {
+    if (!ui.palettePirList || !ui.paletteContactList || !ui.paletteCameraList) return;
+    ui.palettePirList.innerHTML = '';
+    ui.paletteContactList.innerHTML = '';
+    ui.paletteCameraList.innerHTML = '';
+    const all = getEntities()
+      .filter(e => ['pirSensorsTable', 'contactSensorsTable', 'camerasTable', 'personDetectionTable'].includes(e.kind))
+      .sort((a, b) => String(a.label || '').localeCompare(String(b.label || ''), 'de'));
+    const mk = (e, typeLabel) => {
+      const assigned = String(e.zone || 'pool') !== 'pool';
       const item = document.createElement('div');
-      item.className = 'sensor-item';
-      item.innerHTML = `<span>${e.label}</span><span class="muted">pool</span>`;
-      item.draggable = true;
-      item.addEventListener('dragstart', ev => ev.dataTransfer.setData('text/plain', JSON.stringify({ kind:e.kind, idx:e.idx })));
+      item.className = `sensor-item ${assigned ? 'assigned' : 'unassigned'}`;
+      item.innerHTML = `<span>${e.label}<br><span class="muted">${typeLabel} | ${assigned ? 'zugeordnet' : 'nicht zugeordnet'}</span></span>`;
       item.addEventListener('click', () => selectEntity(e));
-      ui.pool.appendChild(item);
-    });
+      return item;
+    };
+    for (const e of all) {
+      if (e.kind === 'pirSensorsTable') ui.palettePirList.appendChild(mk(e, 'PIR'));
+      else if (e.kind === 'contactSensorsTable') ui.paletteContactList.appendChild(mk(e, 'Kontakt'));
+      else ui.paletteCameraList.appendChild(mk(e, e.kind === 'camerasTable' ? 'Cam' : 'PersonDetect'));
+    }
   }
 
   function renderPresenceCards() {
@@ -1113,6 +1141,7 @@
 
   function bindPoolDrop() {
     const poolZone = $('poolZone');
+    if (!poolZone) return;
     poolZone.addEventListener('dragover', e => e.preventDefault());
     poolZone.addEventListener('drop', e => {
       e.preventDefault();
@@ -1130,7 +1159,7 @@
     ensureEntityPositions();
     renderCanvas(ui.mini, false);
     if (ui.full) renderCanvas(ui.full, true);
-    renderPool();
+    renderPaletteColumns();
     renderPresenceCards();
     renderCanvasEntitiesList();
     bindCanvasDrops(ui.mini);
@@ -1157,7 +1186,6 @@
   }
 
   function renderFields() {
-    ensureHealthConfig();
     ui.global.innerHTML = '';
     ui.dp.innerHTML = '';
 
@@ -1194,12 +1222,6 @@
       w.appendChild(wrap);
       ui.dp.appendChild(w);
     }
-    if (ui.healthDoorHeartbeatIds) ui.healthDoorHeartbeatIds.value = String(state.config.healthDoorHeartbeatIdsCsv || '');
-    if (ui.healthDoorOnlineIds) ui.healthDoorOnlineIds.value = String(state.config.healthDoorOnlineIdsCsv || '');
-    if (ui.healthCameraConnectionIds) ui.healthCameraConnectionIds.value = String(state.config.healthCameraConnectionIdsCsv || '');
-    if (ui.healthPirOnlineIds) ui.healthPirOnlineIds.value = String(state.config.healthPirOnlineIdsCsv || '');
-    if (ui.healthHeartbeatTimeoutSec) ui.healthHeartbeatTimeoutSec.value = String(Math.max(1, Number(state.config.healthHeartbeatTimeoutSec || 2)));
-    if (ui.healthPirUseDoorHealth) ui.healthPirUseDoorHealth.value = state.config.healthPirUseDoorHealth === false ? 'false' : 'true';
   }
 
   function applyFloorplanImages() {
@@ -1211,6 +1233,38 @@
     if (ui.floorplanOgInput) ui.floorplanOgInput.value = og;
     void loadFloorImageRatio('EG', eg);
     void loadFloorImageRatio('OG', og);
+  }
+
+  function fileToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      if (!file) return reject(new Error('Keine Datei gewählt'));
+      const fr = new FileReader();
+      fr.onload = () => resolve(String(fr.result || ''));
+      fr.onerror = () => reject(new Error('Datei konnte nicht gelesen werden'));
+      fr.readAsDataURL(file);
+    });
+  }
+
+  async function uploadFloorplanImages() {
+    const egFile = ui.floorplanEgUpload?.files?.[0] || null;
+    const ogFile = ui.floorplanOgUpload?.files?.[0] || null;
+    if (!egFile && !ogFile) {
+      setStatus('Bitte EG oder OG Bilddatei auswählen', true);
+      return;
+    }
+    if (egFile) {
+      const egData = await fileToDataUrl(egFile);
+      state.config.floorplanEgImage = egData;
+      if (ui.floorplanEgInput) ui.floorplanEgInput.value = egData;
+    }
+    if (ogFile) {
+      const ogData = await fileToDataUrl(ogFile);
+      state.config.floorplanOgImage = ogData;
+      if (ui.floorplanOgInput) ui.floorplanOgInput.value = ogData;
+    }
+    applyFloorplanImages();
+    renderAllCanvases();
+    setStatus('Grundriss-Bild(er) geladen. Mit "In Instanz speichern" dauerhaft sichern.');
   }
 
   function getFloorRatio(floor) {
@@ -2917,12 +2971,6 @@
     ui.dp.querySelectorAll('[data-key]').forEach(el => { state.config[el.dataset.key] = el.value || ''; });
     state.config.floorplanEgImage = String(ui.floorplanEgInput?.value || './assets/EG.jpg').trim();
     state.config.floorplanOgImage = String(ui.floorplanOgInput?.value || state.config.floorplanEgImage || './assets/OG.jpg').trim();
-    if (ui.healthDoorHeartbeatIds) state.config.healthDoorHeartbeatIdsCsv = String(ui.healthDoorHeartbeatIds.value || '').trim();
-    if (ui.healthDoorOnlineIds) state.config.healthDoorOnlineIdsCsv = String(ui.healthDoorOnlineIds.value || '').trim();
-    if (ui.healthCameraConnectionIds) state.config.healthCameraConnectionIdsCsv = String(ui.healthCameraConnectionIds.value || '').trim();
-    if (ui.healthPirOnlineIds) state.config.healthPirOnlineIdsCsv = String(ui.healthPirOnlineIds.value || '').trim();
-    if (ui.healthHeartbeatTimeoutSec) state.config.healthHeartbeatTimeoutSec = Math.max(1, Number(ui.healthHeartbeatTimeoutSec.value || 2));
-    if (ui.healthPirUseDoorHealth) state.config.healthPirUseDoorHealth = ui.healthPirUseDoorHealth.value !== 'false';
   }
 
   function renderZoneActions() {
@@ -2985,6 +3033,7 @@
     const base = { key: key || id, label: label || key || id, id, zone: 'pool', floor: state.currentFloor };
     if (kind === 'personDetectionTable') state.config[kind].push({ ...base, mode, detectValue: mode === 'string' ? (detect || 'human detected') : '' });
     else state.config[kind].push({ ...base, activeValuesCsv: active || 'true' });
+    ensureEntityHealthFields(state.config[kind][state.config[kind].length - 1]);
     renderAllCanvases();
     ui.addResult.textContent = `Hinzugefügt: ${base.label}`;
   }
@@ -3122,60 +3171,49 @@
     el.title = reasons.length ? reasons.join(' | ') : '';
   }
 
-  async function checkOnlineIds(ids, label) {
-    if (!ids.length) return { configured: false, ok: true, reasons: [] };
-    const reasons = [];
-    for (const id of ids) {
-      const st = await getState(id);
-      if (!isTruthyOnline(st?.val)) reasons.push(`${label} offline: ${id}`);
-    }
-    return { configured: true, ok: reasons.length === 0, reasons };
-  }
-
-  async function checkHeartbeatIds(ids, timeoutSec, label) {
-    if (!ids.length) return { configured: false, ok: true, reasons: [] };
+  async function checkHeartbeatId(id, timeoutSec, label) {
     const reasons = [];
     const now = Date.now();
-    const timeoutMs = Math.max(1000, Number(timeoutSec || 2) * 1000);
-    for (const id of ids) {
-      const st = await getState(id);
-      const ts = Number(st?.ts || st?.lc || 0);
-      if (!Number.isFinite(ts) || ts <= 0) {
-        reasons.push(`${label} kein Heartbeat: ${id}`);
-        continue;
-      }
-      if ((now - ts) > timeoutMs) reasons.push(`${label} Heartbeat Timeout: ${id}`);
+    const hid = String(id || '').trim();
+    if (!hid) {
+      reasons.push(`${label} Heartbeat-Datapoint fehlt`);
+      return reasons;
     }
-    return { configured: true, ok: reasons.length === 0, reasons };
+    const timeoutMs = Math.max(1000, Number(timeoutSec || 2) * 1000);
+    const st = await getState(hid);
+    const ts = Number(st?.ts || st?.lc || 0);
+    if (!Number.isFinite(ts) || ts <= 0) reasons.push(`${label} kein Heartbeat: ${hid}`);
+    else if ((now - ts) > timeoutMs) reasons.push(`${label} Heartbeat Timeout: ${hid}`);
+    return reasons;
   }
 
   async function evaluateSystemHealth() {
-    ensureHealthConfig();
-    const timeoutSec = Math.max(1, Number(state.config.healthHeartbeatTimeoutSec || 2));
-    const doorHeartbeatIds = parseIdsCsv(state.config.healthDoorHeartbeatIdsCsv);
-    const doorOnlineIds = parseIdsCsv(state.config.healthDoorOnlineIdsCsv);
-    const camConnIds = parseIdsCsv(state.config.healthCameraConnectionIdsCsv);
-    const pirOnlineIds = parseIdsCsv(state.config.healthPirOnlineIdsCsv);
-    const useDoorForPir = state.config.healthPirUseDoorHealth !== false;
-
-    const doorOnline = await checkOnlineIds(doorOnlineIds, 'Türkontakt');
-    const doorHb = await checkHeartbeatIds(doorHeartbeatIds, timeoutSec, 'Türkontakt');
-    const doorConfigured = doorOnline.configured || doorHb.configured;
-    const doorOk = doorOnline.configured ? doorOnline.ok : (doorHb.configured ? doorHb.ok : true);
-    const doorReasons = doorOnline.configured ? doorOnline.reasons : doorHb.reasons;
-
-    const cams = await checkOnlineIds(camConnIds, 'Kamera');
-    const camOk = cams.configured ? cams.ok : true;
-
-    const pirOnline = await checkOnlineIds(pirOnlineIds, 'PIR');
-    const pirConfigured = pirOnline.configured || useDoorForPir;
-    const pirOk = pirOnline.configured ? pirOnline.ok : (useDoorForPir ? doorOk : true);
-    const pirReasons = pirOnline.configured ? pirOnline.reasons : (useDoorForPir ? doorReasons.map(r => r.replace('Türkontakt', 'PIR/Türmodul')) : []);
-
+    ensureTables();
     const reasons = [];
-    if (doorConfigured && !doorOk) reasons.push(...doorReasons);
-    if (cams.configured && !camOk) reasons.push(...cams.reasons);
-    if (pirConfigured && !pirOk) reasons.push(...pirReasons);
+    const groups = [
+      { key: 'contactSensorsTable', label: 'Türkontakt' },
+      { key: 'pirSensorsTable', label: 'PIR' },
+      { key: 'camerasTable', label: 'Kamera' },
+      { key: 'personDetectionTable', label: 'Kamera' }
+    ];
+    for (const g of groups) {
+      const rows = Array.isArray(state.config[g.key]) ? state.config[g.key] : [];
+      for (const row of rows) {
+        ensureEntityHealthFields(row);
+        const name = String(row.label || row.key || row.id || `${g.label}`);
+        const mode = String(row.healthCheckMode || 'none');
+        if (mode === 'heartbeat') {
+          reasons.push(...(await checkHeartbeatId(row.healthHeartbeatId, row.healthHeartbeatMaxSec, `${g.label} ${name}`)));
+        } else if (mode === 'online') {
+          const oid = String(row.healthOnlineId || '').trim();
+          if (!oid) reasons.push(`${g.label} ${name} Online-Datapoint fehlt`);
+          else {
+            const st = await getState(oid);
+            if (!isTruthyOnline(st?.val)) reasons.push(`${g.label} ${name} offline: ${oid}`);
+          }
+        }
+      }
+    }
     const ok = reasons.length === 0;
     state.health = { ok, reasons };
     paintOverviewHealth(ok, reasons);
@@ -3702,11 +3740,14 @@
     $('deleteProfileBtn').addEventListener('click', deleteProfile);
     $('addSensorBtn').addEventListener('click', addNewEntity);
     $('addZoneActionBtn').addEventListener('click', addZoneAction);
+    if (ui.uploadFloorplansBtn) ui.uploadFloorplansBtn.addEventListener('click', () => uploadFloorplanImages().catch(e => setStatus(String(e), true)));
     const tidyBtn = $('tidyCanvasBtn');
     if (tidyBtn) tidyBtn.addEventListener('click', tidyCanvasLayout);
 
     $('browseNewIdBtn').addEventListener('click', () => openObjectBrowser($('newId')));
     $('browseZoneActionIdBtn').addEventListener('click', () => openObjectBrowser($('zoneActionId')));
+    if (ui.browseRuleHeartbeatIdBtn && ui.ruleHealthHeartbeatId) ui.browseRuleHeartbeatIdBtn.addEventListener('click', () => openObjectBrowser(ui.ruleHealthHeartbeatId));
+    if (ui.browseRuleOnlineIdBtn && ui.ruleHealthOnlineId) ui.browseRuleOnlineIdBtn.addEventListener('click', () => openObjectBrowser(ui.ruleHealthOnlineId));
     $('closeBrowserBtn').addEventListener('click', closeObjectBrowser);
     ui.objectSearch.addEventListener('input', renderObjectResults);
     ui.objectResults.addEventListener('click', ev => {
@@ -3721,7 +3762,8 @@
       if (!state.selectedEntity) return setStatus('Bitte erst ein Element anklicken', true);
       const z = readZoneSel();
       const f = readFloorSel();
-      setEntity(state.selectedEntity.kind, state.selectedEntity.idx, { zone: z, floor: f });
+      const h = readHealthForm();
+      setEntity(state.selectedEntity.kind, state.selectedEntity.idx, { zone: z, floor: f, ...h });
       const m = getRulesMap();
       m[ruleId(state.selectedEntity)] = readRuleForm();
       setRulesMap(m);

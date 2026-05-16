@@ -154,9 +154,19 @@
       <section class="grid2">
         <article class="card">
           <h2>Palette</h2>
-          <div id="poolZone" class="pool-zone" data-zone="pool">
-            <strong>Nicht zugeordnet</strong>
-            <div id="poolList" class="sensor-list"></div>
+          <div id="paletteColumns" class="palette-columns">
+            <div class="palette-col">
+              <strong>PIR</strong>
+              <div id="palettePirList" class="sensor-list"></div>
+            </div>
+            <div class="palette-col">
+              <strong>Türkontakte</strong>
+              <div id="paletteContactList" class="sensor-list"></div>
+            </div>
+            <div class="palette-col">
+              <strong>Cameras</strong>
+              <div id="paletteCameraList" class="sensor-list"></div>
+            </div>
           </div>
 
           <h2 class="subhead">Neu hinzufügen</h2>
@@ -190,38 +200,6 @@
 
       <section class="card"><h2>Globale Parameter</h2><div class="fields" id="globalFields"></div></section>
       <section class="card">
-        <h2>System-Health</h2>
-        <div class="fields">
-          <label title="CSV-Liste von Heartbeat-Datapoints für Türkontakte. Jeder Datapoint muss mindestens innerhalb des Timeouts aktualisiert werden.">
-            Türkontakte Heartbeat IDs (CSV)
-            <input id="healthDoorHeartbeatIds" type="text" placeholder="mqtt.0.sensor1.heartbeat,mqtt.0.sensor2.heartbeat" />
-          </label>
-          <label title="CSV-Liste boolescher Online-Datapoints für Türkontakte (alternative zu Heartbeat).">
-            Türkontakte Online IDs (CSV)
-            <input id="healthDoorOnlineIds" type="text" placeholder="mqtt.0.sensor1.online,mqtt.0.sensor2.online" />
-          </label>
-          <label title="CSV-Liste boolescher Verbindungs-Datapoints für Kameras.">
-            Kamera Connection IDs (CSV)
-            <input id="healthCameraConnectionIds" type="text" placeholder="go2rtc.0.cam1.connected,go2rtc.0.cam2.connected" />
-          </label>
-          <label title="CSV-Liste boolescher Online-Datapoints für PIR (optional, alternativ Tür-Health übernehmen).">
-            PIR Online IDs (CSV)
-            <input id="healthPirOnlineIds" type="text" placeholder="mqtt.0.pir1.online,mqtt.0.pir2.online" />
-          </label>
-          <label title="Maximal erlaubter Abstand seit letzter Aktualisierung eines Heartbeat-Datapoints.">
-            Heartbeat Timeout Sekunden
-            <input id="healthHeartbeatTimeoutSec" type="number" min="1" max="120" step="1" value="2" />
-          </label>
-          <label title="Wenn aktiv und keine PIR-Online-IDs gesetzt sind, nutzt PIR den Türkontakt-Health.">
-            PIR nutzt Tür-Health
-            <select id="healthPirUseDoorHealth">
-              <option value="true">true</option>
-              <option value="false">false</option>
-            </select>
-          </label>
-        </div>
-      </section>
-      <section class="card">
         <h2>Canvas Elemente</h2>
         <div class="row">
           <label>Suche<input id="canvasEntitySearch" type="text" placeholder="Label, Key, Datapoint, Zone, Etage" /></label>
@@ -238,6 +216,11 @@
           <label title="Relativer Pfad unter admin/webui, z. B. ./assets/grundriss-og-clean.jpg">OG Bild
             <input id="floorplanOgInput" type="text" placeholder="./assets/floorplan-dashboard.jpg" />
           </label>
+        </div>
+        <div class="row">
+          <label>EG Upload<input id="floorplanEgUpload" type="file" accept="image/*" /></label>
+          <label>OG Upload<input id="floorplanOgUpload" type="file" accept="image/*" /></label>
+          <button id="uploadFloorplansBtn" class="btn">Bilder hochladen</button>
         </div>
         <p class="muted">Tipp: Beschriftungen/Quadratmeter können nur über eine bereinigte Bilddatei entfernt werden.</p>
       </section>
@@ -296,6 +279,32 @@
         <label title="Wenn true, darf dieses Element bei Ausloesung die Sirene aktivieren.">Sirene ausloesen<select id="ruleSirene"><option value="false">false</option><option value="true">true</option></select></label>
         <label title="Wenn true, wird bei Ausloesung ein Snapshot-Workflow gestartet (sofern Snapshot-Datapoints konfiguriert sind).">Snapshot senden<select id="ruleSnapshot"><option value="false">false</option><option value="true">true</option></select></label>
         <label title="Wenn true, wird bei Ausloesung eine Telegram-Benachrichtigung gesendet (sofern Telegram-IDs gesetzt sind).">Telegram senden<select id="ruleTelegram"><option value="false">false</option><option value="true">true</option></select></label>
+        <label title="Health-Modus für dieses Element.">
+          Health Check
+          <select id="ruleHealthMode">
+            <option value="none">none</option>
+            <option value="heartbeat">heartbeat</option>
+            <option value="online">online</option>
+          </select>
+        </label>
+        <label title="Heartbeat-Datapoint (bei heartbeat-Modus).">
+          Heartbeat Datapoint
+          <span class="input-wrap">
+            <input id="ruleHealthHeartbeatId" class="state-input" list="stateIds" type="text" />
+            <button id="browseRuleHeartbeatIdBtn" class="icon-btn" type="button" title="Objektbrowser öffnen">🔎</button>
+          </span>
+        </label>
+        <label title="Maximaler Abstand zwischen zwei Heartbeats in Sekunden.">
+          Heartbeat max. Intervall (s)
+          <input id="ruleHealthHeartbeatMaxSec" type="number" min="1" max="120" step="1" value="2" />
+        </label>
+        <label title="Online-Datapoint (bei online-Modus, boolean).">
+          Online Datapoint
+          <span class="input-wrap">
+            <input id="ruleHealthOnlineId" class="state-input" list="stateIds" type="text" />
+            <button id="browseRuleOnlineIdBtn" class="icon-btn" type="button" title="Objektbrowser öffnen">🔎</button>
+          </span>
+        </label>
       </div>
       <div class="row">
         <button id="saveEntityRuleBtn" class="btn">Für Element speichern</button>
