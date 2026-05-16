@@ -159,6 +159,7 @@ details summary{cursor:pointer;color:var(--muted);font-weight:600}
 .designer-item .arch-soft-fill{fill:rgba(124,242,165,.18);stroke:#7cf2a5;stroke-width:1}
 .designer-item.selected{stroke:#d7ffe8;filter:drop-shadow(0 0 4px rgba(124,242,165,.28))}
 .designer-item-rotate{cursor:pointer}
+.designer-item-rotate-hit{fill:transparent;stroke:none;pointer-events:all}
 .designer-item-rotate circle{fill:#0e1a12;stroke:#8bffbd;stroke-width:1.3}
 .designer-item-rotate path{stroke:#8bffbd;stroke-width:1.3;fill:none;stroke-linecap:round}
 .designer-item-mirror{cursor:pointer}

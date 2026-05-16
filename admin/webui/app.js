@@ -129,7 +129,11 @@
       selectedItemId: null,
       dragResizeItemId: null,
       dragResizeStart: null,
-      dragResizeOrig: null
+      dragResizeOrig: null,
+      dragRotateItemId: null,
+      dragRotateCenter: null,
+      dragRotateStartAngle: null,
+      dragRotateOrigRotation: null
     },
     designerHistory: []
   };
@@ -1232,6 +1236,10 @@
       state.designer.dragResizeItemId = null;
       state.designer.dragResizeStart = null;
       state.designer.dragResizeOrig = null;
+      state.designer.dragRotateItemId = null;
+      state.designer.dragRotateCenter = null;
+      state.designer.dragRotateStartAngle = null;
+      state.designer.dragRotateOrigRotation = null;
       state.designer.drawingPerimeter = null;
       saveDesignerData();
       renderDesigner();
@@ -1490,7 +1498,7 @@
     if (handles) {
       const rx = hw + 14;
       const ry = -hh - 14;
-      controls += `<g class="designer-item-rotate" data-item-rotate="${it.id}" transform="translate(${rx},${ry})"><circle cx="0" cy="0" r="8"></circle><path d="M -3 1 A 4 4 0 1 1 3 -1"></path></g>`;
+      controls += `<g class="designer-item-rotate" data-item-rotate="${it.id}" transform="translate(${rx},${ry})"><circle class="designer-item-rotate-hit" cx="0" cy="0" r="16"></circle><circle cx="0" cy="0" r="8"></circle><path d="M -3 1 A 4 4 0 1 1 3 -1"></path></g>`;
       if (type === 'door') {
         controls += `<g class="designer-item-mirror" data-item-mirror="${it.id}" transform="translate(${-hw - 14},${-hh - 14})"><circle cx="0" cy="0" r="8"></circle><path d="M -4 0 H 4 M -2 -2 L -4 0 L -2 2 M 2 -2 L 4 0 L 2 2"></path></g>`;
       }
@@ -1701,11 +1709,15 @@
         const it = findDesignerItemById(m, itemId);
         if (it) {
           snapshotDesignerState();
-          it.r = Number((Number(it.r || 0) + 15).toFixed(2));
           state.designer.selectedItemId = itemId;
-          saveDesignerData();
+          const cx = Number(it.x) || 0;
+          const cy = Number(it.y) || 0;
+          state.designer.dragRotateItemId = itemId;
+          state.designer.dragRotateCenter = { x: cx, y: cy };
+          state.designer.dragRotateStartAngle = Math.atan2(Number(p.y) - cy, Number(p.x) - cx);
+          state.designer.dragRotateOrigRotation = Number(it.r || 0);
+          svg.setPointerCapture(e.pointerId);
           renderDesigner();
-          renderAllCanvases();
         }
         return;
       }
@@ -1888,6 +1900,25 @@
         renderDesigner();
         return;
       }
+      if (
+        state.designer.dragRotateItemId
+        && state.designer.dragRotateCenter
+        && Number.isFinite(Number(state.designer.dragRotateStartAngle))
+        && Number.isFinite(Number(state.designer.dragRotateOrigRotation))
+      ) {
+        const it = findDesignerItemById(m, state.designer.dragRotateItemId);
+        if (!it) return;
+        const cx = Number(state.designer.dragRotateCenter.x || 0);
+        const cy = Number(state.designer.dragRotateCenter.y || 0);
+        const now = Math.atan2(Number(p.y) - cy, Number(p.x) - cx);
+        const start = Number(state.designer.dragRotateStartAngle);
+        let delta = ((now - start) * 180) / Math.PI;
+        while (delta > 180) delta -= 360;
+        while (delta < -180) delta += 360;
+        it.r = Number((Number(state.designer.dragRotateOrigRotation) + delta).toFixed(2));
+        renderDesigner();
+        return;
+      }
       if (state.designer.dragWallPoint) {
         const info = state.designer.dragWallPoint;
         const wall = findDesignerWallById(m, info.wallId);
@@ -1966,6 +1997,13 @@
         state.designer.dragResizeOrig = null;
         changed = true;
       }
+      if (state.designer.dragRotateItemId) {
+        state.designer.dragRotateItemId = null;
+        state.designer.dragRotateCenter = null;
+        state.designer.dragRotateStartAngle = null;
+        state.designer.dragRotateOrigRotation = null;
+        changed = true;
+      }
       if (state.designer.dragItemId) {
         state.designer.dragItemId = null;
         changed = true;
@@ -2013,6 +2051,10 @@
       state.designer.dragResizeItemId = null;
       state.designer.dragResizeStart = null;
       state.designer.dragResizeOrig = null;
+      state.designer.dragRotateItemId = null;
+      state.designer.dragRotateCenter = null;
+      state.designer.dragRotateStartAngle = null;
+      state.designer.dragRotateOrigRotation = null;
       state.designer.dragItemId = null;
       state.designer.dragWallId = null;
       state.designer.dragWallPoint = null;
@@ -2497,6 +2539,10 @@
       ui.designerTool.addEventListener('change', () => {
         state.designer.pendingBeamConnect = null;
         state.designer.wallFinishCooldownUntil = 0;
+        state.designer.dragRotateItemId = null;
+        state.designer.dragRotateCenter = null;
+        state.designer.dragRotateStartAngle = null;
+        state.designer.dragRotateOrigRotation = null;
         state.designer.drawingWallCursor = null;
         if (String(ui.designerTool.value || '') !== 'wall') {
           state.designer.drawingWall = null;
@@ -2638,6 +2684,10 @@
         state.designer.dragResizeItemId = null;
         state.designer.dragResizeStart = null;
         state.designer.dragResizeOrig = null;
+        state.designer.dragRotateItemId = null;
+        state.designer.dragRotateCenter = null;
+        state.designer.dragRotateStartAngle = null;
+        state.designer.dragRotateOrigRotation = null;
         state.designer.wallFinishCooldownUntil = 0;
         state.designer.drawingPerimeter = null;
         saveDesignerData();
