@@ -368,8 +368,8 @@ body.overview-layout-floating #overviewPage .canvas-shell{
 body.overview-layout-floating #overviewPage .zone-canvas{
   min-height:820px;
   height:calc(90dvh - 64px);
-  width:calc(100% - 356px);
-  margin-left:342px;
+  width:calc(100% - 394px);
+  margin-left:380px;
   margin-top:-26px;
 }
 body.overview-layout-floating #overviewPage .status-mini{
