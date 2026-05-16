@@ -2396,7 +2396,7 @@
     const activeTool = String(ui.designerTool?.value || 'select');
     svg.classList.toggle('erase-mode', activeTool === 'erase');
     svg.setAttribute('viewBox', `0 0 ${ws.w} ${ws.h}`);
-    svg.setAttribute('preserveAspectRatio', 'none');
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
     if (ui.designerGrid) ui.designerGrid.value = String(Math.max(4, Number(state.designer.grid || 12)));
     if (ui.designerSnapBtn) ui.designerSnapBtn.textContent = `Snap: ${state.designer.snap ? 'an' : 'aus'}`;
     if (ui.designerZoomInfo) ui.designerZoomInfo.textContent = `Workspace x${ws.scale.toFixed(2)}`;
@@ -2413,6 +2413,7 @@
       ui.designerShowSensorsBtn.classList.toggle('ghost', !state.designer.showSensorsPreview);
     }
     const grid = Math.max(4, Number(state.designer.grid || 12));
+    svg.style.setProperty('--designer-grid-size', `${grid}px`);
     let html = '';
     if (view.showBg) {
       const href = designerBgForFloor().replace(/"/g, '&quot;');
