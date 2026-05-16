@@ -130,6 +130,15 @@ label{display:grid;gap:6px;min-width:220px} input,select,textarea{background:var
 .sensor-item.assigned{background:#0f2e1a;border-color:#2f8a45}
 .sensor-item.unassigned{background:#2d260f;border-color:#a88a2f}
 .pool-zone{border:1px dashed var(--line-strong);border-radius:12px;padding:10px;min-height:160px;background:#101010}.sensor-list{display:grid;gap:8px;max-height:210px;overflow:auto}.sensor-item{display:flex;justify-content:space-between;background:#151515;border:1px solid var(--line-strong);border-radius:10px;padding:10px;cursor:grab}
+.cfg-list-row{align-items:flex-start;gap:10px}
+.cfg-main{display:grid;gap:6px;min-width:0}
+.cfg-actions{display:flex;gap:8px;justify-content:flex-end}
+.cfg-chip-row{display:flex;flex-wrap:wrap;gap:6px}
+.cfg-chip{display:inline-flex;align-items:center;justify-content:center;height:22px;min-width:24px;padding:0 8px;border-radius:999px;border:1px solid var(--line-strong);background:#121212;color:#e7edf5;font-size:12px;font-weight:700;line-height:1}
+.cfg-chip-zone{background:rgba(214,98,106,.18);border-color:rgba(255,131,142,.5);color:#ffcdd5}
+.cfg-chip-floor{background:rgba(88,164,255,.16);border-color:rgba(120,184,255,.45);color:#c8e6ff}
+.cfg-chip.cfg-on{background:rgba(55,210,140,.18);border-color:rgba(98,242,176,.48);color:#d4ffea}
+.cfg-chip.cfg-off{opacity:.58}
 .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.status{margin:0;padding:10px;border-radius:10px;border:1px solid var(--line-strong);background:#0f0f0f}.status.err{border-color:#a44;color:#ffd4d4}
 .status-shield{display:flex;align-items:center;justify-content:center;gap:10px;min-height:92px;margin:0 0 8px;border-radius:10px;border:1px solid var(--line-strong);font-size:1.2rem;font-weight:800;letter-spacing:.5px;background:#0f0f0f;white-space:nowrap;text-align:center;padding:0 18px}
 .status-shield svg{width:30px;height:30px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
@@ -155,6 +164,10 @@ details summary{cursor:pointer;color:var(--muted);font-weight:600}
 .panic-btn.on{border-color:#2d8f54;background:linear-gradient(135deg,#145f34,#2dbf6d);box-shadow:none}
 .btn.toggle-on{background:#7a1414;border-color:#b1262f;color:#fff}
 .btn.toggle-off{background:#145f34;border-color:#2dbf6d;color:#fff}
+.ui-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(14px);padding:10px 14px;border-radius:10px;border:1px solid var(--line-strong);background:rgba(8,10,8,.92);color:#eaf3ff;font-weight:600;letter-spacing:.2px;opacity:0;pointer-events:none;z-index:220;transition:opacity .18s ease,transform .18s ease;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+.ui-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.ui-toast.ok{border-color:#2f8a45;color:#d8ffe5;background:linear-gradient(180deg,rgba(20,98,52,.93),rgba(7,20,12,.95))}
+.ui-toast.err{border-color:#a22;color:#ffe0e0;background:linear-gradient(180deg,rgba(116,26,33,.94),rgba(23,8,10,.95))}
 .designer-wrap{margin-top:12px;border:1px dashed var(--line-strong);border-radius:14px;background:linear-gradient(180deg,rgba(0,0,0,.18),rgba(0,0,0,.10));overflow:hidden}
 .designer-bind-panel{margin-top:12px;padding:12px;border-radius:12px;border:1px solid var(--line-strong);background:#101010}
 .designer-svg{

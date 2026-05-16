@@ -146,6 +146,7 @@
     dragResize: null,
     dragZonePoint: null,
     suppressZoneClickOnce: false,
+    toastTimer: null,
     canvasHistory: [],
     floorRatios: { EG: 0.907, OG: 0.906 }
     ,designer: {
@@ -204,6 +205,25 @@
     if (!ui.status) return;
     ui.status.textContent = m;
     ui.status.classList.toggle('err', e);
+  };
+  const showToast = (msg, isErr = false) => {
+    if (!msg) return;
+    let toast = $('uiToast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'uiToast';
+      toast.className = 'ui-toast';
+      document.body.appendChild(toast);
+    }
+    toast.textContent = String(msg);
+    toast.classList.remove('ok', 'err', 'show');
+    toast.classList.add(isErr ? 'err' : 'ok');
+    void toast.offsetWidth;
+    toast.classList.add('show');
+    if (state.toastTimer) window.clearTimeout(state.toastTimer);
+    state.toastTimer = window.setTimeout(() => {
+      toast.classList.remove('show');
+    }, 2300);
   };
   const isTruthyOnline = v => {
     if (v === true || v === 1) return true;
@@ -491,7 +511,9 @@
         idx,
         floor,
         zone: String(r.zone || 'pool'),
+        healthCheckMode: String(r.healthCheckMode || 'none'),
         key: String(r.key || ''),
+        entityKey: String(r.key || id),
         label: String(r.label || r.key || id),
         id: String(id),
         posXEg: Number(r.posXEg),
@@ -1087,6 +1109,7 @@
   function renderCanvasEntitiesList() {
     if (!ui.canvasEntitiesList) return;
     const q = String(ui.canvasEntitySearch?.value || '').trim().toLowerCase();
+    const rulesMap = getRulesMap();
     const rows = getAllCanvasEntities()
       .filter(e => {
         if (!q) return true;
@@ -1098,12 +1121,27 @@
       return;
     }
     ui.canvasEntitiesList.innerHTML = rows.map(e => {
+      const zoneTag = e.zone === 'innenraum' ? 'I' : (e.zone === 'aussenhaut' ? 'A' : (e.zone === 'perimeter' ? 'P' : '-'));
+      const floorTag = e.floor === 'OG' ? 'OG' : 'EG';
+      const rule = { ...defaultRule(), ...(rulesMap[ruleId(e)] || {}) };
+      const healthEnabled = String(e.healthCheckMode || 'none') !== 'none';
+      const chips = [
+        `<span class="cfg-chip cfg-chip-zone" title="Zone">${zoneTag}</span>`,
+        `<span class="cfg-chip cfg-chip-floor" title="Etage">${floorTag}</span>`,
+        rule.snapshot ? '<span class="cfg-chip cfg-on" title="Snapshot aktiv">📷</span>' : '',
+        rule.telegram ? '<span class="cfg-chip cfg-on" title="Telegram aktiv">💬</span>' : '',
+        healthEnabled ? '<span class="cfg-chip cfg-on" title="Health-Check aktiv">❤</span>' : ''
+      ].filter(Boolean).join('');
       const pos = e.floor === 'OG'
         ? `${Number.isFinite(e.posXOg) ? e.posXOg.toFixed(1) : '-'} / ${Number.isFinite(e.posYOg) ? e.posYOg.toFixed(1) : '-'}`
         : `${Number.isFinite(e.posXEg) ? e.posXEg.toFixed(1) : '-'} / ${Number.isFinite(e.posYEg) ? e.posYEg.toFixed(1) : '-'}`;
-      return `<div class="sensor-item">
-        <span><strong>${e.label}</strong> <span class="muted">(${kindLabel(e.kind)})</span><br><span class="muted">key=${e.key || '-'} | id=${e.id} | zone=${e.zone} | floor=${e.floor} | pos=${pos}</span></span>
-        <span class="row" style="margin-top:0">
+      return `<div class="sensor-item cfg-list-row">
+        <div class="cfg-main">
+          <div><strong>${e.label}</strong> <span class="muted">(${kindLabel(e.kind)})</span></div>
+          <div class="cfg-chip-row">${chips}</div>
+          <span class="muted">key=${e.key || '-'} | id=${e.id} | zone=${e.zone} | floor=${e.floor} | pos=${pos}</span>
+        </div>
+        <span class="row cfg-actions" style="margin-top:0">
           <button class="btn" data-entity-edit="${e.kind}:${e.idx}">Bearbeiten</button>
           <button class="btn danger" data-entity-del="${e.kind}:${e.idx}">Löschen</button>
         </span>
@@ -3691,6 +3729,7 @@
     await setObject(state.objectId, obj);
     state.instanceObj = obj;
     setStatus(`Gespeichert: ${state.objectId}`);
+    showToast('In Instanz gespeichert');
   }
 
   function loadProfile() {
@@ -4231,6 +4270,7 @@
       setRulesMap(m);
       renderAllCanvases();
       setStatus('Elementeinstellungen gespeichert');
+      showToast('Element-Einstellungen gespeichert');
     });
     $('applyZoneRuleBtn').addEventListener('click', () => {
       if (!state.selectedEntity) return setStatus('Bitte erst ein Element anklicken', true);
