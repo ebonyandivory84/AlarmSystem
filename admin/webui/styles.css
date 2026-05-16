@@ -367,7 +367,10 @@ body.overview-layout-floating #overviewPage .canvas-shell{
 }
 body.overview-layout-floating #overviewPage .zone-canvas{
   min-height:820px;
-  height:90dvh;
+  height:calc(90dvh - 64px);
+  width:calc(100% - 356px);
+  margin-left:342px;
+  margin-top:-26px;
 }
 body.overview-layout-floating #overviewPage .status-mini{
   position:absolute;
