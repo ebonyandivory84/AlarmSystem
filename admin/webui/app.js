@@ -92,7 +92,7 @@
     stateIds: [],
     selectedEntity: null,
     objectTarget: null,
-    live: { perimeterArmed: false, aussenArmed: false, innenArmed: false, fullArmed: false },
+    live: { perimeterArmed: false, aussenArmed: false, innenArmed: false, fullArmed: false, innerFillArmed: false },
     presenceByPerson: { sebastian: false, teresa: false },
     pinInput: '',
     pinTargetAction: null,
@@ -473,7 +473,7 @@
     const wallCutMap = doorCutsByWall(model);
     const perimeterAlarm = !!state.live.perimeterArmed;
     const outerAlarm = perimeterAlarm || !!state.live.aussenArmed;
-    const innerAlarm = !!state.live.fullArmed;
+    const innerAlarm = !!state.live.innerFillArmed;
     const ws = getDesignerWorkspace(true);
     const view = getDesignerFloorView(true);
     const wrap = document.createElement('div');
@@ -497,7 +497,10 @@
     if (innerAlarm) {
       const shell = outerShellPolygon(model);
       if (Array.isArray(shell) && shell.length >= 3) {
-        html += `<polygon class="designer-inner-alarm" points="${wallPointsAttr(shell)}"></polygon>`;
+        const rawId = `designer-inner-hatch-${canvas.id || 'canvas'}-${String(state.currentFloor || 'EG')}`;
+        const hatchId = rawId.replace(/[^a-zA-Z0-9_-]/g, '');
+        html += `<defs><pattern id="${hatchId}" patternUnits="userSpaceOnUse" width="12" height="12" patternTransform="rotate(45)"><line class="designer-inner-hatch-line" x1="0" y1="0" x2="0" y2="12"></line></pattern></defs>`;
+        html += `<polygon class="designer-inner-alarm" fill="url(#${hatchId})" points="${wallPointsAttr(shell)}"></polygon>`;
       }
     }
     if (model.perimeter && Number(model.perimeter.w || 0) > 0 && Number(model.perimeter.h || 0) > 0) {
@@ -2620,7 +2623,8 @@
       perimeterArmed: !!state.live.perimeterArmed,
       aussenArmed: !!state.live.aussenArmed,
       innenArmed: !!state.live.innenArmed,
-      fullArmed: !!state.live.fullArmed
+      fullArmed: !!state.live.fullArmed,
+      innerFillArmed: !!state.live.innerFillArmed
     };
     const mode = await getState(`${p}.runtime.mode`);
     const perDp = await getState(state.config.perimeterStateId || '');
@@ -2642,10 +2646,17 @@
 
     const modeTextRaw = String(mode?.val || '').toLowerCase();
     const modePerimeter = modeTextRaw.includes('perimeter');
-    const modeFull = modeTextRaw === 'armed' || modeTextRaw === 'full' || modeTextRaw === 'all' || modeTextRaw === 'scharf';
+    const modeFull = !modePerimeter && (
+      modeTextRaw === 'armed'
+      || modeTextRaw === 'full'
+      || modeTextRaw === 'all'
+      || modeTextRaw === 'scharf'
+      || modeTextRaw.includes('voll')
+    );
     const rawPerimeter = asArmed(perDp?.val) || asArmed(zPer?.val) || asArmed(zAus?.val) || modePerimeter;
-    const fullArmed = asArmed(allDp?.val) || modeFull;
-    const rawAll = fullArmed || (!modePerimeter && asArmed(zInn?.val));
+    const fullArmed = !modePerimeter && (modeFull || asArmed(allDp?.val) || asArmed(zInn?.val));
+    const innerFillArmed = !modePerimeter && (modeFull || asArmed(zInn?.val));
+    const rawAll = fullArmed;
     const allArmed = rawAll;
     const innenArmed = rawAll || asArmed(zInn?.val);
     const aussenArmed = rawAll || rawPerimeter || asArmed(zAus?.val);
@@ -2670,7 +2681,7 @@
     paintChip(ui.liveAussenhaut, aussenArmed);
     paintChip(ui.liveInnenraum, innenArmed);
     paintChip(ui.liveCameras, camerasArmed);
-    setToggleButton($('toggleAlarmBtn'), 'Alarm', asArmed(allDp?.val) || innenArmed);
+    setToggleButton($('toggleAlarmBtn'), 'Alarm', fullArmed);
     setToggleButton($('togglePerimeterBtn'), 'Perimeter', asArmed(perDp?.val) || perimeterArmed || aussenArmed);
     setToggleButton($('toggleCamerasBtn'), 'Camera', asArmed(cam?.val) || camerasArmed);
     // Keep canvas blink logic aligned with effective armed evaluation
@@ -2679,6 +2690,7 @@
     state.live.aussenArmed = aussenArmed;
     state.live.innenArmed = innenArmed;
     state.live.fullArmed = fullArmed;
+    state.live.innerFillArmed = innerFillArmed;
     applyZoneArmedVisuals(ui.mini);
     applyZoneArmedVisuals(ui.full);
     const armedChanged = (
@@ -2686,6 +2698,7 @@
       || prevLive.aussenArmed !== aussenArmed
       || prevLive.innenArmed !== innenArmed
       || prevLive.fullArmed !== fullArmed
+      || prevLive.innerFillArmed !== innerFillArmed
     );
     if (
       armedChanged
