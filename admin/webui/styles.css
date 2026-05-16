@@ -164,6 +164,7 @@ details summary{cursor:pointer;color:var(--muted);font-weight:600}
 .designer-item.pir-zone{fill:rgba(124,242,165,.11);stroke:#8cffb1}
 .designer-item .coverage-arc{fill:none;stroke:rgba(124,242,165,.65);stroke-width:2.1}
 .designer-item .coverage-anchor{fill:#9effbe;stroke:#0d2a18;stroke-width:1.4}
+.designer-item .coverage-anchor-handle{fill:#c8ffd9;stroke:#0d2a18;stroke-width:1.6;cursor:move}
 .designer-item-rotate{cursor:pointer}
 .designer-item-rotate-hit{fill:transparent;stroke:none;pointer-events:all}
 .designer-item-rotate circle{fill:#0e1a12;stroke:#8bffbd;stroke-width:1.3}

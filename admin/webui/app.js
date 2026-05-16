@@ -140,7 +140,8 @@
       dragRotateItemId: null,
       dragRotateCenter: null,
       dragRotateStartAngle: null,
-      dragRotateOrigRotation: null
+      dragRotateOrigRotation: null,
+      dragAnchorItemId: null
     },
     designerHistory: []
   };
@@ -526,7 +527,7 @@
       const bType = String(item.alarmBindingType || '');
       const bKey = String(item.alarmBindingKey || '');
       const active = !!(bType && bKey && state.liveAlerts?.[bType]?.[bKey]);
-      if (t === 'pirZone' && !active) continue;
+      if ((t === 'pirZone' || t === 'cameraZone') && !active) continue;
       html += svgForDesignerItem({ ...item, alarmActive: active }, { handles: false, selected: false });
     }
     svg.innerHTML += html;
@@ -1391,6 +1392,7 @@
       state.designer.dragResizeItemId = null;
       state.designer.dragResizeStart = null;
       state.designer.dragResizeOrig = null;
+      state.designer.dragAnchorItemId = null;
       state.designer.dragRotateItemId = null;
       state.designer.dragRotateCenter = null;
       state.designer.dragRotateStartAngle = null;
@@ -1896,6 +1898,47 @@
     return t;
   }
 
+  function cameraAnchorToLocal(item, w, h) {
+    const hw = w / 2;
+    const hh = h / 2;
+    const ca = item?.coverageAnchor || { edge: 'top', t: 0.5 };
+    const edge = String(ca.edge || 'top');
+    const t = Math.max(0, Math.min(1, Number(ca.t || 0.5)));
+    if (edge === 'bottom') return { x: -hw + (w * t), y: hh, edge, t };
+    if (edge === 'left') return { x: -hw, y: -hh + (h * t), edge, t };
+    if (edge === 'right') return { x: hw, y: -hh + (h * t), edge, t };
+    return { x: -hw + (w * t), y: -hh, edge: 'top', t };
+  }
+
+  function cameraAnchorFromLocal(w, h, lx, ly) {
+    const hw = w / 2;
+    const hh = h / 2;
+    const x = Math.max(-hw, Math.min(hw, Number(lx || 0)));
+    const y = Math.max(-hh, Math.min(hh, Number(ly || 0)));
+    const dTop = Math.abs(y + hh);
+    const dBottom = Math.abs(y - hh);
+    const dLeft = Math.abs(x + hw);
+    const dRight = Math.abs(x - hw);
+    const min = Math.min(dTop, dBottom, dLeft, dRight);
+    if (min === dLeft) return { edge: 'left', t: Math.max(0, Math.min(1, (y + hh) / h)) };
+    if (min === dRight) return { edge: 'right', t: Math.max(0, Math.min(1, (y + hh) / h)) };
+    if (min === dBottom) return { edge: 'bottom', t: Math.max(0, Math.min(1, (x + hw) / w)) };
+    return { edge: 'top', t: Math.max(0, Math.min(1, (x + hw) / w)) };
+  }
+
+  function toItemLocalPoint(item, p) {
+    const cx = Number(item?.x || 0);
+    const cy = Number(item?.y || 0);
+    const dx = Number(p?.x || 0) - cx;
+    const dy = Number(p?.y || 0) - cy;
+    const rad = -((Number(item?.r || 0) * Math.PI) / 180);
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    const lx = (dx * cos) - (dy * sin);
+    const ly = (dx * sin) + (dy * cos);
+    return { x: lx, y: ly };
+  }
+
   function normalizeDesignerItems(model) {
     if (!model || !Array.isArray(model.items)) return;
     for (const it of model.items) {
@@ -1949,17 +1992,31 @@
       for (let y = -hh + 10; y < hh; y += 10) inner += `<line x1="${-hw}" y1="${y}" x2="${hw}" y2="${y}" class="arch-soft"></line>`;
       for (let x = -hw + 14; x < hw; x += 14) inner += `<line x1="${x}" y1="${-hh}" x2="${x}" y2="${hh}" class="arch-soft"></line>`;
     } else if (type === 'cameraZone') {
-      const ca = it.coverageAnchor || { edge: 'top', t: 0.5 };
-      const edge = String(ca.edge || 'top');
-      const t = Math.max(0, Math.min(1, Number(ca.t || 0.5)));
-      let ax = 0; let ay = -hh;
-      if (edge === 'bottom') { ax = -hw + (w * t); ay = hh; }
-      else if (edge === 'left') { ax = -hw; ay = -hh + (h * t); }
-      else if (edge === 'right') { ax = hw; ay = -hh + (h * t); }
-      else { ax = -hw + (w * t); ay = -hh; }
+      const a = cameraAnchorToLocal(it, w, h);
+      const ax = Number(a.x);
+      const ay = Number(a.y);
+      const dx = -ax;
+      const dy = -ay;
+      const dirLen = Math.hypot(dx, dy) || 1;
+      const dirAng = Math.atan2(dy / dirLen, dx / dirLen);
+      const spread = Math.PI * 0.34;
+      const maxR = Math.hypot(w, h) * 0.85;
+      const rings = 7;
+      const clipId = `cam-clip-${Number(it.id) || 0}`;
+      let arcs = '';
+      for (let i = 1; i <= rings; i++) {
+        const r = (maxR * i) / (rings + 1);
+        const a0 = dirAng - spread;
+        const a1 = dirAng + spread;
+        const x0 = ax + (Math.cos(a0) * r);
+        const y0 = ay + (Math.sin(a0) * r);
+        const x1 = ax + (Math.cos(a1) * r);
+        const y1 = ay + (Math.sin(a1) * r);
+        arcs += `<path class="coverage-arc" d="M ${x0} ${y0} A ${r} ${r} 0 0 1 ${x1} ${y1}"></path>`;
+      }
       inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="4"></rect>`;
-      inner += `<path class="coverage-arc" d="M ${ax} ${ay} Q ${ax - (w * 0.08)} ${ay + (h * 0.18)} ${ax + (w * 0.12)} ${ay + (h * 0.28)}"></path>`;
-      inner += `<path class="coverage-arc" d="M ${ax} ${ay} Q ${ax - (w * 0.2)} ${ay + (h * 0.35)} ${ax + (w * 0.24)} ${ay + (h * 0.52)}"></path>`;
+      inner += `<defs><clipPath id="${clipId}"><rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="4"></rect></clipPath></defs>`;
+      inner += `<g clip-path="url(#${clipId})">${arcs}</g>`;
       inner += `<circle class="coverage-anchor" cx="${ax}" cy="${ay}" r="4"></circle>`;
     } else if (type === 'pirZone') {
       inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="4"></rect>`;
@@ -2058,6 +2115,10 @@
       controls += `<g class="designer-item-move" data-item-move="${it.id}" transform="translate(${-hw - 14},${hh + 14})"><circle cx="0" cy="0" r="8"></circle><path d="M -3 0 H 3 M 0 -3 V 3"></path></g>`;
       if (itemSupportsResize(type)) {
         controls += `<rect class="designer-item-resize" data-item-resize="${it.id}" x="${hw - 5}" y="${hh - 5}" width="10" height="10" rx="2"></rect>`;
+      }
+      if (type === 'cameraZone') {
+        const a = cameraAnchorToLocal(it, w, h);
+        controls += `<circle class="coverage-anchor-handle" data-item-anchor="${it.id}" cx="${a.x}" cy="${a.y}" r="6"></circle>`;
       }
     }
     const cls = `designer-item${type === 'beam' ? ' beam' : ''}${type === 'cameraZone' ? ' camera-zone' : ''}${type === 'pirZone' ? ' pir-zone' : ''}${isSelected ? ' selected' : ''}${it.alarmActive ? ' alarm-item' : ''}`;
@@ -2212,6 +2273,7 @@
       const mirrorEl = e.target.closest('[data-item-mirror]');
       const moveEl = e.target.closest('[data-item-move]');
       const resizeEl = e.target.closest('[data-item-resize]');
+      const anchorEl = e.target.closest('[data-item-anchor]');
       const itemType = String(ui.designerItemType?.value || 'door');
       if (tool === 'place' && itemType === 'beam' && itemEl) {
         const targetId = Number(itemEl.getAttribute('data-item-id'));
@@ -2313,6 +2375,18 @@
           state.designer.dragResizeItemId = itemId;
           state.designer.dragResizeStart = { x: p.x, y: p.y };
           state.designer.dragResizeOrig = { w: Number(it.w || defaultDesignerItemSpec(it.type).w), h: Number(it.h || defaultDesignerItemSpec(it.type).h) };
+          svg.setPointerCapture(e.pointerId);
+          renderDesigner();
+        }
+        return;
+      }
+      if (canMoveExisting && anchorEl) {
+        const itemId = Number(anchorEl.getAttribute('data-item-anchor'));
+        const it = findDesignerItemById(m, itemId);
+        if (it && canonicalDesignerItemType(it.type) === 'cameraZone') {
+          snapshotDesignerState();
+          state.designer.selectedItemId = itemId;
+          state.designer.dragAnchorItemId = itemId;
           svg.setPointerCapture(e.pointerId);
           renderDesigner();
         }
@@ -2441,6 +2515,16 @@
           return;
         }
       }
+      if (state.designer.dragAnchorItemId) {
+        const it = findDesignerItemById(m, state.designer.dragAnchorItemId);
+        if (!it || canonicalDesignerItemType(it.type) !== 'cameraZone') return;
+        const w = Math.max(8, Number(it.w || defaultDesignerItemSpec(it.type).w));
+        const h = Math.max(8, Number(it.h || defaultDesignerItemSpec(it.type).h));
+        const lp = toItemLocalPoint(it, p);
+        it.coverageAnchor = cameraAnchorFromLocal(w, h, lp.x, lp.y);
+        renderDesigner();
+        return;
+      }
       if (state.designer.dragResizeItemId && state.designer.dragResizeStart && state.designer.dragResizeOrig) {
         const it = findDesignerItemById(m, state.designer.dragResizeItemId);
         if (!it) return;
@@ -2563,6 +2647,10 @@
         state.designer.dragResizeOrig = null;
         changed = true;
       }
+      if (state.designer.dragAnchorItemId) {
+        state.designer.dragAnchorItemId = null;
+        changed = true;
+      }
       if (state.designer.dragRotateItemId) {
         state.designer.dragRotateItemId = null;
         state.designer.dragRotateCenter = null;
@@ -2617,6 +2705,7 @@
       state.designer.dragResizeItemId = null;
       state.designer.dragResizeStart = null;
       state.designer.dragResizeOrig = null;
+      state.designer.dragAnchorItemId = null;
       state.designer.dragRotateItemId = null;
       state.designer.dragRotateCenter = null;
       state.designer.dragRotateStartAngle = null;
@@ -3143,6 +3232,7 @@
         state.designer.dragRotateCenter = null;
         state.designer.dragRotateStartAngle = null;
         state.designer.dragRotateOrigRotation = null;
+        state.designer.dragAnchorItemId = null;
         state.designer.drawingWallCursor = null;
         if (String(ui.designerTool.value || '') !== 'wall') {
           state.designer.drawingWall = null;
@@ -3296,6 +3386,7 @@
         state.designer.dragResizeItemId = null;
         state.designer.dragResizeStart = null;
         state.designer.dragResizeOrig = null;
+        state.designer.dragAnchorItemId = null;
         state.designer.dragRotateItemId = null;
         state.designer.dragRotateCenter = null;
         state.designer.dragRotateStartAngle = null;
