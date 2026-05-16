@@ -173,7 +173,7 @@ details summary{cursor:pointer;color:var(--muted);font-weight:600}
 .designer-item-resize{fill:#0e1a12;stroke:#8bffbd;stroke-width:1.3;cursor:nwse-resize}
 .designer-bg{opacity:.58}
 .designer-alarm{stroke:#ff4d57 !important;fill:rgba(255,77,87,.22) !important;animation:blinkZoneLine 1s linear infinite}
-.designer-alarm-line{stroke:#ff4d57 !important;fill:none !important;animation:blinkZoneLine 1s linear infinite}
+.designer-alarm-line{stroke:#ff4d57 !important;fill:none !important;stroke-dasharray:none !important;animation:blinkZoneLine 1s linear infinite}
 @keyframes blinkDesignerHatch{
   0%{opacity:.35}
   50%{opacity:.78}

@@ -1389,8 +1389,6 @@
     }
 
     if (!edgeSet.size || nodeMap.size < 3) return null;
-    const allDeg2 = Array.from(adj.values()).every(s => s.size === 2);
-    if (!allDeg2) return null;
 
     let loopBest = null;
     let loopAreaBest = 0;
@@ -1408,14 +1406,19 @@
         if (curr === start) break;
         const neigh = Array.from(adj.get(curr) || []);
         if (!neigh.length) break;
-        let next = neigh.find(n => n !== prev) || neigh[0];
-        const ek = edgeKey(curr, next);
-        if (!edgeSet.has(ek)) {
-          if (next === start) {
-            path.push(next);
-          }
-          break;
+        const candidates = neigh.filter(n => n !== prev && edgeSet.has(edgeKey(curr, n)));
+        let next = candidates.length ? candidates[0] : null;
+        if (!next) {
+          const toStart = neigh.find(n => n === start && edgeSet.has(edgeKey(curr, n)));
+          if (toStart) next = toStart;
         }
+        if (!next) {
+          const anyUnused = neigh.find(n => edgeSet.has(edgeKey(curr, n)));
+          if (anyUnused) next = anyUnused;
+        }
+        if (!next) break;
+        const ek = edgeKey(curr, next);
+        if (!edgeSet.has(ek)) break;
         edgeSet.delete(ek);
         prev = curr;
         curr = next;
@@ -1433,7 +1436,30 @@
         }
       }
     }
-    return loopBest && loopAreaBest > 1 ? loopBest : null;
+    if (loopBest && loopAreaBest > 1) return loopBest;
+
+    // Last fallback: convex hull over outer-wall nodes, so full-protection hatch still appears.
+    const pts = Array.from(nodeMap.values());
+    if (pts.length < 3) return null;
+    const sorted = pts
+      .map(p => ({ x: Number(p.x), y: Number(p.y) }))
+      .sort((a, b) => (a.x - b.x) || (a.y - b.y));
+    const cross = (o, a, b) => ((a.x - o.x) * (b.y - o.y)) - ((a.y - o.y) * (b.x - o.x));
+    const lower = [];
+    for (const p of sorted) {
+      while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+      lower.push(p);
+    }
+    const upper = [];
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      const p = sorted[i];
+      while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+      upper.push(p);
+    }
+    lower.pop();
+    upper.pop();
+    const hull = lower.concat(upper);
+    return hull.length >= 3 ? hull : null;
   }
 
   function projectPointToSegment(px, py, a, b) {
@@ -2646,7 +2672,7 @@
 
     const modeTextRaw = String(mode?.val || '').toLowerCase();
     const modePerimeter = modeTextRaw.includes('perimeter');
-    const modeFull = !modePerimeter && (
+    const modeFull = (
       modeTextRaw === 'armed'
       || modeTextRaw === 'full'
       || modeTextRaw === 'all'
@@ -2654,8 +2680,8 @@
       || modeTextRaw.includes('voll')
     );
     const rawPerimeter = asArmed(perDp?.val) || asArmed(zPer?.val) || asArmed(zAus?.val) || modePerimeter;
-    const fullArmed = !modePerimeter && (modeFull || asArmed(allDp?.val) || asArmed(zInn?.val));
-    const innerFillArmed = !modePerimeter && (modeFull || asArmed(zInn?.val));
+    const fullArmed = modeFull || asArmed(allDp?.val) || asArmed(zInn?.val);
+    const innerFillArmed = fullArmed;
     const rawAll = fullArmed;
     const allArmed = rawAll;
     const innenArmed = rawAll || asArmed(zInn?.val);
