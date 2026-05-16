@@ -3589,7 +3589,7 @@
       ui.designerZoomOutBtn.addEventListener('click', () => {
         const view = getDesignerFloorView();
         const oldScale = normalizedWorkspaceScale(view.workspaceScale);
-        const newScale = normalizedWorkspaceScale(oldScale - 0.25);
+        const newScale = normalizedWorkspaceScale(oldScale + 0.25);
         if (newScale === oldScale) return;
         snapshotDesignerState();
         const model = getDesignerFloorModel();
@@ -3606,7 +3606,7 @@
       ui.designerZoomInBtn.addEventListener('click', () => {
         const view = getDesignerFloorView();
         const oldScale = normalizedWorkspaceScale(view.workspaceScale);
-        const newScale = normalizedWorkspaceScale(oldScale + 0.25);
+        const newScale = normalizedWorkspaceScale(oldScale - 0.25);
         if (newScale === oldScale) return;
         snapshotDesignerState();
         const model = getDesignerFloorModel();
