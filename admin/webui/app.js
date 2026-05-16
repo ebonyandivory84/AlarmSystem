@@ -1408,7 +1408,6 @@
     let inner = '';
     if (type === 'door') {
       const r = Math.min(w, h);
-      inner += `<line x1="${-hw}" y1="${hh}" x2="${-hw}" y2="${-hh}" class="arch-stroke"></line>`;
       inner += `<line x1="${-hw}" y1="${hh}" x2="${hw}" y2="${hh}" class="arch-stroke"></line>`;
       inner += `<path d="M ${-hw} ${hh} A ${r} ${r} 0 0 1 ${hw} ${-hh}" class="arch-soft"></path>`;
     } else if (type === 'cabinet') {
