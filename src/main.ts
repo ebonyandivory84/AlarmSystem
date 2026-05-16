@@ -1169,8 +1169,10 @@ class AlarmSystemAdapter extends utils.Adapter {
   private async sendTelegramText(text: string): Promise<void> {
     for (const inst of this.cfg.telegramInstances) {
       const targets = this.cfg.telegramTargets.filter(t => t.instance === inst.instance);
-      if (targets.length === 0) await this.sendToAsync(inst.instance, 'send', { text });
-      else for (const t of targets) await this.sendToAsync(inst.instance, 'send', { user: t.chatId, text });
+      const payloadBase: Record<string, unknown> = { text };
+      if (inst.token) payloadBase.token = inst.token;
+      if (targets.length === 0) await this.sendToAsync(inst.instance, 'send', payloadBase);
+      else for (const t of targets) await this.sendToAsync(inst.instance, 'send', { ...payloadBase, user: t.chatId });
     }
   }
 
