@@ -339,11 +339,15 @@ body.overview-layout-sidebar #overviewPage .status-mini{
   grid-column:1;
   grid-row:1;
 }
+body.overview-layout-sidebar #overviewPage .status-mini .overview-event-log{
+  max-height:320px;
+}
 body.overview-layout-sidebar #overviewPage .left-stack{
   grid-column:1;
   grid-row:2;
   margin-top:0;
   grid-template-columns:1fr;
+  align-self:end;
 }
 body.overview-layout-sidebar #overviewPage .zone-canvas{
   grid-column:2;
@@ -372,20 +376,44 @@ body.overview-layout-floating #overviewPage .status-mini{
   width:min(360px,calc(100% - 28px));
   z-index:16;
 }
+body.overview-layout-floating #overviewPage .status-mini .overview-event-log{
+  max-height:180px;
+}
 body.overview-layout-floating #overviewPage .left-stack{
   position:absolute;
   left:14px;
+  top:246px;
   bottom:86px;
   width:320px;
   margin-top:0;
   z-index:16;
   grid-template-columns:1fr;
   gap:10px;
+  overflow:auto;
+  padding-right:2px;
 }
 body.overview-layout-floating #overviewPage .left-stack .absence-card,
 body.overview-layout-floating #overviewPage .left-stack .presence-card,
 body.overview-layout-floating #overviewPage .left-stack .status-card{
   display:none;
+}
+body.overview-layout-floating #overviewPage .left-stack .controls-card,
+body.overview-layout-floating #overviewPage .left-stack .floor-card{
+  background:rgba(10,16,14,.42);
+  border-color:rgba(124,242,165,.28);
+  backdrop-filter:blur(7px);
+}
+body.overview-layout-floating #overviewPage .left-stack .btn{
+  background:rgba(16,22,20,.58);
+  border-color:rgba(142,164,155,.42);
+}
+body.overview-layout-floating #overviewPage .left-stack .btn.toggle-off,
+body.overview-layout-floating #overviewPage .left-stack .btn.floor-btn-safe{
+  background:rgba(24,104,57,.62);
+}
+body.overview-layout-floating #overviewPage .left-stack .btn.toggle-on,
+body.overview-layout-floating #overviewPage .left-stack .btn.floor-btn-open{
+  background:rgba(132,22,30,.64);
 }
 body.overview-layout-floating #overviewPage .panic-btn{
   position:absolute;
