@@ -491,12 +491,7 @@
     }
     for (const wall of (model.walls || [])) {
       const cls = Array.isArray(model.outerWallIds) && model.outerWallIds.includes(wall.id) ? 'designer-wall outer' : 'designer-wall';
-      const pts = normalizeWallPoints(wall.points);
-      if (pts.length < 2) continue;
-      const a = offsetWallPolyline(pts, 6);
-      const b = offsetWallPolyline(pts, -6);
-      html += `<polyline class="${cls} wall-edge" fill="none" points="${wallPointsAttr(a)}"></polyline>`;
-      html += `<polyline class="${cls} wall-edge" fill="none" points="${wallPointsAttr(b)}"></polyline>`;
+      html += wallRenderHtml(wall.points, wall.id, cls, false);
     }
     for (const item of (model.items || [])) html += svgForDesignerItem(item, { handles: false, selected: false });
     svg.innerHTML += html;
@@ -1321,6 +1316,35 @@
     return out;
   }
 
+  function wallRenderHtml(points, wallId, cls, interactive = false) {
+    const pts = normalizeWallPoints(points);
+    if (pts.length < 2) return '';
+    const off = 6;
+    if (pts.length === 2) {
+      const a0 = pts[0];
+      const a1 = pts[1];
+      const n = segmentNormal(a0, a1);
+      const l1 = {
+        x1: a0.x + (n.x * off), y1: a0.y + (n.y * off),
+        x2: a1.x + (n.x * off), y2: a1.y + (n.y * off)
+      };
+      const l2 = {
+        x1: a0.x - (n.x * off), y1: a0.y - (n.y * off),
+        x2: a1.x - (n.x * off), y2: a1.y - (n.y * off)
+      };
+      let out = `<line class="${cls} wall-edge"${interactive ? ` data-wall-id="${wallId}"` : ''} x1="${l1.x1}" y1="${l1.y1}" x2="${l1.x2}" y2="${l1.y2}"></line>`;
+      out += `<line class="${cls} wall-edge"${interactive ? ` data-wall-id="${wallId}"` : ''} x1="${l2.x1}" y1="${l2.y1}" x2="${l2.x2}" y2="${l2.y2}"></line>`;
+      if (interactive) out += `<line class="designer-wall-hit" data-wall-id="${wallId}" x1="${a0.x}" y1="${a0.y}" x2="${a1.x}" y2="${a1.y}"></line>`;
+      return out;
+    }
+    const up = offsetWallPolyline(pts, off);
+    const dn = offsetWallPolyline(pts, -off);
+    let out = `<polyline class="${cls} wall-edge"${interactive ? ` data-wall-id="${wallId}"` : ''} points="${wallPointsAttr(up)}"></polyline>`;
+    out += `<polyline class="${cls} wall-edge"${interactive ? ` data-wall-id="${wallId}"` : ''} points="${wallPointsAttr(dn)}"></polyline>`;
+    if (interactive) out += `<polyline class="designer-wall-hit" data-wall-id="${wallId}" points="${wallPointsAttr(pts)}"></polyline>`;
+    return out;
+  }
+
   function pointSegmentDistance(px, py, ax, ay, bx, by) {
     const vx = bx - ax;
     const vy = by - ay;
@@ -1611,13 +1635,9 @@
     const showWallHandles = ['select', 'wall'].includes(activeTool);
     for (const w of (m.walls || [])) {
       const cls = m.outerWallIds?.includes(w.id) ? 'designer-wall outer' : 'designer-wall';
+      html += wallRenderHtml(w.points, w.id, cls, true);
       const pts = normalizeWallPoints(w.points);
       if (pts.length < 2) continue;
-      const a = offsetWallPolyline(pts, 6);
-      const b = offsetWallPolyline(pts, -6);
-      html += `<polyline class="${cls} wall-edge" data-wall-id="${w.id}" points="${wallPointsAttr(a)}"></polyline>`;
-      html += `<polyline class="${cls} wall-edge" data-wall-id="${w.id}" points="${wallPointsAttr(b)}"></polyline>`;
-      html += `<polyline class="designer-wall-hit" data-wall-id="${w.id}" points="${wallPointsAttr(pts)}"></polyline>`;
       if (showWallHandles) {
         for (let i = 0; i < pts.length; i++) {
           const p = pts[i];
