@@ -96,6 +96,7 @@
     designerMoveDownBtn: $('designerMoveDownBtn'),
     designerMoveLeftBtn: $('designerMoveLeftBtn'),
     designerMoveRightBtn: $('designerMoveRightBtn'),
+    designerRotateBtn: $('designerRotateBtn'),
     designerBgBtn: $('designerBgBtn'),
     designerUseOnlyBtn: $('designerUseOnlyBtn'),
     designerPublishBtn: $('designerPublishBtn'),
@@ -1537,6 +1538,53 @@
     if (model.perimeter) {
       model.perimeter.x = Number(model.perimeter.x || 0) + dx;
       model.perimeter.y = Number(model.perimeter.y || 0) + dy;
+    }
+  }
+
+  function rotatePointCW90(p, cx, cy) {
+    const dx = Number(p.x || 0) - cx;
+    const dy = Number(p.y || 0) - cy;
+    return { x: cx + dy, y: cy - dx };
+  }
+
+  function rotateDesignerModelClockwise90(model) {
+    if (!model) return;
+    const ws = getDesignerWorkspace();
+    const cx = ws.w / 2;
+    const cy = ws.h / 2;
+
+    for (const it of (model.items || [])) {
+      const rp = rotatePointCW90({ x: Number(it.x || 0), y: Number(it.y || 0) }, cx, cy);
+      it.x = rp.x;
+      it.y = rp.y;
+      it.r = normalizeAngleDeg(Number(it.r || 0) + 90);
+    }
+
+    for (const w of (model.walls || [])) {
+      w.points = (w.points || []).map(pt => rotatePointCW90(pt, cx, cy));
+    }
+
+    if (model.perimeter && Number(model.perimeter.w || 0) > 0 && Number(model.perimeter.h || 0) > 0) {
+      const rx = Number(model.perimeter.x || 0);
+      const ry = Number(model.perimeter.y || 0);
+      const rw = Number(model.perimeter.w || 0);
+      const rh = Number(model.perimeter.h || 0);
+      const corners = [
+        rotatePointCW90({ x: rx, y: ry }, cx, cy),
+        rotatePointCW90({ x: rx + rw, y: ry }, cx, cy),
+        rotatePointCW90({ x: rx + rw, y: ry + rh }, cx, cy),
+        rotatePointCW90({ x: rx, y: ry + rh }, cx, cy)
+      ];
+      const xs = corners.map(c => Number(c.x));
+      const ys = corners.map(c => Number(c.y));
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+      model.perimeter.x = minX;
+      model.perimeter.y = minY;
+      model.perimeter.w = Math.max(0, maxX - minX);
+      model.perimeter.h = Math.max(0, maxY - minY);
     }
   }
 
@@ -3780,6 +3828,17 @@
     }
     if (ui.designerMoveRightBtn) {
       ui.designerMoveRightBtn.addEventListener('click', () => moveDesignerPlan(Number(state.designer.grid || 12), 0));
+    }
+    if (ui.designerRotateBtn) {
+      ui.designerRotateBtn.addEventListener('click', () => {
+        snapshotDesignerState();
+        const model = getDesignerFloorModel();
+        rotateDesignerModelClockwise90(model);
+        saveDesignerData();
+        renderDesigner();
+        renderAllCanvases();
+        setStatus('Grundriss um 90° gedreht');
+      });
     }
     if (ui.designerBgBtn) {
       ui.designerBgBtn.addEventListener('click', () => {
