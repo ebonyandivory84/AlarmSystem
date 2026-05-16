@@ -2288,7 +2288,7 @@
       const isContactVisual = ['door', 'window', 'garagedoor', 'garage'].includes(type);
       const sensorPreview = state.designer.showSensorsPreview && hasBinding && !active
         && ((bType === 'pir' && type === 'pirZone') || (bType === 'camera' && type === 'cameraZone') || (bType === 'contact' && isContactVisual));
-      if (isSurface && !active && !sensorPreview) continue;
+      if (isSurface && hasBinding && !active && !sensorPreview) continue;
       html += svgForDesignerItem(
         { ...it, alarmActive: active, sensorPreview },
         { handles: showItemHandles && Number(state.designer.selectedItemId) === Number(it.id), selected: Number(state.designer.selectedItemId) === Number(it.id) }
