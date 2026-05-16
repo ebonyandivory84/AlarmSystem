@@ -1321,6 +1321,40 @@
     return out;
   }
 
+  function pointSegmentDistance(px, py, ax, ay, bx, by) {
+    const vx = bx - ax;
+    const vy = by - ay;
+    const wx = px - ax;
+    const wy = py - ay;
+    const c1 = (vx * wx) + (vy * wy);
+    if (c1 <= 0) return Math.hypot(px - ax, py - ay);
+    const c2 = (vx * vx) + (vy * vy);
+    if (c2 <= c1) return Math.hypot(px - bx, py - by);
+    const t = c1 / c2;
+    const ix = ax + (t * vx);
+    const iy = ay + (t * vy);
+    return Math.hypot(px - ix, py - iy);
+  }
+
+  function nearestWallIdAtPoint(model, p, maxDistance = 22) {
+    const walls = Array.isArray(model?.walls) ? model.walls : [];
+    let bestId = null;
+    let best = Number(maxDistance);
+    for (const w of walls) {
+      const pts = normalizeWallPoints(w.points);
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1];
+        const b = pts[i];
+        const d = pointSegmentDistance(Number(p.x), Number(p.y), Number(a.x), Number(a.y), Number(b.x), Number(b.y));
+        if (d < best) {
+          best = d;
+          bestId = Number(w.id);
+        }
+      }
+    }
+    return Number.isInteger(bestId) ? bestId : null;
+  }
+
   function defaultDesignerItemSpec(typeRaw) {
     const type = String(typeRaw || '');
     if (type === 'door') return { w: 48, h: 48, r: 0 };
@@ -1814,9 +1848,15 @@
         return;
       }
       if (tool === 'outer') {
-        if (!wallEl) return;
+        let id = wallEl ? Number(wallEl.getAttribute('data-wall-id')) : null;
+        if (!Number.isInteger(id)) {
+          id = nearestWallIdAtPoint(m, p, Math.max(16, Number(state.designer.grid || 12) * 1.6));
+        }
+        if (!Number.isInteger(id)) {
+          setStatus('Keine Wand in Reichweite zum Markieren gefunden');
+          return;
+        }
         snapshotDesignerState();
-        const id = Number(wallEl.getAttribute('data-wall-id'));
         m.outerWallIds = Array.isArray(m.outerWallIds) ? m.outerWallIds : [];
         const wasOuter = m.outerWallIds.includes(id);
         if (wasOuter) m.outerWallIds = m.outerWallIds.filter(x => x !== id);
