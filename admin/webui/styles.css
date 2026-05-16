@@ -159,7 +159,15 @@ details summary{cursor:pointer;color:var(--muted);font-weight:600}
 .designer-item .arch-soft{stroke:#9dffbf;stroke-width:1.4;fill:none;stroke-dasharray:5 3}
 .designer-item .arch-soft-fill{fill:rgba(124,242,165,.18);stroke:#7cf2a5;stroke-width:1}
 .designer-item.selected{stroke:#d7ffe8;filter:drop-shadow(0 0 4px rgba(124,242,165,.28))}
-.designer-item.alarm-item{stroke:#ff4d57 !important;fill:rgba(255,77,87,.24) !important;animation:blinkZoneLine 1s linear infinite}
+.designer-item.alarm-item{stroke:#ff0000 !important;fill:rgba(255,0,0,.34) !important;animation:blinkAlarmFast .5s linear infinite}
+.designer-item.alarm-item .arch-stroke,
+.designer-item.alarm-item .arch-soft,
+.designer-item.alarm-item .coverage-arc{stroke:#ff0000 !important}
+.designer-item.alarm-item .arch-soft-fill{fill:rgba(255,0,0,.28) !important;stroke:#ff0000 !important}
+.designer-item.alarm-item .coverage-anchor,
+.designer-item.alarm-item .coverage-anchor-handle{fill:#ff2d2d !important;stroke:#ff0000 !important}
+.designer-item.pir-vignette.alarm-item{stroke:none !important;fill:none !important}
+.designer-item .pir-vignette-fill{stroke:none;animation:blinkAlarmFast .5s linear infinite}
 .designer-item.camera-zone{fill:rgba(124,242,165,.16);stroke:#8cffb1}
 .designer-item.pir-zone{fill:rgba(124,242,165,.11);stroke:#8cffb1}
 .designer-item .coverage-arc{fill:none;stroke:rgba(124,242,165,.65);stroke-width:2.1}
@@ -183,5 +191,10 @@ details summary{cursor:pointer;color:var(--muted);font-weight:600}
   0%{opacity:.35}
   50%{opacity:.78}
   100%{opacity:.35}
+}
+@keyframes blinkAlarmFast{
+  0%{opacity:1}
+  50%{opacity:.35}
+  100%{opacity:1}
 }
 @media (max-width:920px){.grid2{grid-template-columns:1fr}#overviewPage{height:calc(100dvh - 132px)}.zone-canvas{width:calc(100% - 482px);margin-left:274px;margin-right:208px;min-height:360px}.left-stack{left:12px;top:12px;bottom:12px;width:250px;gap:14px}.controls-card,.absence-card,.presence-card,.legend-card,.editor-strip{left:12px;width:250px}.editor-strip{bottom:12px}.canvas-tools{right:12px;top:12px;width:200px}.status-mini{left:calc(274px + (100% - 482px)/2);top:84px;transform:translateX(-50%);width:min(420px,calc(100% - 540px));min-width:220px}.status-text-box{left:274px;right:208px;bottom:12px;width:auto}.btn{min-height:52px;font-size:1rem}.panic-btn{right:12px;bottom:12px;width:200px;min-width:0;min-height:52px}}

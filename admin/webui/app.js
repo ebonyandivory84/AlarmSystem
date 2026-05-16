@@ -333,6 +333,7 @@
       rows.push({
         kind,
         idx,
+        id: String(id),
         entityKey: String(r.key || id),
         label: String(r.label || r.key || id),
         zone: String(r.zone || 'pool'),
@@ -526,9 +527,10 @@
       const t = String(item.type || '');
       const bType = String(item.alarmBindingType || '');
       const bKey = String(item.alarmBindingKey || '');
-      const active = !!(bType && bKey && state.liveAlerts?.[bType]?.[bKey]);
+      const bId = String(item.alarmBindingId || '');
+      const active = !!(bType && ((bKey && state.liveAlerts?.[bType]?.[bKey]) || (bId && state.liveAlerts?.[bType]?.[bId])));
       if ((t === 'pirZone' || t === 'cameraZone') && !active) continue;
-      html += svgForDesignerItem({ ...item, alarmActive: active }, { handles: false, selected: false });
+      html += svgForDesignerItem({ ...item, alarmActive: active }, { handles: false, selected: false, overview: true });
     }
     svg.innerHTML += html;
     wrap.appendChild(svg);
@@ -782,8 +784,8 @@
       if (!it) {
         ui.designerSelectedItemInfo.textContent = 'Objekt: -';
       } else {
-        const bindText = (it.alarmBindingType && it.alarmBindingKey)
-          ? ` | bind=${it.alarmBindingType}:${it.alarmBindingKey}`
+      const bindText = (it.alarmBindingType && it.alarmBindingKey)
+          ? ` | bind=${it.alarmBindingType}:${it.alarmBindingKey}${it.alarmBindingId ? ` (${it.alarmBindingId})` : ''}`
           : '';
         ui.designerSelectedItemInfo.textContent = `Objekt: #${it.id} ${formatDesignerItemType(it.type)}${bindText}`;
       }
@@ -810,6 +812,8 @@
     selectEntity({
       kind: r.kind,
       idx: r.idx,
+      id: String(r.id || ''),
+      entityId: String(r.id || ''),
       entityKey: String(r.key || r.id),
       label: String(r.label || r.key || r.id),
       zone: String(r.zone || 'pool'),
@@ -1486,6 +1490,7 @@
     snapshotDesignerState();
     item.alarmBindingType = bindType;
     item.alarmBindingKey = String(entity.entityKey || entity.label || '').trim();
+    item.alarmBindingId = String(entity.id || entity.entityId || '').trim();
     saveDesignerData();
     renderDesigner();
     renderAllCanvases();
@@ -1503,6 +1508,7 @@
     snapshotDesignerState();
     delete item.alarmBindingType;
     delete item.alarmBindingKey;
+    delete item.alarmBindingId;
     saveDesignerData();
     renderDesigner();
     renderAllCanvases();
@@ -1983,6 +1989,7 @@
     const hh = h / 2;
     const isSelected = !!opts.selected;
     const handles = !!opts.handles;
+    const overview = !!opts.overview;
     const mirrorX = !!it.mirrorX;
     let inner = '';
     if (type === 'door') {
@@ -2030,7 +2037,13 @@
       inner += `<g clip-path="url(#${clipId})">${arcs}</g>`;
       inner += `<circle class="coverage-anchor" cx="${ax}" cy="${ay}" r="4"></circle>`;
     } else if (type === 'pirZone') {
-      inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="4"></rect>`;
+      if (it.alarmActive && overview) {
+        const gradId = `pir-vig-${Number(it.id) || 0}`;
+        inner += `<defs><radialGradient id="${gradId}" cx="50%" cy="50%" r="72%"><stop offset="0%" stop-color="rgba(255,0,0,0.82)"></stop><stop offset="48%" stop-color="rgba(255,0,0,0.56)"></stop><stop offset="78%" stop-color="rgba(255,0,0,0.20)"></stop><stop offset="100%" stop-color="rgba(255,0,0,0.0)"></stop></radialGradient></defs>`;
+        inner += `<rect class="pir-vignette-fill" x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="${Math.max(8, Math.min(w, h) * 0.22)}" fill="url(#${gradId})"></rect>`;
+      } else {
+        inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="4"></rect>`;
+      }
     } else if (type === 'cabinet') {
       inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="2"></rect>`;
       inner += `<line x1="${-hw}" y1="${-hh}" x2="${hw}" y2="${hh}" class="arch-stroke"></line>`;
@@ -2132,7 +2145,8 @@
         controls += `<circle class="coverage-anchor-handle" data-item-anchor="${it.id}" cx="${a.x}" cy="${a.y}" r="6"></circle>`;
       }
     }
-    const cls = `designer-item${type === 'beam' ? ' beam' : ''}${type === 'cameraZone' ? ' camera-zone' : ''}${type === 'pirZone' ? ' pir-zone' : ''}${isSelected ? ' selected' : ''}${it.alarmActive ? ' alarm-item' : ''}`;
+    const pirVignette = type === 'pirZone' && it.alarmActive && overview;
+    const cls = `designer-item${type === 'beam' ? ' beam' : ''}${type === 'cameraZone' ? ' camera-zone' : ''}${type === 'pirZone' ? ' pir-zone' : ''}${pirVignette ? ' pir-vignette' : ''}${isSelected ? ' selected' : ''}${it.alarmActive ? ' alarm-item' : ''}`;
     const body = mirrorX ? `<g class="designer-item-body" transform="scale(-1,1)">${inner}</g>` : `<g class="designer-item-body">${inner}</g>`;
     return `<g class="${cls}" data-item-id="${it.id}" transform="translate(${Number(it.x) || 0},${Number(it.y) || 0}) rotate(${Number(it.r || 0)})">${body}${controls}</g>`;
   }
@@ -2251,7 +2265,8 @@
     for (const it of (m.items || [])) {
       const bType = String(it.alarmBindingType || '');
       const bKey = String(it.alarmBindingKey || '');
-      const active = !!(bType && bKey && state.liveAlerts?.[bType]?.[bKey]);
+      const bId = String(it.alarmBindingId || '');
+      const active = !!(bType && ((bKey && state.liveAlerts?.[bType]?.[bKey]) || (bId && state.liveAlerts?.[bType]?.[bId])));
       html += svgForDesignerItem({ ...it, alarmActive: active }, { handles: showItemHandles && Number(state.designer.selectedItemId) === Number(it.id), selected: Number(state.designer.selectedItemId) === Number(it.id) });
     }
     if (state.designer.drawingWall && state.designer.drawingWall.length > 0) {
@@ -3616,6 +3631,8 @@
           selectEntity({
             kind,
             idx,
+            id: String(id || ''),
+            entityId: String(id || ''),
             entityKey: String(row.key || id),
             label: String(row.label || row.key || id),
             zone: String(row.zone || 'pool'),
