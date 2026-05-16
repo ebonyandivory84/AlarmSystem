@@ -370,7 +370,7 @@ body.overview-layout-floating #overviewPage .zone-canvas{
   height:calc(90dvh - 64px);
   width:calc(100% - 394px);
   margin-left:380px;
-  margin-top:-26px;
+  margin-top:0;
 }
 body.overview-layout-floating #overviewPage .status-mini{
   position:absolute;
