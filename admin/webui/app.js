@@ -1256,6 +1256,17 @@
     return Math.round(v / g) * g;
   }
 
+  function normalizeAngleDeg(v) {
+    let a = Number(v) || 0;
+    while (a <= -180) a += 360;
+    while (a > 180) a -= 360;
+    return a;
+  }
+
+  function snapRightAngleDeg(v) {
+    return normalizeAngleDeg(Math.round((Number(v) || 0) / 90) * 90);
+  }
+
   function svgPoint(evt) {
     const svg = ui.designerSvg;
     const ws = getDesignerWorkspace();
@@ -1393,6 +1404,12 @@
       if (!Number.isFinite(Number(it.x))) it.x = 0;
       if (!Number.isFinite(Number(it.y))) it.y = 0;
       it.mirrorX = !!it.mirrorX;
+      if (String(it.type || '') === 'door') {
+        const side = Math.max(12, snapDesigner(Math.max(Number(it.w || d.w), Number(it.h || d.h))));
+        it.w = side;
+        it.h = side;
+        it.r = snapRightAngleDeg(it.r);
+      }
     }
   }
 
@@ -1407,9 +1424,12 @@
     const mirrorX = !!it.mirrorX;
     let inner = '';
     if (type === 'door') {
-      const r = Math.min(w, h);
-      inner += `<line x1="${-hw}" y1="${hh}" x2="${hw}" y2="${hh}" class="arch-stroke"></line>`;
-      inner += `<path d="M ${-hw} ${hh} A ${r} ${r} 0 0 1 ${hw} ${-hh}" class="arch-soft"></path>`;
+      const side = Math.max(12, Math.min(w, h));
+      const hs = side / 2;
+      const hx = -hs;
+      const hy = hs;
+      inner += `<line x1="${hx}" y1="${hy}" x2="${hx + side}" y2="${hy}" class="arch-stroke"></line>`;
+      inner += `<path d="M ${hx + side} ${hy} A ${side} ${side} 0 0 0 ${hx} ${hy - side}" class="arch-stroke"></path>`;
     } else if (type === 'cabinet') {
       inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="2"></rect>`;
       inner += `<line x1="${-hw}" y1="${-hh}" x2="${hw}" y2="${hh}" class="arch-stroke"></line>`;
@@ -1894,6 +1914,10 @@
           const s = Math.max(nextW, nextH);
           nextW = s;
           nextH = s;
+        } else if (String(it.type || '') === 'door') {
+          const s = Math.max(nextW, nextH);
+          nextW = s;
+          nextH = s;
         }
         it.w = nextW;
         it.h = nextH;
@@ -1915,7 +1939,8 @@
         let delta = ((now - start) * 180) / Math.PI;
         while (delta > 180) delta -= 360;
         while (delta < -180) delta += 360;
-        it.r = Number((Number(state.designer.dragRotateOrigRotation) + delta).toFixed(2));
+        const raw = Number(state.designer.dragRotateOrigRotation) + delta;
+        it.r = snapRightAngleDeg(raw);
         renderDesigner();
         return;
       }
