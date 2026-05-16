@@ -1711,9 +1711,11 @@
 
   function svgPoint(evt) {
     const ws = getDesignerWorkspace();
-    const rect = ui.designerSvg.getBoundingClientRect();
-    const relX = ((Number(evt.clientX) - rect.left) / Math.max(1, rect.width)) * ws.w;
-    const relY = ((Number(evt.clientY) - rect.top) / Math.max(1, rect.height)) * ws.h;
+    const pt = ui.designerSvg.createSVGPoint();
+    pt.x = Number(evt.clientX);
+    pt.y = Number(evt.clientY);
+    const ctm = ui.designerSvg.getScreenCTM();
+    const p = ctm ? pt.matrixTransform(ctm.inverse()) : { x: 0, y: 0 };
     const clamp = (v, max) => Math.max(0, Math.min(max, Number(v)));
     const snapInBounds = (v, max) => {
       const c = clamp(v, max);
@@ -1724,7 +1726,7 @@
       if (c >= (max - edgeBand)) return max;
       return Math.round(c / g) * g;
     };
-    return { x: snapInBounds(relX, ws.w), y: snapInBounds(relY, ws.h) };
+    return { x: snapInBounds(p.x, ws.w), y: snapInBounds(p.y, ws.h) };
   }
 
   function findDesignerWallById(model, wallId) {
