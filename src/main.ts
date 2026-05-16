@@ -457,7 +457,15 @@ class AlarmSystemAdapter extends utils.Adapter {
 
   private parseTelegramTargets(rows: any): TelegramTargetDef[] {
     if (!Array.isArray(rows)) return [];
-    return rows.filter(r => r?.instance && r?.chatId).map((r: any) => ({ instance: String(r.instance), chatId: String(r.chatId) }));
+    const out: TelegramTargetDef[] = [];
+    for (const r of rows) {
+      const instance = String(r?.instance || '').trim();
+      const raw = String(r?.chatId || '').trim();
+      if (!instance || !raw) continue;
+      const chatIds = this.parseCsv(raw);
+      for (const chatId of chatIds) out.push({ instance, chatId });
+    }
+    return out;
   }
 
   private parseZone(v: any): Zone {
