@@ -2422,10 +2422,28 @@
         const it = findDesignerItemById(m, itemId);
         if (it && itemSupportsResize(it.type)) {
           snapshotDesignerState();
+          const baseW = Number(it.w || defaultDesignerItemSpec(it.type).w);
+          const baseH = Number(it.h || defaultDesignerItemSpec(it.type).h);
+          const cx = Number(it.x || 0);
+          const cy = Number(it.y || 0);
+          const rDeg = Number(it.r || 0);
+          const rRad = (rDeg * Math.PI) / 180;
+          const cos = Math.cos(rRad);
+          const sin = Math.sin(rRad);
+          const fx = cx + ((-baseW / 2) * cos) - ((-baseH / 2) * sin);
+          const fy = cy + ((-baseW / 2) * sin) + ((-baseH / 2) * cos);
           state.designer.selectedItemId = itemId;
           state.designer.dragResizeItemId = itemId;
           state.designer.dragResizeStart = { x: p.x, y: p.y };
-          state.designer.dragResizeOrig = { w: Number(it.w || defaultDesignerItemSpec(it.type).w), h: Number(it.h || defaultDesignerItemSpec(it.type).h) };
+          state.designer.dragResizeOrig = {
+            w: baseW,
+            h: baseH,
+            x: cx,
+            y: cy,
+            r: rDeg,
+            fixedX: fx,
+            fixedY: fy
+          };
           svg.setPointerCapture(e.pointerId);
           renderDesigner();
         }
@@ -2579,12 +2597,19 @@
       if (state.designer.dragResizeItemId && state.designer.dragResizeStart && state.designer.dragResizeOrig) {
         const it = findDesignerItemById(m, state.designer.dragResizeItemId);
         if (!it) return;
-        const dx = p.x - Number(state.designer.dragResizeStart.x || 0);
-        const dy = p.y - Number(state.designer.dragResizeStart.y || 0);
-        const baseW = Number(state.designer.dragResizeOrig.w || defaultDesignerItemSpec(it.type).w);
-        const baseH = Number(state.designer.dragResizeOrig.h || defaultDesignerItemSpec(it.type).h);
-        let nextW = snapDesigner(Math.max(12, baseW + (dx * 2)));
-        let nextH = snapDesigner(Math.max(12, baseH + (dy * 2)));
+        const orig = state.designer.dragResizeOrig || {};
+        const rDeg = Number(orig.r || it.r || 0);
+        const rRad = (rDeg * Math.PI) / 180;
+        const cos = Math.cos(rRad);
+        const sin = Math.sin(rRad);
+        const ux = { x: cos, y: sin };
+        const uy = { x: -sin, y: cos };
+        const fx = Number(orig.fixedX || 0);
+        const fy = Number(orig.fixedY || 0);
+        const vx = Number(p.x) - fx;
+        const vy = Number(p.y) - fy;
+        let nextW = snapDesigner(Math.max(12, (vx * ux.x) + (vy * ux.y)));
+        let nextH = snapDesigner(Math.max(12, (vx * uy.x) + (vy * uy.y)));
         if (String(it.type || '') === 'tableRound') {
           const s = Math.max(nextW, nextH);
           nextW = s;
@@ -2596,6 +2621,8 @@
         }
         it.w = nextW;
         it.h = nextH;
+        it.x = fx + ((nextW / 2) * ux.x) + ((nextH / 2) * uy.x);
+        it.y = fy + ((nextW / 2) * ux.y) + ((nextH / 2) * uy.y);
         renderDesigner();
         return;
       }
