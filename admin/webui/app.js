@@ -470,6 +470,7 @@
     const model = getDesignerFloorModel(true);
     if (!model || !hasDesignerGeometry(true)) return;
     normalizeDesignerItems(model);
+    const wallCutMap = doorCutsByWall(model);
     const ws = getDesignerWorkspace(true);
     const view = getDesignerFloorView(true);
     const wrap = document.createElement('div');
@@ -495,7 +496,7 @@
     }
     for (const wall of (model.walls || [])) {
       const cls = Array.isArray(model.outerWallIds) && model.outerWallIds.includes(wall.id) ? 'designer-wall outer' : 'designer-wall';
-      html += wallRenderHtml(wall.points, wall.id, cls, false);
+      html += wallRenderHtml(wall.points, wall.id, cls, false, wallCutMap);
     }
     for (const item of (model.items || [])) html += svgForDesignerItem(item, { handles: false, selected: false });
     svg.innerHTML += html;
@@ -1299,6 +1300,111 @@
     return points.map(p => `${p.x},${p.y}`).join(' ');
   }
 
+  function projectPointToSegment(px, py, a, b) {
+    const ax = Number(a.x);
+    const ay = Number(a.y);
+    const bx = Number(b.x);
+    const by = Number(b.y);
+    const vx = bx - ax;
+    const vy = by - ay;
+    const len2 = (vx * vx) + (vy * vy);
+    if (len2 <= 1e-9) {
+      const d = Math.hypot(Number(px) - ax, Number(py) - ay);
+      return { t: 0, x: ax, y: ay, d, len: 0 };
+    }
+    let t = (((Number(px) - ax) * vx) + ((Number(py) - ay) * vy)) / len2;
+    if (t < 0) t = 0;
+    if (t > 1) t = 1;
+    const x = ax + (t * vx);
+    const y = ay + (t * vy);
+    const d = Math.hypot(Number(px) - x, Number(py) - y);
+    return { t, x, y, d, len: Math.sqrt(len2) };
+  }
+
+  function nearestWallSegment(model, p, maxDistance = Infinity) {
+    const walls = Array.isArray(model?.walls) ? model.walls : [];
+    let best = null;
+    let bestDist = Number(maxDistance);
+    for (const wall of walls) {
+      const pts = normalizeWallPoints(wall.points);
+      if (pts.length < 2) continue;
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1];
+        const b = pts[i];
+        const pr = projectPointToSegment(Number(p.x), Number(p.y), a, b);
+        if (!Number.isFinite(pr.d) || pr.d > bestDist) continue;
+        bestDist = pr.d;
+        best = {
+          wallId: Number(wall.id),
+          segIdx: i - 1,
+          a,
+          b,
+          t: pr.t,
+          x: pr.x,
+          y: pr.y,
+          d: pr.d,
+          len: pr.len,
+          angleDeg: (Math.atan2(Number(b.y) - Number(a.y), Number(b.x) - Number(a.x)) * 180) / Math.PI
+        };
+      }
+    }
+    return best;
+  }
+
+  function snapDoorToWall(item, model, maxDistance = null) {
+    if (!item || String(item.type || '') !== 'door') return false;
+    const threshold = Number.isFinite(Number(maxDistance))
+      ? Number(maxDistance)
+      : Math.max(18, Number(state.designer.grid || 12) * 2);
+    const near = nearestWallSegment(model, { x: Number(item.x), y: Number(item.y) }, threshold);
+    if (!near) return false;
+    item.x = Number(near.x.toFixed(2));
+    item.y = Number(near.y.toFixed(2));
+    item.r = snapRightAngleDeg(near.angleDeg);
+    return true;
+  }
+
+  function mergeIntervals(intervals, minVal, maxVal) {
+    const list = (intervals || [])
+      .map(it => ({ s: Number(it.s), e: Number(it.e) }))
+      .filter(it => Number.isFinite(it.s) && Number.isFinite(it.e) && it.e > it.s)
+      .map(it => ({ s: Math.max(Number(minVal), it.s), e: Math.min(Number(maxVal), it.e) }))
+      .filter(it => it.e > it.s)
+      .sort((a, b) => a.s - b.s);
+    if (!list.length) return [];
+    const out = [list[0]];
+    for (let i = 1; i < list.length; i++) {
+      const cur = list[i];
+      const prev = out[out.length - 1];
+      if (cur.s <= prev.e + 0.001) prev.e = Math.max(prev.e, cur.e);
+      else out.push(cur);
+    }
+    return out;
+  }
+
+  function doorCutsByWall(model) {
+    const cuts = {};
+    if (!model || !Array.isArray(model.items)) return cuts;
+    const attachDist = Math.max(14, Number(state.designer.grid || 12) * 1.5);
+    for (const it of model.items) {
+      if (!it || String(it.type || '') !== 'door') continue;
+      const near = nearestWallSegment(model, { x: Number(it.x), y: Number(it.y) }, attachDist);
+      if (!near || !Number.isFinite(near.len) || near.len <= 1e-6) continue;
+      const side = Math.max(12, Math.min(Number(it.w || 48), Number(it.h || 48)));
+      const half = side / 2;
+      const centerD = near.t * near.len;
+      const s = Math.max(0, centerD - half);
+      const e = Math.min(near.len, centerD + half);
+      if (e - s < 2) continue;
+      const wallKey = String(near.wallId);
+      const segKey = String(near.segIdx);
+      if (!cuts[wallKey]) cuts[wallKey] = {};
+      if (!cuts[wallKey][segKey]) cuts[wallKey][segKey] = [];
+      cuts[wallKey][segKey].push({ s, e });
+    }
+    return cuts;
+  }
+
   function segmentNormal(a, b) {
     const dx = Number(b.x) - Number(a.x);
     const dy = Number(b.y) - Number(a.y);
@@ -1307,7 +1413,7 @@
     return { x: -dy / len, y: dx / len };
   }
 
-  function wallRenderHtml(points, wallId, cls, interactive = false) {
+  function wallRenderHtml(points, wallId, cls, interactive = false, cutMap = null) {
     const pts = normalizeWallPoints(points);
     if (pts.length < 2) return '';
     const off = 6;
@@ -1316,6 +1422,10 @@
       const a0 = pts[i - 1];
       const a1 = pts[i];
       if (isSamePoint(a0, a1)) continue;
+      const dx = Number(a1.x) - Number(a0.x);
+      const dy = Number(a1.y) - Number(a0.y);
+      const segLen = Math.hypot(dx, dy);
+      if (segLen <= 1e-6) continue;
       const n = segmentNormal(a0, a1);
       const l1 = {
         x1: a0.x + (n.x * off), y1: a0.y + (n.y * off),
@@ -1325,8 +1435,33 @@
         x1: a0.x - (n.x * off), y1: a0.y - (n.y * off),
         x2: a1.x - (n.x * off), y2: a1.y - (n.y * off)
       };
-      out += `<line class="${cls} wall-edge"${interactive ? ` data-wall-id="${wallId}"` : ''} x1="${l1.x1}" y1="${l1.y1}" x2="${l1.x2}" y2="${l1.y2}"></line>`;
-      out += `<line class="${cls} wall-edge"${interactive ? ` data-wall-id="${wallId}"` : ''} x1="${l2.x1}" y1="${l2.y1}" x2="${l2.x2}" y2="${l2.y2}"></line>`;
+      const wallCuts = cutMap?.[String(wallId)]?.[String(i - 1)] || [];
+      const merged = mergeIntervals(wallCuts, 0, segLen);
+      const drawPiece = (fromD, toD) => {
+        if ((toD - fromD) < 0.5) return;
+        const u0 = fromD / segLen;
+        const u1 = toD / segLen;
+        const ax1 = l1.x1 + ((l1.x2 - l1.x1) * u0);
+        const ay1 = l1.y1 + ((l1.y2 - l1.y1) * u0);
+        const bx1 = l1.x1 + ((l1.x2 - l1.x1) * u1);
+        const by1 = l1.y1 + ((l1.y2 - l1.y1) * u1);
+        const ax2 = l2.x1 + ((l2.x2 - l2.x1) * u0);
+        const ay2 = l2.y1 + ((l2.y2 - l2.y1) * u0);
+        const bx2 = l2.x1 + ((l2.x2 - l2.x1) * u1);
+        const by2 = l2.y1 + ((l2.y2 - l2.y1) * u1);
+        out += `<line class="${cls} wall-edge"${interactive ? ` data-wall-id="${wallId}"` : ''} x1="${ax1}" y1="${ay1}" x2="${bx1}" y2="${by1}"></line>`;
+        out += `<line class="${cls} wall-edge"${interactive ? ` data-wall-id="${wallId}"` : ''} x1="${ax2}" y1="${ay2}" x2="${bx2}" y2="${by2}"></line>`;
+      };
+      if (!merged.length) {
+        drawPiece(0, segLen);
+      } else {
+        let last = 0;
+        for (const cut of merged) {
+          drawPiece(last, cut.s);
+          last = Math.max(last, cut.e);
+        }
+        drawPiece(last, segLen);
+      }
     }
     if (interactive) out += `<polyline class="designer-wall-hit" data-wall-id="${wallId}" points="${wallPointsAttr(pts)}"></polyline>`;
     return out;
@@ -1429,7 +1564,7 @@
       const hx = -hs;
       const hy = hs;
       inner += `<line x1="${hx}" y1="${hy}" x2="${hx + side}" y2="${hy}" class="arch-stroke"></line>`;
-      inner += `<path d="M ${hx + side} ${hy} A ${side} ${side} 0 0 0 ${hx} ${hy - side}" class="arch-stroke"></path>`;
+      inner += `<path d="M ${hx + side} ${hy} A ${side} ${side} 0 0 0 ${hx} ${hy - side}" class="arch-soft"></path>`;
     } else if (type === 'cabinet') {
       inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="2"></rect>`;
       inner += `<line x1="${-hw}" y1="${-hh}" x2="${hw}" y2="${hh}" class="arch-stroke"></line>`;
@@ -1598,6 +1733,7 @@
     const m = getDesignerFloorModel();
     syncAutoBeamWalls(m);
     normalizeDesignerItems(m);
+    const wallCutMap = doorCutsByWall(m);
     const view = getDesignerFloorView();
     const ws = getDesignerWorkspace();
     const activeTool = String(ui.designerTool?.value || 'select');
@@ -1631,7 +1767,7 @@
     const showWallHandles = ['select', 'wall'].includes(activeTool);
     for (const w of (m.walls || [])) {
       const cls = m.outerWallIds?.includes(w.id) ? 'designer-wall outer' : 'designer-wall';
-      html += wallRenderHtml(w.points, w.id, cls, true);
+      html += wallRenderHtml(w.points, w.id, cls, true, wallCutMap);
       const pts = normalizeWallPoints(w.points);
       if (pts.length < 2) continue;
       if (showWallHandles) {
@@ -1834,6 +1970,8 @@
         if (itemType === 'beam') {
           linkWallBetweenBeams(m, lastBeam, newItem);
           m.lastBeamItemId = id;
+        } else if (itemType === 'door') {
+          snapDoorToWall(newItem, m);
         }
         state.designer.selectedItemId = id;
         saveDesignerData();
@@ -1982,6 +2120,7 @@
         if (!it) return;
         it.x = p.x; it.y = p.y;
         if (String(it.type || '') === 'beam') syncAutoBeamWalls(m);
+        if (String(it.type || '') === 'door') snapDoorToWall(it, m);
         renderDesigner();
         return;
       }
