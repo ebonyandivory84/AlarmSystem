@@ -306,6 +306,96 @@ details summary{cursor:pointer;color:var(--muted);font-weight:600}
   max-width:none;
 }
 
+/* Overview layout modes (cycled via topbar button). */
+body.overview-layout-focus #overviewPage .canvas-shell{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+body.overview-layout-focus #overviewPage .zone-canvas{
+  min-height:760px;
+  height:clamp(760px,88dvh,1280px);
+}
+body.overview-layout-focus #overviewPage .status-mini{
+  left:14px;
+  top:12px;
+  width:min(420px,calc(100% - 28px));
+}
+body.overview-layout-focus #overviewPage .left-stack{
+  margin-top:44px;
+  grid-template-columns:repeat(5,minmax(160px,1fr));
+}
+
+body.overview-layout-sidebar #overviewPage .canvas-shell{
+  display:grid;
+  grid-template-columns:320px minmax(0,1fr);
+  grid-template-rows:auto minmax(0,1fr) auto;
+  gap:12px;
+  align-items:start;
+}
+body.overview-layout-sidebar #overviewPage .status-mini{
+  position:static;
+  width:100%;
+  grid-column:1;
+  grid-row:1;
+}
+body.overview-layout-sidebar #overviewPage .left-stack{
+  grid-column:1;
+  grid-row:2;
+  margin-top:0;
+  grid-template-columns:1fr;
+}
+body.overview-layout-sidebar #overviewPage .zone-canvas{
+  grid-column:2;
+  grid-row:1 / span 3;
+  min-height:780px;
+  height:88dvh;
+}
+body.overview-layout-sidebar #overviewPage .panic-btn{
+  grid-column:1;
+  grid-row:3;
+}
+
+body.overview-layout-floating #overviewPage .canvas-shell{
+  position:relative;
+  display:block;
+  padding-bottom:72px;
+}
+body.overview-layout-floating #overviewPage .zone-canvas{
+  min-height:820px;
+  height:90dvh;
+}
+body.overview-layout-floating #overviewPage .status-mini{
+  position:absolute;
+  left:14px;
+  top:12px;
+  width:min(360px,calc(100% - 28px));
+  z-index:16;
+}
+body.overview-layout-floating #overviewPage .left-stack{
+  position:absolute;
+  left:14px;
+  bottom:86px;
+  width:320px;
+  margin-top:0;
+  z-index:16;
+  grid-template-columns:1fr;
+  gap:10px;
+}
+body.overview-layout-floating #overviewPage .left-stack .absence-card,
+body.overview-layout-floating #overviewPage .left-stack .presence-card,
+body.overview-layout-floating #overviewPage .left-stack .status-card{
+  display:none;
+}
+body.overview-layout-floating #overviewPage .panic-btn{
+  position:absolute;
+  left:14px;
+  right:14px;
+  bottom:14px;
+  width:auto;
+  z-index:16;
+}
+
 #designerPage .designer-wrap{
   width:100%;
   min-height:72dvh;
@@ -327,6 +417,40 @@ details summary{cursor:pointer;color:var(--muted);font-weight:600}
   #overviewPage .overview-event-log{max-height:140px}
   #overviewPage .left-stack{position:static;width:100%;grid-template-columns:1fr;gap:10px}
   #overviewPage .panic-btn{position:static;width:100%}
+  body.overview-layout-sidebar #overviewPage .canvas-shell,
+  body.overview-layout-floating #overviewPage .canvas-shell{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    padding-bottom:0;
+  }
+  body.overview-layout-sidebar #overviewPage .status-mini,
+  body.overview-layout-floating #overviewPage .status-mini{
+    position:static;
+    width:100%;
+  }
+  body.overview-layout-sidebar #overviewPage .left-stack,
+  body.overview-layout-floating #overviewPage .left-stack{
+    position:static;
+    width:100%;
+    grid-template-columns:1fr;
+    margin-top:0;
+  }
+  body.overview-layout-floating #overviewPage .left-stack .absence-card,
+  body.overview-layout-floating #overviewPage .left-stack .presence-card,
+  body.overview-layout-floating #overviewPage .left-stack .status-card{
+    display:block;
+  }
+  body.overview-layout-sidebar #overviewPage .zone-canvas,
+  body.overview-layout-floating #overviewPage .zone-canvas{
+    min-height:420px;
+    height:52dvh;
+  }
+  body.overview-layout-sidebar #overviewPage .panic-btn,
+  body.overview-layout-floating #overviewPage .panic-btn{
+    position:static;
+    width:100%;
+  }
   #designerPage .designer-wrap{min-height:56dvh}
   #designerPage .designer-svg{width:100%;height:56dvh}
 }

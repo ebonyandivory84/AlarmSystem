@@ -33,6 +33,7 @@
     overviewPage: $('overviewPage'),
     designerPage: $('designerPage'),
     settingsPage: $('settingsPage'),
+    layoutModeBtn: $('layoutModeBtn'),
     pageOverviewBtn: $('pageOverviewBtn'),
     pageDesignerBtn: $('pageDesignerBtn'),
     pageSettingsBtn: $('pageSettingsBtn'),
@@ -3395,6 +3396,49 @@
     btn.classList.toggle('ghost', !on);
   }
 
+  const OVERVIEW_LAYOUTS = [
+    { key: 'focus', className: 'overview-layout-focus', label: 'Layout: Fokus' },
+    { key: 'sidebar', className: 'overview-layout-sidebar', label: 'Layout: Sidebar' },
+    { key: 'floating', className: 'overview-layout-floating', label: 'Layout: Floating' }
+  ];
+  const OVERVIEW_LAYOUT_STORAGE_KEY = 'alarmsystem.overviewLayoutMode';
+
+  function normalizeOverviewLayoutKey(raw) {
+    const key = String(raw || '').trim().toLowerCase();
+    if (OVERVIEW_LAYOUTS.some(x => x.key === key)) return key;
+    return 'focus';
+  }
+
+  function currentOverviewLayoutKey() {
+    const cur = document.body.getAttribute('data-overview-layout');
+    return normalizeOverviewLayoutKey(cur);
+  }
+
+  function applyOverviewLayout(key, persist = true) {
+    const resolved = normalizeOverviewLayoutKey(key);
+    document.body.setAttribute('data-overview-layout', resolved);
+    document.body.classList.remove(...OVERVIEW_LAYOUTS.map(x => x.className));
+    const def = OVERVIEW_LAYOUTS.find(x => x.key === resolved) || OVERVIEW_LAYOUTS[0];
+    document.body.classList.add(def.className);
+    if (ui.layoutModeBtn) ui.layoutModeBtn.textContent = def.label;
+    if (persist) {
+      try { localStorage.setItem(OVERVIEW_LAYOUT_STORAGE_KEY, resolved); } catch {}
+    }
+  }
+
+  function cycleOverviewLayout() {
+    const cur = currentOverviewLayoutKey();
+    const idx = Math.max(0, OVERVIEW_LAYOUTS.findIndex(x => x.key === cur));
+    const next = OVERVIEW_LAYOUTS[(idx + 1) % OVERVIEW_LAYOUTS.length];
+    applyOverviewLayout(next.key, true);
+  }
+
+  function restoreOverviewLayout() {
+    let saved = 'focus';
+    try { saved = String(localStorage.getItem(OVERVIEW_LAYOUT_STORAGE_KEY) || 'focus'); } catch {}
+    applyOverviewLayout(saved, false);
+  }
+
   function clampAvatarProfile(p) {
     return normalizeAvatarProfile(p, String(p?.image || ''));
   }
@@ -3781,6 +3825,7 @@
         ui.editZonesBtn.classList.toggle('ghost', !state.editZones);
       }
     };
+    restoreOverviewLayout();
     connectSocket();
     bindPoolDrop();
     bindModal();
@@ -3789,6 +3834,7 @@
 
     $('reloadBtn').addEventListener('click', () => reloadFromInstance().catch(e => setStatus(String(e), true)));
     $('saveBtn').addEventListener('click', () => saveToInstance().catch(e => setStatus(String(e), true)));
+    if (ui.layoutModeBtn) ui.layoutModeBtn.addEventListener('click', cycleOverviewLayout);
     ui.pageOverviewBtn.addEventListener('click', () => switchPage('overview'));
     ui.pageDesignerBtn.addEventListener('click', () => switchPage('designer'));
     ui.pageSettingsBtn.addEventListener('click', () => switchPage('settings'));
