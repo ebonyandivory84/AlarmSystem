@@ -601,6 +601,7 @@
 
   async function refreshAlertStates(flags = {}) {
     const fullArmed = !!flags.fullArmed;
+    const aussenArmed = !!flags.aussenArmed;
     const perimeterArmed = !!flags.perimeterArmed;
     const camerasArmed = !!flags.camerasArmed;
     const showSensors = !!flags.showSensors;
@@ -621,7 +622,7 @@
         } else on = asArmed(st?.val);
         if (!showSensors) {
           if (type === 'pir' && !fullArmed) on = false;
-          if (type === 'contact' && !(fullArmed || perimeterArmed)) on = false;
+          if (type === 'contact' && !(fullArmed || aussenArmed)) on = false;
           if (type === 'camera' && !camerasArmed) on = false;
         }
         if (on) {
@@ -3304,9 +3305,6 @@
     const perDp = await getState(state.config.perimeterStateId || '');
     const hullDp = await getState(getHullProtectionId());
     const allDp = await getState(state.config.armStateId || '');
-    const zPer = await getState(`${p}.zones.perimeter.armed`);
-    const zAus = await getState(`${p}.zones.aussenhaut.armed`);
-    const zInn = await getState(`${p}.zones.innenraum.armed`);
     const cam = await getState(state.config.cctvArmedId || '');
     const prevPresence = state.presenceByPerson || { sebastian: false, teresa: false };
     const prevAlerts = JSON.stringify(state.liveAlerts || {});
@@ -3331,16 +3329,18 @@
       || modeTextRaw === 'scharf'
       || modeTextRaw.includes('voll')
     );
+    // Keep UI semantics strict to configured datapoints:
+    // Alarm=all, Hull=outside shell, Camera=camera only, Perimeter=Hull+Camera.
     const rawPerimeterCombined = asArmed(perDp?.val) || modePerimeter;
-    const rawHull = asArmed(hullDp?.val) || asArmed(zAus?.val);
-    const fullArmed = modeFull || asArmed(allDp?.val) || asArmed(zInn?.val);
+    const rawHull = asArmed(hullDp?.val);
+    const fullArmed = modeFull || asArmed(allDp?.val);
     const innerFillArmed = fullArmed;
     const rawAll = fullArmed;
     const allArmed = rawAll;
-    const innenArmed = rawAll || asArmed(zInn?.val);
+    const innenArmed = rawAll;
     const aussenArmed = rawAll || rawHull || rawPerimeterCombined;
     const camerasArmed = asArmed(cam?.val);
-    const perimeterArmed = rawAll || asArmed(zPer?.val) || camerasArmed || rawPerimeterCombined;
+    const perimeterArmed = rawAll || camerasArmed || rawPerimeterCombined;
 
     const modeText = (perimeterArmed || aussenArmed || innenArmed || allArmed) ? 'armed' : 'disarmed';
     ui.liveMode.textContent = `Mode: ${modeText}`;
@@ -3371,7 +3371,7 @@
     state.live.innenArmed = innenArmed;
     state.live.fullArmed = fullArmed;
     state.live.innerFillArmed = innerFillArmed;
-    await refreshAlertStates({ fullArmed, perimeterArmed, camerasArmed, showSensors: state.overviewShowSensors });
+    await refreshAlertStates({ fullArmed, aussenArmed, perimeterArmed, camerasArmed, showSensors: state.overviewShowSensors });
     await evaluateSystemHealth();
     applyZoneArmedVisuals(ui.mini);
     applyZoneArmedVisuals(ui.full);
