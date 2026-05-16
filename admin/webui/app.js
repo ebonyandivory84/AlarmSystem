@@ -38,6 +38,7 @@
     pageSettingsBtn: $('pageSettingsBtn'),
     floorEgBtn: $('floorEgBtn'),
     floorOgBtn: $('floorOgBtn'),
+    toggleHullBtn: $('toggleHullBtn'),
     editImageBtn: $('editImageBtn'),
     editZonesBtn: $('editZonesBtn'),
     editZoneSelect: $('editZoneSelect'),
@@ -184,7 +185,7 @@
     cameraNightModeEnabled: 'Aktiviert die Kamera-Nachtmodus-Logik im Adapter.',
     cameraNightModeArmsCameras: 'Wenn aktiv, werden Kameras im Nachtmodus automatisch scharf geschaltet.'
   };
-  const dpSpec = ['armStateId','perimeterStateId','triggerStateId','sirenStateId','displayId','clearDisplayId','buzzerId','ledRedId','ledYellowId','standbyId','motionSensorId','panicStateId','fingerprintStateId','pinStateId','statusId'];
+  const dpSpec = ['armStateId','hullProtectionStateId','perimeterStateId','triggerStateId','sirenStateId','displayId','clearDisplayId','buzzerId','ledRedId','ledYellowId','standbyId','motionSensorId','panicStateId','fingerprintStateId','pinStateId','statusId'];
 
   const setStatus = (m,e=false) => {
     if (!ui.status) return;
@@ -352,6 +353,10 @@
       }
     });
     if (!Array.isArray(state.config.zoneActionsTable)) state.config.zoneActionsTable = [];
+  }
+
+  function getHullProtectionId() {
+    return String(state.config?.hullProtectionStateId || 'mqtt.1.AlarmCenter.HullProtection');
   }
 
   function ensureEntityHealthFields(row) {
@@ -2391,6 +2396,7 @@
     const activeTool = String(ui.designerTool?.value || 'select');
     svg.classList.toggle('erase-mode', activeTool === 'erase');
     svg.setAttribute('viewBox', `0 0 ${ws.w} ${ws.h}`);
+    svg.setAttribute('preserveAspectRatio', 'none');
     if (ui.designerGrid) ui.designerGrid.value = String(Math.max(4, Number(state.designer.grid || 12)));
     if (ui.designerSnapBtn) ui.designerSnapBtn.textContent = `Snap: ${state.designer.snap ? 'an' : 'aus'}`;
     if (ui.designerZoomInfo) ui.designerZoomInfo.textContent = `Workspace x${ws.scale.toFixed(2)}`;
@@ -3120,6 +3126,8 @@
     };
     if (which === 'armAlarm') await setState(state.config.armStateId, true);
     if (which === 'disarmAlarm') await setState(state.config.armStateId, false);
+    if (which === 'armHull') await setState(getHullProtectionId(), true);
+    if (which === 'disarmHull') await setState(getHullProtectionId(), false);
     if (which === 'armPerimeter') await setState(state.config.perimeterStateId, true);
     if (which === 'disarmPerimeter') await setState(state.config.perimeterStateId, false);
     if (which === 'armCameras') { const ids = JSON.parse(state.config.cameraAlarmOnIdsJson || '[]'); for (const id of ids) await pulse(id); await pulse(state.config.cctvArmedId); }
@@ -3293,6 +3301,7 @@
     };
     const mode = await getState(`${p}.runtime.mode`);
     const perDp = await getState(state.config.perimeterStateId || '');
+    const hullDp = await getState(getHullProtectionId());
     const allDp = await getState(state.config.armStateId || '');
     const zPer = await getState(`${p}.zones.perimeter.armed`);
     const zAus = await getState(`${p}.zones.aussenhaut.armed`);
@@ -3321,15 +3330,16 @@
       || modeTextRaw === 'scharf'
       || modeTextRaw.includes('voll')
     );
-    const rawPerimeter = asArmed(perDp?.val) || asArmed(zPer?.val) || asArmed(zAus?.val) || modePerimeter;
+    const rawPerimeterCombined = asArmed(perDp?.val) || modePerimeter;
+    const rawHull = asArmed(hullDp?.val) || asArmed(zAus?.val);
     const fullArmed = modeFull || asArmed(allDp?.val) || asArmed(zInn?.val);
     const innerFillArmed = fullArmed;
     const rawAll = fullArmed;
     const allArmed = rawAll;
     const innenArmed = rawAll || asArmed(zInn?.val);
-    const aussenArmed = rawAll || rawPerimeter || asArmed(zAus?.val);
+    const aussenArmed = rawAll || rawHull || rawPerimeterCombined;
     const camerasArmed = asArmed(cam?.val);
-    const perimeterArmed = rawAll || rawPerimeter || asArmed(zPer?.val) || camerasArmed;
+    const perimeterArmed = rawAll || asArmed(zPer?.val) || camerasArmed || rawPerimeterCombined;
 
     const modeText = (perimeterArmed || aussenArmed || innenArmed || allArmed) ? 'armed' : 'disarmed';
     ui.liveMode.textContent = `Mode: ${modeText}`;
@@ -3350,7 +3360,8 @@
     paintChip(ui.liveInnenraum, innenArmed);
     paintChip(ui.liveCameras, camerasArmed);
     setToggleButton($('toggleAlarmBtn'), 'Alarm', fullArmed);
-    setToggleButton($('togglePerimeterBtn'), 'Perimeter', asArmed(perDp?.val) || perimeterArmed || aussenArmed);
+    setToggleButton($('toggleHullBtn'), 'Hull', rawHull || fullArmed);
+    setToggleButton($('togglePerimeterBtn'), 'Perimeter', rawPerimeterCombined || fullArmed);
     setToggleButton($('toggleCamerasBtn'), 'Camera', asArmed(cam?.val) || camerasArmed);
     // Keep canvas blink logic aligned with effective armed evaluation
     // (datapoints + zone states), not only raw zone states.
@@ -3859,6 +3870,16 @@
         const toOn = !asArmed(st?.val);
         if (toOn) await manualControl('armAlarm');
         else openPinModal('disarmAlarm');
+      } catch (e) {
+        setStatus(String(e), true);
+      }
+    });
+    $('toggleHullBtn')?.addEventListener('click', async () => {
+      try {
+        const st = await getState(getHullProtectionId());
+        const toOn = !asArmed(st?.val);
+        if (toOn) await manualControl('armHull');
+        else openPinModal('disarmHull');
       } catch (e) {
         setStatus(String(e), true);
       }

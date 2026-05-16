@@ -95,6 +95,7 @@ interface Config {
   cameraNightModeArmsCameras: boolean;
 
   armStateId: string;
+  hullProtectionStateId: string;
   perimeterStateId: string;
   triggerStateId: string;
   sirenStateId: string;
@@ -200,6 +201,7 @@ class AlarmSystemAdapter extends utils.Adapter {
       cameraNightModeArmsCameras: n.cameraNightModeArmsCameras !== false,
 
       armStateId: n.armStateId || 'mqtt.1.AlarmCenter.AlarmSystemArmed',
+      hullProtectionStateId: n.hullProtectionStateId || 'mqtt.1.AlarmCenter.HullProtection',
       perimeterStateId: n.perimeterStateId || 'mqtt.1.AlarmCenter.PerimeterProtection',
       triggerStateId: n.triggerStateId || 'mqtt.1.AlarmCenter.AlarmTrigger',
       sirenStateId: n.sirenStateId || 'mqtt.1.AlarmCenter.ActivateSiren',
@@ -399,6 +401,7 @@ class AlarmSystemAdapter extends utils.Adapter {
   private async subscribeForeignInputs(): Promise<void> {
     const ids = new Set<string>([
       this.cfg.armStateId,
+      this.cfg.hullProtectionStateId,
       this.cfg.perimeterStateId,
       this.cfg.panicStateId,
       this.cfg.fingerprintStateId,
@@ -616,9 +619,29 @@ class AlarmSystemAdapter extends utils.Adapter {
       if (state.val === true) {
         await this.armZone('perimeter');
         await this.armZone('aussenhaut');
+        await this.setOutput(this.cfg.cctvArmedId, true);
+        await this.setOutput(this.cfg.cctvDisarmedId, false);
       } else if (state.val === false) {
+        const hullSt = await this.getForeignStateAsync(this.cfg.hullProtectionStateId);
+        const allSt = await this.getForeignStateAsync(this.cfg.armStateId);
         await this.disarmZone('perimeter');
-        await this.disarmZone('aussenhaut');
+        if (!(hullSt?.val === true || allSt?.val === true)) {
+          await this.disarmZone('aussenhaut');
+        }
+        await this.setOutput(this.cfg.cctvArmedId, false);
+        await this.setOutput(this.cfg.cctvDisarmedId, true);
+      }
+      return;
+    }
+    if (id === this.cfg.hullProtectionStateId) {
+      if (state.val === true) {
+        await this.armZone('aussenhaut');
+      } else if (state.val === false) {
+        const perSt = await this.getForeignStateAsync(this.cfg.perimeterStateId);
+        const allSt = await this.getForeignStateAsync(this.cfg.armStateId);
+        if (!(perSt?.val === true || allSt?.val === true)) {
+          await this.disarmZone('aussenhaut');
+        }
       }
       return;
     }
