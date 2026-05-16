@@ -47,6 +47,7 @@
     resetImageRectBtn: $('resetImageRectBtn'),
     panicBtn: $('panicToggleBtn'),
     shield: $('statusShield'),
+    overviewShowSensorsBtn: $('overviewShowSensorsBtn'),
     absenceCard: $('absenceCard'),
     absenceList: $('absenceList'),
     presenceCard: $('presenceCard'),
@@ -117,6 +118,7 @@
     objectTarget: null,
     live: { perimeterArmed: false, aussenArmed: false, innenArmed: false, fullArmed: false, innerFillArmed: false },
     liveAlerts: { contact: {}, pir: {}, camera: {} },
+    overviewShowSensors: false,
     health: { ok: true, reasons: [] },
     presenceByPerson: { sebastian: false, teresa: false },
     pinInput: '',
@@ -596,6 +598,7 @@
     const fullArmed = !!flags.fullArmed;
     const perimeterArmed = !!flags.perimeterArmed;
     const camerasArmed = !!flags.camerasArmed;
+    const showSensors = !!flags.showSensors;
     const next = { contact: {}, pir: {}, camera: {} };
     const readRows = async (rows, type, mode = 'activeValues') => {
       for (const row of (rows || [])) {
@@ -611,9 +614,11 @@
           const vals = String(row.activeValuesCsv).toLowerCase().split(',').map(x => x.trim()).filter(Boolean);
           on = vals.includes(raw) || asArmed(rawVal);
         } else on = asArmed(st?.val);
-        if (type === 'pir' && !fullArmed) on = false;
-        if (type === 'contact' && !(fullArmed || perimeterArmed)) on = false;
-        if (type === 'camera' && !camerasArmed) on = false;
+        if (!showSensors) {
+          if (type === 'pir' && !fullArmed) on = false;
+          if (type === 'contact' && !(fullArmed || perimeterArmed)) on = false;
+          if (type === 'camera' && !camerasArmed) on = false;
+        }
         if (on) {
           next[type][key] = true;
           if (row?.id) next[type][String(row.id)] = true;
@@ -3192,6 +3197,15 @@
     btn.classList.toggle('toggle-off', !isOn);
   }
 
+  function updateOverviewShowSensorsButton() {
+    const btn = ui.overviewShowSensorsBtn;
+    if (!btn) return;
+    const on = !!state.overviewShowSensors;
+    btn.textContent = `Show sensors: ${on ? 'on' : 'off'}`;
+    btn.classList.toggle('primary', on);
+    btn.classList.toggle('ghost', !on);
+  }
+
   function paintShield(mode) {
     if (!ui.shield) return;
     ui.shield.classList.remove('armed', 'perimeter', 'disarmed');
@@ -3314,8 +3328,8 @@
     const allArmed = rawAll;
     const innenArmed = rawAll || asArmed(zInn?.val);
     const aussenArmed = rawAll || rawPerimeter || asArmed(zAus?.val);
-    const perimeterArmed = rawAll || rawPerimeter || asArmed(zPer?.val);
     const camerasArmed = asArmed(cam?.val);
+    const perimeterArmed = rawAll || rawPerimeter || asArmed(zPer?.val) || camerasArmed;
 
     const modeText = (perimeterArmed || aussenArmed || innenArmed || allArmed) ? 'armed' : 'disarmed';
     ui.liveMode.textContent = `Mode: ${modeText}`;
@@ -3345,7 +3359,7 @@
     state.live.innenArmed = innenArmed;
     state.live.fullArmed = fullArmed;
     state.live.innerFillArmed = innerFillArmed;
-    await refreshAlertStates({ fullArmed, perimeterArmed, camerasArmed });
+    await refreshAlertStates({ fullArmed, perimeterArmed, camerasArmed, showSensors: state.overviewShowSensors });
     await evaluateSystemHealth();
     applyZoneArmedVisuals(ui.mini);
     applyZoneArmedVisuals(ui.full);
@@ -3367,6 +3381,7 @@
     ) {
       renderAllCanvases();
     }
+    updateOverviewShowSensorsButton();
   }
 
   async function saveToInstance() {
@@ -3868,6 +3883,14 @@
         setStatus(String(e), true);
       }
     });
+    if (ui.overviewShowSensorsBtn) {
+      ui.overviewShowSensorsBtn.addEventListener('click', async () => {
+        state.overviewShowSensors = !state.overviewShowSensors;
+        updateOverviewShowSensorsButton();
+        await refreshLiveStatus();
+        renderAllCanvases();
+      });
+    }
 
     $('closePinBtn').addEventListener('click', closePinModal);
     $('pinClearBtn').addEventListener('click', () => {
@@ -3957,6 +3980,7 @@
     });
 
     updateSnapshotZoneUiState();
+    updateOverviewShowSensorsButton();
     await refreshLiveStatus();
     await refreshPanicButton();
     switchPage('overview');
