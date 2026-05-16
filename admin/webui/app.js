@@ -48,6 +48,7 @@
     resetImageRectBtn: $('resetImageRectBtn'),
     panicBtn: $('panicToggleBtn'),
     shield: $('statusShield'),
+    overviewEventLog: $('overviewEventLog'),
     overviewShowSensorsBtn: $('overviewShowSensorsBtn'),
     absenceCard: $('absenceCard'),
     absenceList: $('absenceList'),
@@ -3506,6 +3507,39 @@
     return state.health;
   }
 
+  function parseEventsJson(raw) {
+    try {
+      const arr = JSON.parse(String(raw || '[]'));
+      return Array.isArray(arr) ? arr : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function formatEventTs(ts) {
+    const n = Number(ts || 0);
+    if (!Number.isFinite(n) || n <= 0) return '-';
+    return new Date(n).toLocaleString('de-DE');
+  }
+
+  function renderOverviewEventLog(eventsRaw) {
+    const el = ui.overviewEventLog;
+    if (!el) return;
+    const events = Array.isArray(eventsRaw) ? eventsRaw : [];
+    const lastArmTs = Number((events.find(e => String(e?.type || '') === 'zone_armed') || {}).ts || 0);
+    const filtered = (lastArmTs > 0 ? events.filter(e => Number(e?.ts || 0) >= lastArmTs) : events).slice(0, 120);
+    const lines = filtered
+      .slice()
+      .reverse()
+      .map(e => {
+        const ts = formatEventTs(e?.ts);
+        const lvl = String(e?.level || 'info').toUpperCase();
+        const msg = String(e?.message || e?.type || '');
+        return `${ts}  [${lvl}]  ${msg}`;
+      });
+    el.textContent = lines.length ? lines.join('\n') : 'Noch keine Einträge seit letzter Scharfschaltung';
+  }
+
   async function refreshLiveStatus() {
     const prevLive = {
       perimeterArmed: !!state.live.perimeterArmed,
@@ -3519,6 +3553,7 @@
     const allDp = await getState(state.config.armStateId || '');
     const cam = await getState(state.config.cctvArmedId || '');
     const camManual = await getState(`${state.instanceId}.runtime.camerasManualArmed`);
+    const eventsState = await getState(`${state.instanceId}.diagnostics.eventsJson`);
     const prevPresence = state.presenceByPerson || { sebastian: false, teresa: false };
     const prevAlerts = JSON.stringify(state.liveAlerts || {});
     const prevHealthOk = !!state.health?.ok;
@@ -3532,6 +3567,7 @@
       presenceByPerson[person] = isPresenceHome(row, st?.val);
     }
     state.presenceByPerson = presenceByPerson;
+    renderOverviewEventLog(parseEventsJson(eventsState?.val));
 
     // Keep UI semantics strict to configured datapoints:
     // Alarm=all, Hull=outside shell, Camera=camera only, Perimeter=Hull+Camera.
