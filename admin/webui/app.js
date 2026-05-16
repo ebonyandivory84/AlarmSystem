@@ -2152,7 +2152,7 @@
       }
     }
     const pirVignette = type === 'pirZone' && it.alarmActive && overview;
-    const cls = `designer-item${type === 'beam' ? ' beam' : ''}${type === 'cameraZone' ? ' camera-zone' : ''}${type === 'pirZone' ? ' pir-zone' : ''}${pirVignette ? ' pir-vignette' : ''}${it.sensorPreview ? ' sensor-preview' : ''}${isSelected ? ' selected' : ''}${it.alarmActive ? ' alarm-item' : ''}`;
+    const cls = `designer-item${type === 'beam' ? ' beam' : ''}${type === 'cameraZone' ? ' camera-zone' : ''}${type === 'pirZone' ? ' pir-zone' : ''}${type === 'pavingDriveway' || type === 'pavingTerrace' ? ' paving-zone' : ''}${pirVignette ? ' pir-vignette' : ''}${it.sensorPreview ? ' sensor-preview' : ''}${isSelected ? ' selected' : ''}${it.alarmActive ? ' alarm-item' : ''}`;
     const hitPad = type === 'door' ? 14 : 8;
     const hitW = w + (hitPad * 2);
     const hitH = h + (hitPad * 2);

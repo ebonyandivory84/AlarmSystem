@@ -176,6 +176,8 @@ details summary{cursor:pointer;color:var(--muted);font-weight:600}
 .designer-item.alarm-item .coverage-anchor-handle{fill:#ff2d2d !important;stroke:#ff0000 !important}
 .designer-item.pir-vignette.alarm-item{stroke:none !important;fill:none !important}
 .designer-item .pir-vignette-fill{stroke:none;animation:blinkAlarmFast .5s linear infinite}
+.designer-item.paving-zone{stroke:#98d7a8;fill:rgba(152,215,168,.10)}
+.designer-item.paving-zone .arch-soft{stroke:rgba(152,215,168,.7)}
 .designer-item.camera-zone{fill:rgba(124,242,165,.16);stroke:#8cffb1}
 .designer-item.pir-zone{fill:rgba(124,242,165,.11);stroke:#8cffb1}
 .designer-item .coverage-arc{fill:none;stroke:rgba(124,242,165,.65);stroke-width:2.1}
