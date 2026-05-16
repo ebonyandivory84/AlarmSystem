@@ -2,7 +2,7 @@
 *{box-sizing:border-box} body{margin:0;color:var(--text);background:#030403;font-family:"Space Grotesk","Segoe UI",sans-serif;position:relative;min-height:100vh;overflow-x:hidden}
 body::before{content:none}
 body::after{content:none}
-.app{max-width:1320px;margin:0 auto;padding:14px 22px 94px;display:grid;gap:12px;min-height:100dvh}.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.app{max-width:1320px;margin:0 auto;padding:14px 22px 94px;display:grid;gap:12px;min-height:100dvh}.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:120;background:rgba(3,4,3,.95);backdrop-filter:blur(8px);padding:8px 0}
 .app{position:relative;z-index:1}
 .page{display:grid;gap:12px}
 #overviewPage{height:calc(100dvh - 150px)}
@@ -278,10 +278,26 @@ details summary{cursor:pointer;color:var(--muted);font-weight:600}
   max-width:none;
 }
 
+#designerPage .designer-wrap{
+  min-height:1180px;
+  overflow:visible;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+#designerPage .designer-svg{
+  transform:rotate(90deg);
+  transform-origin:center center;
+  width:min(100%,1200px);
+  height:min(120vw,1600px);
+}
+
 @media (max-width:920px){.grid2{grid-template-columns:1fr}#overviewPage{height:calc(100dvh - 132px)}.zone-canvas{width:calc(100% - 482px);margin-left:274px;margin-right:208px;min-height:360px}.left-stack{left:12px;top:12px;bottom:12px;width:250px;gap:14px}.controls-card,.floor-card,.absence-card,.presence-card,.status-card,.editor-strip{left:12px;width:250px}.editor-strip{bottom:12px}.status-mini{left:calc(274px + (100% - 482px)/2);top:84px;transform:translateX(-50%);width:min(420px,calc(100% - 540px));min-width:220px}.btn{min-height:52px;font-size:1rem}.panic-btn{left:12px;right:auto;bottom:12px;width:250px;min-width:0;min-height:52px}}
 @media (max-width:920px){
   #overviewPage .zone-canvas{width:100%;margin:0;min-height:420px;height:52dvh}
   #overviewPage .status-mini{left:50%;top:10px;transform:translateX(-50%);width:calc(100% - 28px);min-width:0}
   #overviewPage .left-stack{position:static;width:100%;grid-template-columns:1fr;gap:10px}
   #overviewPage .panic-btn{position:static;width:100%}
+  #designerPage .designer-wrap{min-height:760px}
+  #designerPage .designer-svg{width:100%;height:min(135vw,980px)}
 }
