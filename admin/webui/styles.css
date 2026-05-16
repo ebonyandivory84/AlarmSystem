@@ -410,7 +410,9 @@ body.overview-layout-floating #overviewPage .left-stack .btn{
 }
 body.overview-layout-floating #overviewPage .left-stack .btn.toggle-off,
 body.overview-layout-floating #overviewPage .left-stack .btn.floor-btn-safe{
-  background:rgba(24,104,57,.62);
+  background:#145f34;
+  border-color:#2dbf6d;
+  color:#fff;
 }
 body.overview-layout-floating #overviewPage .left-stack .btn.toggle-on,
 body.overview-layout-floating #overviewPage .left-stack .btn.floor-btn-open{
