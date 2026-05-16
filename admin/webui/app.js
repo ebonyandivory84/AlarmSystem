@@ -1544,7 +1544,9 @@
   function rotatePointCW90(p, cx, cy) {
     const dx = Number(p.x || 0) - cx;
     const dy = Number(p.y || 0) - cy;
-    return { x: cx + dy, y: cy - dx };
+    // SVG coordinates have y-axis pointing downwards.
+    // Clockwise screen rotation by 90deg is: (x, y) -> (-y, x)
+    return { x: cx - dy, y: cy + dx };
   }
 
   function rotateDesignerModelClockwise90(model) {
@@ -1585,6 +1587,11 @@
       model.perimeter.y = minY;
       model.perimeter.w = Math.max(0, maxX - minX);
       model.perimeter.h = Math.max(0, maxY - minY);
+    }
+
+    // Keep architect doors aligned to nearby walls after global rotation.
+    for (const it of (model.items || [])) {
+      if (String(it?.type || '') === 'door') snapDoorToWall(it, model);
     }
   }
 
