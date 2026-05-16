@@ -229,6 +229,54 @@
         </div>
       </section>
       <section class="card">
+        <h2>Geofence / Abwesenheit</h2>
+        <h3 class="subhead">Wenn niemand zuhause ist (Auto-Arm)</h3>
+        <div class="fields">
+          <label>Delay Sekunden
+            <input id="autoAwayDelaySec" type="number" min="0" />
+          </label>
+          <label>Zonen scharf (CSV)
+            <input id="autoAwayArmZonesCsv" type="text" placeholder="perimeter,aussenhaut,innenraum" />
+          </label>
+          <label>Telegram Chat IDs (CSV, optional)
+            <input id="autoAwayChatIdsCsv" type="text" placeholder="123456789,-1001234567890" />
+          </label>
+          <label>Telegram Text vor Scharfschaltung
+            <input id="autoAwayPendingTelegramText" type="text" placeholder="Niemand ist zu Hause. Alarmanlage wird in {delay}s scharfgeschaltet..." />
+          </label>
+          <label>Telegram Text nach Scharfschaltung
+            <input id="autoAwayArmedTelegramText" type="text" placeholder="Alarmanlage ist jetzt scharfgeschaltet!" />
+          </label>
+        </div>
+        <h3 class="subhead">Geofence: Verlassen</h3>
+        <div class="fields">
+          <label>Zonen scharf (CSV)
+            <input id="geofenceLeaveArmZonesCsv" type="text" placeholder="perimeter,aussenhaut" />
+          </label>
+          <label>Telegram Chat IDs (CSV, optional)
+            <input id="geofenceLeaveChatIdsCsv" type="text" placeholder="123456789,-1001234567890" />
+          </label>
+          <label>Telegram Text
+            <input id="geofenceLeaveTelegramText" type="text" placeholder="Geofence verlassen" />
+          </label>
+        </div>
+        <h3 class="subhead">Geofence: Betreten</h3>
+        <div class="fields">
+          <label>Zonen scharf (CSV)
+            <input id="geofenceEnterArmZonesCsv" type="text" placeholder="perimeter" />
+          </label>
+          <label>Zonen unscharf (CSV, optional)
+            <input id="geofenceEnterDisarmZonesCsv" type="text" placeholder="perimeter,aussenhaut,innenraum" />
+          </label>
+          <label>Telegram Chat IDs (CSV, optional)
+            <input id="geofenceEnterChatIdsCsv" type="text" placeholder="123456789,-1001234567890" />
+          </label>
+          <label>Telegram Text
+            <input id="geofenceEnterTelegramText" type="text" placeholder="Geofence betreten" />
+          </label>
+        </div>
+      </section>
+      <section class="card">
         <h2>Avatar Designer</h2>
         <div class="row">
           <label>Person

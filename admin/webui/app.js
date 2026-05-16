@@ -65,6 +65,18 @@
     telegramTestTextBtn: $('telegramTestTextBtn'),
     telegramTestPhotoBtn: $('telegramTestPhotoBtn'),
     telegramTestPhotoCaptionBtn: $('telegramTestPhotoCaptionBtn'),
+    autoAwayDelaySec: $('autoAwayDelaySec'),
+    autoAwayArmZonesCsv: $('autoAwayArmZonesCsv'),
+    autoAwayChatIdsCsv: $('autoAwayChatIdsCsv'),
+    autoAwayPendingTelegramText: $('autoAwayPendingTelegramText'),
+    autoAwayArmedTelegramText: $('autoAwayArmedTelegramText'),
+    geofenceLeaveArmZonesCsv: $('geofenceLeaveArmZonesCsv'),
+    geofenceLeaveChatIdsCsv: $('geofenceLeaveChatIdsCsv'),
+    geofenceLeaveTelegramText: $('geofenceLeaveTelegramText'),
+    geofenceEnterArmZonesCsv: $('geofenceEnterArmZonesCsv'),
+    geofenceEnterDisarmZonesCsv: $('geofenceEnterDisarmZonesCsv'),
+    geofenceEnterChatIdsCsv: $('geofenceEnterChatIdsCsv'),
+    geofenceEnterTelegramText: $('geofenceEnterTelegramText'),
     canvasEntitySearch: $('canvasEntitySearch'),
     canvasEntitiesList: $('canvasEntitiesList'),
     floorplanEgInput: $('floorplanEgInput'),
@@ -191,7 +203,7 @@
   };
   const DISARM_PIN = '1492';
 
-  const globalSpec = [['defaultEntryDelaySec','number'],['defaultExitDelaySec','number'],['eventDedupeMs','number'],['heartbeatTimeoutSec','number'],['snapshotSendDelayMs','number'],['snapshotBurstCount','number'],['snapshotBurstIntervalMs','number'],['autoArmDelaySec','number'],['bedtimeHour','number'],['bedtimeLightThreshold','number'],['simulationMode','boolean'],['cameraNightModeEnabled','boolean'],['cameraNightModeArmsCameras','boolean']];
+  const globalSpec = [['defaultEntryDelaySec','number'],['defaultExitDelaySec','number'],['eventDedupeMs','number'],['heartbeatTimeoutSec','number'],['snapshotSendDelayMs','number'],['snapshotBurstCount','number'],['snapshotBurstIntervalMs','number'],['bedtimeHour','number'],['bedtimeLightThreshold','number'],['simulationMode','boolean'],['cameraNightModeEnabled','boolean'],['cameraNightModeArmsCameras','boolean']];
   const globalHelp = {
     defaultEntryDelaySec: 'Eingangsverzoegerung in Sekunden: Zeit zwischen Trigger und Alarmstart beim Betreten.',
     defaultExitDelaySec: 'Ausgangsverzoegerung in Sekunden: Zeitfenster zum Verlassen nach dem Scharfschalten.',
@@ -1405,6 +1417,21 @@
       w.appendChild(wrap);
       ui.dp.appendChild(w);
     }
+  }
+
+  function renderGeofenceSettings() {
+    if (ui.autoAwayDelaySec) ui.autoAwayDelaySec.value = String(Math.max(0, Number(state.config.autoArmDelaySec ?? 60)));
+    if (ui.autoAwayArmZonesCsv) ui.autoAwayArmZonesCsv.value = String(state.config.autoAwayArmZonesCsv || 'perimeter,aussenhaut,innenraum');
+    if (ui.autoAwayChatIdsCsv) ui.autoAwayChatIdsCsv.value = String(state.config.autoAwayChatIdsCsv || '');
+    if (ui.autoAwayPendingTelegramText) ui.autoAwayPendingTelegramText.value = String(state.config.autoAwayPendingTelegramText || 'Niemand ist zu Hause. Alarmanlage wird in {delay}s scharfgeschaltet...');
+    if (ui.autoAwayArmedTelegramText) ui.autoAwayArmedTelegramText.value = String(state.config.autoAwayArmedTelegramText || 'Alarmanlage ist jetzt scharfgeschaltet!');
+    if (ui.geofenceLeaveArmZonesCsv) ui.geofenceLeaveArmZonesCsv.value = String(state.config.geofenceLeaveArmZonesCsv || '');
+    if (ui.geofenceLeaveChatIdsCsv) ui.geofenceLeaveChatIdsCsv.value = String(state.config.geofenceLeaveChatIdsCsv || '');
+    if (ui.geofenceLeaveTelegramText) ui.geofenceLeaveTelegramText.value = String(state.config.geofenceLeaveTelegramText || '');
+    if (ui.geofenceEnterArmZonesCsv) ui.geofenceEnterArmZonesCsv.value = String(state.config.geofenceEnterArmZonesCsv || '');
+    if (ui.geofenceEnterDisarmZonesCsv) ui.geofenceEnterDisarmZonesCsv.value = String(state.config.geofenceEnterDisarmZonesCsv || '');
+    if (ui.geofenceEnterChatIdsCsv) ui.geofenceEnterChatIdsCsv.value = String(state.config.geofenceEnterChatIdsCsv || '');
+    if (ui.geofenceEnterTelegramText) ui.geofenceEnterTelegramText.value = String(state.config.geofenceEnterTelegramText || '');
   }
 
   function applyFloorplanImages() {
@@ -3220,6 +3247,18 @@
     ui.dp.querySelectorAll('[data-key]').forEach(el => { state.config[el.dataset.key] = el.value || ''; });
     state.config.floorplanEgImage = String(ui.floorplanEgInput?.value || './assets/EG.jpg').trim();
     state.config.floorplanOgImage = String(ui.floorplanOgInput?.value || state.config.floorplanEgImage || './assets/OG.jpg').trim();
+    state.config.autoArmDelaySec = Math.max(0, Number(ui.autoAwayDelaySec?.value || state.config.autoArmDelaySec || 60));
+    state.config.autoAwayArmZonesCsv = String(ui.autoAwayArmZonesCsv?.value || 'perimeter,aussenhaut,innenraum').trim();
+    state.config.autoAwayChatIdsCsv = String(ui.autoAwayChatIdsCsv?.value || '').trim();
+    state.config.autoAwayPendingTelegramText = String(ui.autoAwayPendingTelegramText?.value || '').trim();
+    state.config.autoAwayArmedTelegramText = String(ui.autoAwayArmedTelegramText?.value || '').trim();
+    state.config.geofenceLeaveArmZonesCsv = String(ui.geofenceLeaveArmZonesCsv?.value || '').trim();
+    state.config.geofenceLeaveChatIdsCsv = String(ui.geofenceLeaveChatIdsCsv?.value || '').trim();
+    state.config.geofenceLeaveTelegramText = String(ui.geofenceLeaveTelegramText?.value || '').trim();
+    state.config.geofenceEnterArmZonesCsv = String(ui.geofenceEnterArmZonesCsv?.value || '').trim();
+    state.config.geofenceEnterDisarmZonesCsv = String(ui.geofenceEnterDisarmZonesCsv?.value || '').trim();
+    state.config.geofenceEnterChatIdsCsv = String(ui.geofenceEnterChatIdsCsv?.value || '').trim();
+    state.config.geofenceEnterTelegramText = String(ui.geofenceEnterTelegramText?.value || '').trim();
     ensureTables();
     state.config.telegramInstancesTable = (state.config.telegramInstancesTable || [])
       .map(normalizeTelegramInstanceRow)
@@ -3865,6 +3904,7 @@
     rebuildProfileSelect();
     void updateFloorButtons();
     renderFields();
+    renderGeofenceSettings();
     renderAvatarDesigner();
     ensureFloorLayouts();
     ensureDesignerData();

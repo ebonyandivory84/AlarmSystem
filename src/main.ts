@@ -117,6 +117,17 @@ interface Config {
   garageDoorCommandId: string;
   autoArmPresenceIds: string[];
   autoArmDelaySec: number;
+  autoAwayArmZones: Zone[];
+  autoAwayPendingTelegramText: string;
+  autoAwayArmedTelegramText: string;
+  autoAwayChatIds: string[];
+  geofenceLeaveTelegramText: string;
+  geofenceLeaveChatIds: string[];
+  geofenceLeaveArmZones: Zone[];
+  geofenceEnterTelegramText: string;
+  geofenceEnterChatIds: string[];
+  geofenceEnterArmZones: Zone[];
+  geofenceEnterDisarmZones: Zone[];
   bedtimeLightSensorId: string;
   bedtimePresenceHomeIds: string[];
   bedtimeHour: number;
@@ -147,6 +158,7 @@ class AlarmSystemAdapter extends utils.Adapter {
   private lastSeen = new Map<string, number>();
   private heartbeatTimer: ioBroker.Interval | null = null;
   private autoArmTimer: ioBroker.Timeout | null = null;
+  private presenceLastSomeoneHome: boolean | null = null;
   private lastFingerprintHit = '';
   private lastFingerprintTs = 0;
   private pinBuffer = '';
@@ -176,6 +188,7 @@ class AlarmSystemAdapter extends utils.Adapter {
     await this.refreshTriggerLogState(this.dayString(new Date()));
     await this.publishConfigStates();
     await this.refreshInitialSeen();
+    await this.initializePresenceState();
     await this.initializeHumanDetectionReset();
     await this.publishRuleView();
     this.startHeartbeatWatchdog();
@@ -265,6 +278,17 @@ class AlarmSystemAdapter extends utils.Adapter {
         '0_userdata.0.presence_at_home.Teresa'
       ]),
       autoArmDelaySec: this.toNumber(n.autoArmDelaySec, 60),
+      autoAwayArmZones: this.parseZonesCsv(n.autoAwayArmZonesCsv || 'perimeter,aussenhaut,innenraum'),
+      autoAwayPendingTelegramText: String(n.autoAwayPendingTelegramText || 'Niemand ist zu Hause. Alarmanlage wird in {delay}s scharfgeschaltet...'),
+      autoAwayArmedTelegramText: String(n.autoAwayArmedTelegramText || 'Alarmanlage ist jetzt scharfgeschaltet!'),
+      autoAwayChatIds: this.parseCsv(n.autoAwayChatIdsCsv),
+      geofenceLeaveTelegramText: String(n.geofenceLeaveTelegramText || ''),
+      geofenceLeaveChatIds: this.parseCsv(n.geofenceLeaveChatIdsCsv),
+      geofenceLeaveArmZones: this.parseZonesCsv(n.geofenceLeaveArmZonesCsv || ''),
+      geofenceEnterTelegramText: String(n.geofenceEnterTelegramText || ''),
+      geofenceEnterChatIds: this.parseCsv(n.geofenceEnterChatIdsCsv),
+      geofenceEnterArmZones: this.parseZonesCsv(n.geofenceEnterArmZonesCsv || ''),
+      geofenceEnterDisarmZones: this.parseZonesCsv(n.geofenceEnterDisarmZonesCsv || ''),
       bedtimeLightSensorId: n.bedtimeLightSensorId || 'mqtt.1.living_light_sensor',
       bedtimePresenceHomeIds: this.tryJson<string[]>(n.bedtimePresenceHomeIdsJson, [
         '0_userdata.0.presence_at_home.Sebastian',
@@ -373,13 +397,21 @@ class AlarmSystemAdapter extends utils.Adapter {
     return 'none';
   }
 
-  private parseSnapshotZones(v: any): Zone[] {
+  private parseZonesCsv(v: any): Zone[] {
     const raw = String(v || '').split(',').map(x => x.trim()).filter(Boolean);
     const out: Zone[] = [];
     for (const z of raw) {
       if (z === 'perimeter' || z === 'aussenhaut' || z === 'innenraum') out.push(z);
     }
     return Array.from(new Set(out));
+  }
+
+  private parseSnapshotZones(v: any): Zone[] {
+    return this.parseZonesCsv(v);
+  }
+
+  private parseCsv(v: any): string[] {
+    return Array.from(new Set(String(v || '').split(',').map(x => x.trim()).filter(Boolean)));
   }
 
   private parseCamerasTable(rows: any): CameraDef[] {
@@ -972,22 +1004,68 @@ class AlarmSystemAdapter extends utils.Adapter {
     }
   }
 
+  private async initializePresenceState(): Promise<void> {
+    const vals = await Promise.all(this.cfg.autoArmPresenceIds.map(id => this.getForeignStateAsync(id)));
+    const someoneHome = vals.some(v => v?.val === true);
+    this.presenceLastSomeoneHome = someoneHome;
+  }
+
+  private async armZones(zones: Zone[]): Promise<void> {
+    for (const zone of zones) await this.armZone(zone);
+  }
+
+  private async disarmZones(zones: Zone[]): Promise<void> {
+    for (const zone of zones) await this.disarmZone(zone);
+  }
+
+  private formatWithDelay(template: string, delaySec: number): string {
+    return String(template || '').split('{delay}').join(String(delaySec));
+  }
+
+  private async handleGeofenceLeaveEvent(): Promise<void> {
+    if (this.cfg.geofenceLeaveArmZones.length > 0) {
+      await this.armZones(this.cfg.geofenceLeaveArmZones);
+    }
+    const msg = String(this.cfg.geofenceLeaveTelegramText || '').trim();
+    if (msg) await this.sendTelegramText(msg, this.cfg.geofenceLeaveChatIds);
+    await this.logEvent('info', 'geofence_leave', 'Geofence: jemand hat das Zuhause verlassen');
+  }
+
+  private async handleGeofenceEnterEvent(): Promise<void> {
+    if (this.cfg.geofenceEnterDisarmZones.length > 0) {
+      await this.disarmZones(this.cfg.geofenceEnterDisarmZones);
+    }
+    if (this.cfg.geofenceEnterArmZones.length > 0) {
+      await this.armZones(this.cfg.geofenceEnterArmZones);
+    }
+    const msg = String(this.cfg.geofenceEnterTelegramText || '').trim();
+    if (msg) await this.sendTelegramText(msg, this.cfg.geofenceEnterChatIds);
+    await this.logEvent('info', 'geofence_enter', 'Geofence: jemand ist Zuhause angekommen');
+  }
+
   private async handleAutoArmWhenNobodyHome(): Promise<void> {
     const vals = await Promise.all(this.cfg.autoArmPresenceIds.map(id => this.getForeignStateAsync(id)));
     const someoneHome = vals.some(v => v?.val === true);
+    if (this.presenceLastSomeoneHome === null) {
+      this.presenceLastSomeoneHome = someoneHome;
+    } else if (this.presenceLastSomeoneHome !== someoneHome) {
+      if (!someoneHome) await this.handleGeofenceLeaveEvent();
+      else await this.handleGeofenceEnterEvent();
+      this.presenceLastSomeoneHome = someoneHome;
+    }
     if (someoneHome) {
       if (this.autoArmTimer) this.clearTimeout(this.autoArmTimer);
       this.autoArmTimer = null;
       return;
     }
     if (this.autoArmTimer || this.zoneArmed.perimeter || this.zoneArmed.aussenhaut || this.zoneArmed.innenraum) return;
-    await this.sendTelegramText(`Niemand ist zu Hause. Alarmanlage wird in ${this.cfg.autoArmDelaySec}s scharfgeschaltet...`);
+    const pendingMsg = this.formatWithDelay(this.cfg.autoAwayPendingTelegramText, this.cfg.autoArmDelaySec).trim();
+    if (pendingMsg) await this.sendTelegramText(pendingMsg, this.cfg.autoAwayChatIds);
     this.autoArmTimer = this.setTimeout(async () => {
       this.autoArmTimer = null;
-      await this.armZone('perimeter');
-      await this.armZone('aussenhaut');
-      await this.armZone('innenraum');
-      await this.sendTelegramText('Alarmanlage ist jetzt scharfgeschaltet!');
+      await this.armZones(this.cfg.autoAwayArmZones);
+      const armedMsg = String(this.cfg.autoAwayArmedTelegramText || '').trim();
+      if (armedMsg) await this.sendTelegramText(armedMsg, this.cfg.autoAwayChatIds);
     }, this.cfg.autoArmDelaySec * 1000) ?? null;
   }
 
@@ -1166,9 +1244,12 @@ class AlarmSystemAdapter extends utils.Adapter {
     try { await this.setForeignStateAsync(id, val as any); } catch {}
   }
 
-  private async sendTelegramText(text: string): Promise<void> {
+  private async sendTelegramText(text: string, chatIdsOverride?: string[]): Promise<void> {
+    const override = Array.isArray(chatIdsOverride) ? chatIdsOverride.filter(Boolean) : [];
     for (const inst of this.cfg.telegramInstances) {
-      const targets = this.cfg.telegramTargets.filter(t => t.instance === inst.instance);
+      const targets = override.length > 0
+        ? override.map(chatId => ({ instance: inst.instance, chatId }))
+        : this.cfg.telegramTargets.filter(t => t.instance === inst.instance);
       const payloadBase: Record<string, unknown> = { text };
       if (inst.token) payloadBase.token = inst.token;
       if (targets.length === 0) await this.sendToAsync(inst.instance, 'send', payloadBase);
