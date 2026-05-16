@@ -10,8 +10,7 @@
   <div class="app">
     <header class="topbar">
       <div>
-        <h1>AlarmSystem WebUI</h1>
-        <p id="instanceLabel" class="muted">Instanz: -</p>
+        <h1>AlarmSysten</h1>
       </div>
       <div class="page-switch">
         <button id="pageOverviewBtn" class="btn primary">Übersicht</button>
@@ -46,11 +45,6 @@
             <strong>Anwesend</strong>
             <div id="presenceList" class="absence-list"></div>
           </div>
-          <div class="legend-card">
-            <strong>Legende</strong>
-            <div class="legend-row"><span>Sensoren sind im Grundriss integriert</span></div>
-            <div class="legend-row"><span>Alarm: rot blinkende Flächen/Objekte</span></div>
-          </div>
         </div>
         <div class="canvas-overlay canvas-tools">
           <div class="row">
@@ -58,9 +52,7 @@
             <button id="floorOgBtn" class="btn ghost" title="Obergeschoss">OG</button>
           </div>
         </div>
-        <div class="canvas-overlay status-text-box">
-          <pre id="statusBox" class="status ok">Bereit</pre>
-        </div>
+        <pre id="statusBox" class="status ok hidden">Bereit</pre>
         <div class="canvas-overlay editor-strip">
           <button id="editImageBtn" class="btn ghost" title="Grundriss bearbeiten (Größe/Position)">⬚</button>
           <button id="editZonesBtn" class="btn ghost" title="Zonen-Editor ein/aus">✎</button>

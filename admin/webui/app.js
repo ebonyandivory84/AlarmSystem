@@ -167,7 +167,11 @@
   };
   const dpSpec = ['armStateId','perimeterStateId','triggerStateId','sirenStateId','displayId','clearDisplayId','buzzerId','ledRedId','ledYellowId','standbyId','motionSensorId','panicStateId','fingerprintStateId','pinStateId','statusId'];
 
-  const setStatus = (m,e=false) => { ui.status.textContent = m; ui.status.classList.toggle('err', e); };
+  const setStatus = (m,e=false) => {
+    if (!ui.status) return;
+    ui.status.textContent = m;
+    ui.status.classList.toggle('err', e);
+  };
   const clone = v => JSON.parse(JSON.stringify(v));
   const asArmed = v => v === true || v === 1 || ['true','1','on','armed','aktiv'].includes(String(v ?? '').toLowerCase());
   function inferPresencePerson(meta) {
@@ -899,10 +903,10 @@
     ui.presenceCard.classList.remove('hidden');
     ui.absenceList.innerHTML = away.length
       ? away.map(a => `<div class="legend-row"><span class="presence-avatar tiny" style="background-image:url('${presenceAvatarPath(a.person).replace(/'/g, "\\'")}')"></span></div>`).join('')
-      : '<div class="muted">Niemand</div>';
+      : '';
     ui.presenceList.innerHTML = home.length
       ? home.map(a => `<div class="legend-row"><span class="presence-avatar tiny" style="background-image:url('${presenceAvatarPath(a.person).replace(/'/g, "\\'")}')"></span></div>`).join('')
-      : '<div class="muted">Niemand</div>';
+      : '';
   }
 
   function renderCanvasEntitiesList() {
@@ -3239,7 +3243,7 @@
     ensureFloorLayouts();
     ensureDesignerData();
     state.designerHistory = [];
-    ui.instance.textContent = `Instanz: ${state.instanceId}`;
+    if (ui.instance) ui.instance.textContent = `Instanz: ${state.instanceId}`;
     renderAll();
     const today = new Date().toISOString().slice(0,10);
     ui.logDate.value = today;
@@ -3285,7 +3289,7 @@
     const raw = readStateVal(await getState(panicId));
     const on = asArmed(raw);
     ui.panicBtn.classList.toggle('on', on);
-    ui.panicBtn.textContent = on ? 'PANIC AKTIV' : 'PANIC';
+    ui.panicBtn.textContent = 'PANIC';
   }
 
   async function togglePanic() {
