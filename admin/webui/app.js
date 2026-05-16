@@ -265,8 +265,8 @@
   }
   function avatarCssStyle(person) {
     const p = avatarProfile(person);
-    const url = String(p.image || '').replace(/"/g, '&quot;');
-    return `background-image:url("${url}");background-size:${(p.zoom * 100).toFixed(2)}%;background-position:${(50 + p.panX).toFixed(2)}% ${(50 + p.panY).toFixed(2)}%`;
+    const url = String(p.image || '').replace(/'/g, "\\'");
+    return `background-image:url('${url}');background-size:${(p.zoom * 100).toFixed(2)}%;background-position:${(50 + p.panX).toFixed(2)}% ${(50 + p.panY).toFixed(2)}%`;
   }
   function persistAvatarProfilesToConfig() {
     if (!state.config || typeof state.config !== 'object') return;
