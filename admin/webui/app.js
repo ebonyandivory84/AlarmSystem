@@ -1268,6 +1268,10 @@
     return normalizeAngleDeg(Math.round((Number(v) || 0) / 90) * 90);
   }
 
+  function angleDistanceDeg(a, b) {
+    return Math.abs(normalizeAngleDeg(Number(a) - Number(b)));
+  }
+
   function svgPoint(evt) {
     const svg = ui.designerSvg;
     const ws = getDesignerWorkspace();
@@ -1360,7 +1364,12 @@
     if (!near) return false;
     item.x = Number(near.x.toFixed(2));
     item.y = Number(near.y.toFixed(2));
-    item.r = snapRightAngleDeg(near.angleDeg);
+    const current = normalizeAngleDeg(Number(item.r || 0));
+    const along = snapRightAngleDeg(near.angleDeg);
+    const alongFlip = snapRightAngleDeg(near.angleDeg + 180);
+    const dAlong = angleDistanceDeg(along, current);
+    const dFlip = angleDistanceDeg(alongFlip, current);
+    item.r = dFlip < dAlong ? alongFlip : along;
     return true;
   }
 
