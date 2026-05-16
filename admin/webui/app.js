@@ -1035,6 +1035,7 @@
   function renderCanvas(target, detailed) {
     target.classList.toggle('floor-og', state.currentFloor === 'OG');
     target.classList.toggle('floor-eg', state.currentFloor !== 'OG');
+    target.classList.toggle('rotated-right', !detailed);
     addZones(target);
     if (!isDesignerPublished()) return;
     getEntities().filter(e => e.zone !== 'pool' && (String(e.floor || 'EG') === state.currentFloor)).forEach(e => drawEntity(target, e, detailed));
@@ -1654,13 +1655,21 @@
   }
 
   function svgPoint(evt) {
-    const svg = ui.designerSvg;
     const ws = getDesignerWorkspace();
-    const pt = svg.createSVGPoint();
-    pt.x = evt.clientX;
-    pt.y = evt.clientY;
-    const p = pt.matrixTransform(svg.getScreenCTM().inverse());
-    return { x: snapDesigner(Math.max(0, Math.min(ws.w, p.x))), y: snapDesigner(Math.max(0, Math.min(ws.h, p.y))) };
+    const rect = ui.designerSvg.getBoundingClientRect();
+    const relX = ((Number(evt.clientX) - rect.left) / Math.max(1, rect.width)) * ws.w;
+    const relY = ((Number(evt.clientY) - rect.top) / Math.max(1, rect.height)) * ws.h;
+    const clamp = (v, max) => Math.max(0, Math.min(max, Number(v)));
+    const snapInBounds = (v, max) => {
+      const c = clamp(v, max);
+      if (!state.designer.snap) return c;
+      const g = Math.max(4, Number(state.designer.grid || 12));
+      const edgeBand = g / 2;
+      if (c <= edgeBand) return 0;
+      if (c >= (max - edgeBand)) return max;
+      return Math.round(c / g) * g;
+    };
+    return { x: snapInBounds(relX, ws.w), y: snapInBounds(relY, ws.h) };
   }
 
   function findDesignerWallById(model, wallId) {

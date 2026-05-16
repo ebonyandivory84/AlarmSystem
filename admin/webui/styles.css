@@ -233,4 +233,55 @@ details summary{cursor:pointer;color:var(--muted);font-weight:600}
   50%{opacity:.35}
   100%{opacity:1}
 }
+
+#overviewPage .canvas-shell{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+#overviewPage .zone-canvas{
+  width:100%;
+  margin:0;
+  min-height:620px;
+  height:calc(100dvh - 430px);
+}
+#overviewPage .zone-canvas.rotated-right{
+  transform:rotate(90deg);
+  transform-origin:center center;
+}
+#overviewPage .status-mini{
+  left:50%;
+  top:14px;
+  transform:translateX(-50%);
+  width:min(680px,calc(100% - 80px));
+}
+#overviewPage .left-stack{
+  position:static;
+  width:100%;
+  display:grid;
+  grid-template-columns:repeat(5,minmax(170px,1fr));
+  gap:12px;
+  align-content:unset;
+  overflow:visible;
+  padding-right:0;
+}
+#overviewPage .left-stack .controls-card,
+#overviewPage .left-stack .floor-card,
+#overviewPage .left-stack .absence-card,
+#overviewPage .left-stack .presence-card,
+#overviewPage .left-stack .status-card{
+  width:100%;
+}
+#overviewPage .panic-btn{
+  position:static;
+  width:100%;
+  max-width:none;
+}
+
 @media (max-width:920px){.grid2{grid-template-columns:1fr}#overviewPage{height:calc(100dvh - 132px)}.zone-canvas{width:calc(100% - 482px);margin-left:274px;margin-right:208px;min-height:360px}.left-stack{left:12px;top:12px;bottom:12px;width:250px;gap:14px}.controls-card,.floor-card,.absence-card,.presence-card,.status-card,.editor-strip{left:12px;width:250px}.editor-strip{bottom:12px}.status-mini{left:calc(274px + (100% - 482px)/2);top:84px;transform:translateX(-50%);width:min(420px,calc(100% - 540px));min-width:220px}.btn{min-height:52px;font-size:1rem}.panic-btn{left:12px;right:auto;bottom:12px;width:250px;min-width:0;min-height:52px}}
+@media (max-width:920px){
+  #overviewPage .zone-canvas{width:100%;margin:0;min-height:420px;height:52dvh}
+  #overviewPage .status-mini{left:50%;top:10px;transform:translateX(-50%);width:calc(100% - 28px);min-width:0}
+  #overviewPage .left-stack{position:static;width:100%;grid-template-columns:1fr;gap:10px}
+  #overviewPage .panic-btn{position:static;width:100%}
+}
