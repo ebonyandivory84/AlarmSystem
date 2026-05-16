@@ -92,7 +92,7 @@
     stateIds: [],
     selectedEntity: null,
     objectTarget: null,
-    live: { perimeterArmed: false, aussenArmed: false, innenArmed: false },
+    live: { perimeterArmed: false, aussenArmed: false, innenArmed: false, fullArmed: false },
     presenceByPerson: { sebastian: false, teresa: false },
     pinInput: '',
     pinTargetAction: null,
@@ -473,7 +473,7 @@
     const wallCutMap = doorCutsByWall(model);
     const perimeterAlarm = !!state.live.perimeterArmed;
     const outerAlarm = perimeterAlarm || !!state.live.aussenArmed;
-    const innerAlarm = !!state.live.innenArmed;
+    const innerAlarm = !!state.live.fullArmed;
     const ws = getDesignerWorkspace(true);
     const view = getDesignerFloorView(true);
     const wrap = document.createElement('div');
@@ -2619,7 +2619,8 @@
     const prevLive = {
       perimeterArmed: !!state.live.perimeterArmed,
       aussenArmed: !!state.live.aussenArmed,
-      innenArmed: !!state.live.innenArmed
+      innenArmed: !!state.live.innenArmed,
+      fullArmed: !!state.live.fullArmed
     };
     const mode = await getState(`${p}.runtime.mode`);
     const perDp = await getState(state.config.perimeterStateId || '');
@@ -2639,8 +2640,12 @@
     }
     state.presenceByPerson = presenceByPerson;
 
-    const rawPerimeter = asArmed(perDp?.val) || asArmed(zPer?.val) || asArmed(zAus?.val);
-    const rawAll = asArmed(allDp?.val) || asArmed(zInn?.val);
+    const modeTextRaw = String(mode?.val || '').toLowerCase();
+    const modePerimeter = modeTextRaw.includes('perimeter');
+    const modeFull = modeTextRaw === 'armed' || modeTextRaw === 'full' || modeTextRaw === 'all' || modeTextRaw === 'scharf';
+    const rawPerimeter = asArmed(perDp?.val) || asArmed(zPer?.val) || asArmed(zAus?.val) || modePerimeter;
+    const fullArmed = asArmed(allDp?.val) || modeFull;
+    const rawAll = fullArmed || (!modePerimeter && asArmed(zInn?.val));
     const allArmed = rawAll;
     const innenArmed = rawAll || asArmed(zInn?.val);
     const aussenArmed = rawAll || rawPerimeter || asArmed(zAus?.val);
@@ -2673,12 +2678,14 @@
     state.live.perimeterArmed = perimeterArmed;
     state.live.aussenArmed = aussenArmed;
     state.live.innenArmed = innenArmed;
+    state.live.fullArmed = fullArmed;
     applyZoneArmedVisuals(ui.mini);
     applyZoneArmedVisuals(ui.full);
     const armedChanged = (
       prevLive.perimeterArmed !== perimeterArmed
       || prevLive.aussenArmed !== aussenArmed
       || prevLive.innenArmed !== innenArmed
+      || prevLive.fullArmed !== fullArmed
     );
     if (
       armedChanged
