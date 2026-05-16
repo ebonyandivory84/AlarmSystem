@@ -55,6 +55,13 @@
     canvasEntitiesList: $('canvasEntitiesList'),
     floorplanEgInput: $('floorplanEgInput'),
     floorplanOgInput: $('floorplanOgInput'),
+    healthOverviewText: $('healthOverviewText'),
+    healthDoorHeartbeatIds: $('healthDoorHeartbeatIds'),
+    healthDoorOnlineIds: $('healthDoorOnlineIds'),
+    healthCameraConnectionIds: $('healthCameraConnectionIds'),
+    healthPirOnlineIds: $('healthPirOnlineIds'),
+    healthHeartbeatTimeoutSec: $('healthHeartbeatTimeoutSec'),
+    healthPirUseDoorHealth: $('healthPirUseDoorHealth'),
     pinModal: $('pinModal'),
     pinDots: $('pinDots'),
     pinHint: $('pinHint'),
@@ -101,6 +108,7 @@
     objectTarget: null,
     live: { perimeterArmed: false, aussenArmed: false, innenArmed: false, fullArmed: false, innerFillArmed: false },
     liveAlerts: { contact: {}, pir: {}, camera: {} },
+    health: { ok: true, reasons: [] },
     presenceByPerson: { sebastian: false, teresa: false },
     pinInput: '',
     pinTargetAction: null,
@@ -171,6 +179,15 @@
     if (!ui.status) return;
     ui.status.textContent = m;
     ui.status.classList.toggle('err', e);
+  };
+  const parseIdsCsv = raw => String(raw || '')
+    .split(',')
+    .map(x => x.trim())
+    .filter(Boolean);
+  const isTruthyOnline = v => {
+    if (v === true || v === 1) return true;
+    const s = String(v ?? '').trim().toLowerCase();
+    return ['true', '1', 'on', 'online', 'ok', 'connected', 'available'].includes(s);
   };
   const clone = v => JSON.parse(JSON.stringify(v));
   const asArmed = v => v === true || v === 1 || ['true','1','on','armed','aktiv'].includes(String(v ?? '').toLowerCase());
@@ -324,6 +341,15 @@
       if (!Array.isArray(state.config[k])) state.config[k] = [];
     });
     if (!Array.isArray(state.config.zoneActionsTable)) state.config.zoneActionsTable = [];
+  }
+
+  function ensureHealthConfig() {
+    if (typeof state.config.healthDoorHeartbeatIdsCsv !== 'string') state.config.healthDoorHeartbeatIdsCsv = '';
+    if (typeof state.config.healthDoorOnlineIdsCsv !== 'string') state.config.healthDoorOnlineIdsCsv = '';
+    if (typeof state.config.healthCameraConnectionIdsCsv !== 'string') state.config.healthCameraConnectionIdsCsv = '';
+    if (typeof state.config.healthPirOnlineIdsCsv !== 'string') state.config.healthPirOnlineIdsCsv = '';
+    if (!Number.isFinite(Number(state.config.healthHeartbeatTimeoutSec))) state.config.healthHeartbeatTimeoutSec = 2;
+    if (typeof state.config.healthPirUseDoorHealth !== 'boolean') state.config.healthPirUseDoorHealth = true;
   }
 
   function getEntities() {
@@ -1131,6 +1157,7 @@
   }
 
   function renderFields() {
+    ensureHealthConfig();
     ui.global.innerHTML = '';
     ui.dp.innerHTML = '';
 
@@ -1167,6 +1194,12 @@
       w.appendChild(wrap);
       ui.dp.appendChild(w);
     }
+    if (ui.healthDoorHeartbeatIds) ui.healthDoorHeartbeatIds.value = String(state.config.healthDoorHeartbeatIdsCsv || '');
+    if (ui.healthDoorOnlineIds) ui.healthDoorOnlineIds.value = String(state.config.healthDoorOnlineIdsCsv || '');
+    if (ui.healthCameraConnectionIds) ui.healthCameraConnectionIds.value = String(state.config.healthCameraConnectionIdsCsv || '');
+    if (ui.healthPirOnlineIds) ui.healthPirOnlineIds.value = String(state.config.healthPirOnlineIdsCsv || '');
+    if (ui.healthHeartbeatTimeoutSec) ui.healthHeartbeatTimeoutSec.value = String(Math.max(1, Number(state.config.healthHeartbeatTimeoutSec || 2)));
+    if (ui.healthPirUseDoorHealth) ui.healthPirUseDoorHealth.value = state.config.healthPirUseDoorHealth === false ? 'false' : 'true';
   }
 
   function applyFloorplanImages() {
@@ -2884,6 +2917,12 @@
     ui.dp.querySelectorAll('[data-key]').forEach(el => { state.config[el.dataset.key] = el.value || ''; });
     state.config.floorplanEgImage = String(ui.floorplanEgInput?.value || './assets/EG.jpg').trim();
     state.config.floorplanOgImage = String(ui.floorplanOgInput?.value || state.config.floorplanEgImage || './assets/OG.jpg').trim();
+    if (ui.healthDoorHeartbeatIds) state.config.healthDoorHeartbeatIdsCsv = String(ui.healthDoorHeartbeatIds.value || '').trim();
+    if (ui.healthDoorOnlineIds) state.config.healthDoorOnlineIdsCsv = String(ui.healthDoorOnlineIds.value || '').trim();
+    if (ui.healthCameraConnectionIds) state.config.healthCameraConnectionIdsCsv = String(ui.healthCameraConnectionIds.value || '').trim();
+    if (ui.healthPirOnlineIds) state.config.healthPirOnlineIdsCsv = String(ui.healthPirOnlineIds.value || '').trim();
+    if (ui.healthHeartbeatTimeoutSec) state.config.healthHeartbeatTimeoutSec = Math.max(1, Number(ui.healthHeartbeatTimeoutSec.value || 2));
+    if (ui.healthPirUseDoorHealth) state.config.healthPirUseDoorHealth = ui.healthPirUseDoorHealth.value !== 'false';
   }
 
   function renderZoneActions() {
@@ -3074,6 +3113,75 @@
     ui.shield.innerHTML = `${shieldIcon}<span>UNSCHARF</span>`;
   }
 
+  function paintOverviewHealth(ok, reasons = []) {
+    const el = ui.healthOverviewText;
+    if (!el) return;
+    el.classList.toggle('ok', !!ok);
+    el.classList.toggle('err', !ok);
+    el.textContent = ok ? 'O.K.' : 'Fehler gefunden';
+    el.title = reasons.length ? reasons.join(' | ') : '';
+  }
+
+  async function checkOnlineIds(ids, label) {
+    if (!ids.length) return { configured: false, ok: true, reasons: [] };
+    const reasons = [];
+    for (const id of ids) {
+      const st = await getState(id);
+      if (!isTruthyOnline(st?.val)) reasons.push(`${label} offline: ${id}`);
+    }
+    return { configured: true, ok: reasons.length === 0, reasons };
+  }
+
+  async function checkHeartbeatIds(ids, timeoutSec, label) {
+    if (!ids.length) return { configured: false, ok: true, reasons: [] };
+    const reasons = [];
+    const now = Date.now();
+    const timeoutMs = Math.max(1000, Number(timeoutSec || 2) * 1000);
+    for (const id of ids) {
+      const st = await getState(id);
+      const ts = Number(st?.ts || st?.lc || 0);
+      if (!Number.isFinite(ts) || ts <= 0) {
+        reasons.push(`${label} kein Heartbeat: ${id}`);
+        continue;
+      }
+      if ((now - ts) > timeoutMs) reasons.push(`${label} Heartbeat Timeout: ${id}`);
+    }
+    return { configured: true, ok: reasons.length === 0, reasons };
+  }
+
+  async function evaluateSystemHealth() {
+    ensureHealthConfig();
+    const timeoutSec = Math.max(1, Number(state.config.healthHeartbeatTimeoutSec || 2));
+    const doorHeartbeatIds = parseIdsCsv(state.config.healthDoorHeartbeatIdsCsv);
+    const doorOnlineIds = parseIdsCsv(state.config.healthDoorOnlineIdsCsv);
+    const camConnIds = parseIdsCsv(state.config.healthCameraConnectionIdsCsv);
+    const pirOnlineIds = parseIdsCsv(state.config.healthPirOnlineIdsCsv);
+    const useDoorForPir = state.config.healthPirUseDoorHealth !== false;
+
+    const doorOnline = await checkOnlineIds(doorOnlineIds, 'Türkontakt');
+    const doorHb = await checkHeartbeatIds(doorHeartbeatIds, timeoutSec, 'Türkontakt');
+    const doorConfigured = doorOnline.configured || doorHb.configured;
+    const doorOk = doorOnline.configured ? doorOnline.ok : (doorHb.configured ? doorHb.ok : true);
+    const doorReasons = doorOnline.configured ? doorOnline.reasons : doorHb.reasons;
+
+    const cams = await checkOnlineIds(camConnIds, 'Kamera');
+    const camOk = cams.configured ? cams.ok : true;
+
+    const pirOnline = await checkOnlineIds(pirOnlineIds, 'PIR');
+    const pirConfigured = pirOnline.configured || useDoorForPir;
+    const pirOk = pirOnline.configured ? pirOnline.ok : (useDoorForPir ? doorOk : true);
+    const pirReasons = pirOnline.configured ? pirOnline.reasons : (useDoorForPir ? doorReasons.map(r => r.replace('Türkontakt', 'PIR/Türmodul')) : []);
+
+    const reasons = [];
+    if (doorConfigured && !doorOk) reasons.push(...doorReasons);
+    if (cams.configured && !camOk) reasons.push(...cams.reasons);
+    if (pirConfigured && !pirOk) reasons.push(...pirReasons);
+    const ok = reasons.length === 0;
+    state.health = { ok, reasons };
+    paintOverviewHealth(ok, reasons);
+    return state.health;
+  }
+
   async function refreshLiveStatus() {
     const p = state.instanceId;
     const prevLive = {
@@ -3092,6 +3200,8 @@
     const cam = await getState(state.config.cctvArmedId || '');
     const prevPresence = state.presenceByPerson || { sebastian: false, teresa: false };
     const prevAlerts = JSON.stringify(state.liveAlerts || {});
+    const prevHealthOk = !!state.health?.ok;
+    const prevHealthReasons = JSON.stringify(state.health?.reasons || []);
     const presenceRows = Array.isArray(state.config.presenceSensorsTable) ? state.config.presenceSensorsTable : [];
     const presenceByPerson = { sebastian: false, teresa: false };
     for (const row of presenceRows) {
@@ -3150,9 +3260,11 @@
     state.live.fullArmed = fullArmed;
     state.live.innerFillArmed = innerFillArmed;
     await refreshAlertStates({ fullArmed, perimeterArmed, camerasArmed });
+    await evaluateSystemHealth();
     applyZoneArmedVisuals(ui.mini);
     applyZoneArmedVisuals(ui.full);
     const alertsChanged = JSON.stringify(state.liveAlerts || {}) !== prevAlerts;
+    const healthChanged = prevHealthOk !== !!state.health?.ok || prevHealthReasons !== JSON.stringify(state.health?.reasons || []);
     const armedChanged = (
       prevLive.perimeterArmed !== perimeterArmed
       || prevLive.aussenArmed !== aussenArmed
@@ -3163,6 +3275,7 @@
     if (
       armedChanged
       || alertsChanged
+      || healthChanged
       || presenceByPerson.sebastian !== prevPresence.sebastian
       || presenceByPerson.teresa !== prevPresence.teresa
     ) {
