@@ -63,6 +63,14 @@
     floorplanOgUpload: $('floorplanOgUpload'),
     uploadFloorplansBtn: $('uploadFloorplansBtn'),
     healthOverviewText: $('healthOverviewText'),
+    avatarPersonSelect: $('avatarPersonSelect'),
+    avatarUploadInput: $('avatarUploadInput'),
+    avatarPreviewCircle: $('avatarPreviewCircle'),
+    avatarPreviewImage: $('avatarPreviewImage'),
+    avatarZoomOutBtn: $('avatarZoomOutBtn'),
+    avatarZoomInBtn: $('avatarZoomInBtn'),
+    avatarResetBtn: $('avatarResetBtn'),
+    avatarApplyBtn: $('avatarApplyBtn'),
     ruleHealthMode: $('ruleHealthMode'),
     ruleHealthHeartbeatId: $('ruleHealthHeartbeatId'),
     ruleHealthHeartbeatMaxSec: $('ruleHealthHeartbeatMaxSec'),
@@ -120,6 +128,8 @@
     live: { perimeterArmed: false, aussenArmed: false, innenArmed: false, fullArmed: false, innerFillArmed: false },
     liveAlerts: { contact: {}, pir: {}, camera: {} },
     overviewShowSensors: false,
+    avatarProfiles: {},
+    avatarDesigner: { person: 'sebastian', dragging: false, startX: 0, startY: 0, startPanX: 0, startPanY: 0 },
     health: { ok: true, reasons: [] },
     presenceByPerson: { sebastian: false, teresa: false },
     pinInput: '',
@@ -210,10 +220,57 @@
     if (person === 'teresa') return 'T';
     return 'P';
   }
-  function presenceAvatarPath(person) {
+  function defaultPresenceAvatarPath(person) {
     if (person === 'sebastian') return './assets/sebastian.jpg';
     if (person === 'teresa') return './assets/teresa.jpg';
     return '';
+  }
+  function knownPresencePersons() {
+    const persons = new Set(['sebastian', 'teresa']);
+    for (const row of (state.config?.presenceSensorsTable || [])) {
+      const p = inferPresencePerson(row);
+      if (p) persons.add(p);
+    }
+    for (const k of Object.keys(state.avatarProfiles || {})) {
+      if (k) persons.add(String(k));
+    }
+    return Array.from(persons);
+  }
+  function normalizeAvatarProfile(raw, fallbackImage) {
+    const p = raw && typeof raw === 'object' ? raw : {};
+    const zoom = Math.max(0.5, Math.min(4, Number(p.zoom || 1)));
+    const panX = Math.max(-100, Math.min(100, Number(p.panX || 0)));
+    const panY = Math.max(-100, Math.min(100, Number(p.panY || 0)));
+    const image = String(p.image || fallbackImage || '');
+    return { image, zoom, panX, panY };
+  }
+  function ensureAvatarProfilesConfig() {
+    if (!state.config || typeof state.config !== 'object') return;
+    let parsed = {};
+    try { parsed = JSON.parse(String(state.config.avatarProfilesJson || '{}')); } catch {}
+    if (!parsed || typeof parsed !== 'object') parsed = {};
+    const out = {};
+    for (const person of knownPresencePersons()) {
+      out[person] = normalizeAvatarProfile(parsed[person], defaultPresenceAvatarPath(person));
+    }
+    state.avatarProfiles = out;
+  }
+  function avatarProfile(person) {
+    ensureAvatarProfilesConfig();
+    const p = String(person || '').trim().toLowerCase();
+    if (!state.avatarProfiles[p]) {
+      state.avatarProfiles[p] = normalizeAvatarProfile({}, defaultPresenceAvatarPath(p));
+    }
+    return state.avatarProfiles[p];
+  }
+  function avatarCssStyle(person) {
+    const p = avatarProfile(person);
+    const url = String(p.image || '').replace(/"/g, '&quot;');
+    return `background-image:url("${url}");background-size:${(p.zoom * 100).toFixed(2)}%;background-position:${(50 + p.panX).toFixed(2)}% ${(50 + p.panY).toFixed(2)}%`;
+  }
+  function persistAvatarProfilesToConfig() {
+    if (!state.config || typeof state.config !== 'object') return;
+    state.config.avatarProfilesJson = JSON.stringify(state.avatarProfiles || {});
   }
   function isPresenceHome(row, val) {
     const raw = String(val ?? '').trim().toLowerCase();
@@ -385,6 +442,7 @@
       if (!r || !id) return;
       const px = Number.isFinite(Number(r[xKey])) ? Number(r[xKey]) : (Number.isFinite(Number(r.posX)) ? Number(r.posX) : null);
       const py = Number.isFinite(Number(r[yKey])) ? Number(r[yKey]) : (Number.isFinite(Number(r.posY)) ? Number(r.posY) : null);
+      const person = kind === 'presenceSensorsTable' ? inferPresencePerson(r) : null;
       rows.push({
         kind,
         idx,
@@ -395,7 +453,10 @@
         floor: String(r.floor || 'EG') === 'OG' ? 'OG' : 'EG',
         posX: px,
         posY: py,
-        hasPos: Number.isFinite(Number(px)) && Number.isFinite(Number(py))
+        hasPos: Number.isFinite(Number(px)) && Number.isFinite(Number(py)),
+        person: person || '',
+        shortLabel: person ? presenceShortLabel(person) : '',
+        avatarStyle: person ? avatarCssStyle(person) : ''
       });
     });
     add(state.config.pirSensorsTable, 'pirSensorsTable', r => r?.id);
@@ -952,10 +1013,10 @@
     el.draggable = true;
     if (detailed) el.textContent = e.label;
     else if (e.kind === 'presenceSensorsTable') {
-      const img = String(e.avatarPath || '');
+      const style = String(e.avatarStyle || '');
       const fallback = String(e.shortLabel || 'P');
-      el.innerHTML = img
-        ? `<span class="presence-avatar" style="background-image:url('${img.replace(/'/g, "\\'")}')"></span>`
+      el.innerHTML = style
+        ? `<span class="presence-avatar" style="${style}"></span>`
         : `<span class="presence-letter">${fallback}</span>`;
     } else {
       el.innerHTML = entityIcon(e);
@@ -1012,10 +1073,10 @@
     ui.absenceCard.classList.remove('hidden');
     ui.presenceCard.classList.remove('hidden');
     ui.absenceList.innerHTML = away.length
-      ? away.map(a => `<div class="legend-row"><span class="presence-avatar tiny" style="background-image:url('${presenceAvatarPath(a.person).replace(/'/g, "\\'")}')"></span></div>`).join('')
+      ? away.map(a => `<div class="legend-row"><span class="presence-avatar tiny" style="${avatarCssStyle(a.person)}"></span></div>`).join('')
       : '';
     ui.presenceList.innerHTML = home.length
-      ? home.map(a => `<div class="legend-row"><span class="presence-avatar tiny" style="background-image:url('${presenceAvatarPath(a.person).replace(/'/g, "\\'")}')"></span></div>`).join('')
+      ? home.map(a => `<div class="legend-row"><span class="presence-avatar tiny" style="${avatarCssStyle(a.person)}"></span></div>`).join('')
       : '';
   }
 
@@ -3216,6 +3277,42 @@
     btn.classList.toggle('ghost', !on);
   }
 
+  function clampAvatarProfile(p) {
+    return normalizeAvatarProfile(p, String(p?.image || ''));
+  }
+
+  function renderAvatarPreview() {
+    if (!ui.avatarPreviewImage) return;
+    const person = String(state.avatarDesigner.person || 'sebastian');
+    const p = avatarProfile(person);
+    ui.avatarPreviewImage.style.backgroundImage = `url("${String(p.image || '').replace(/"/g, '\\"')}")`;
+    ui.avatarPreviewImage.style.backgroundSize = `${(p.zoom * 100).toFixed(2)}%`;
+    ui.avatarPreviewImage.style.backgroundPosition = `${(50 + p.panX).toFixed(2)}% ${(50 + p.panY).toFixed(2)}%`;
+  }
+
+  function renderAvatarDesigner() {
+    if (!ui.avatarPersonSelect) return;
+    ensureAvatarProfilesConfig();
+    const persons = knownPresencePersons();
+    const current = String(state.avatarDesigner.person || persons[0] || 'sebastian');
+    ui.avatarPersonSelect.innerHTML = persons
+      .map(p => `<option value="${p}">${p.charAt(0).toUpperCase()}${p.slice(1)}</option>`)
+      .join('');
+    state.avatarDesigner.person = persons.includes(current) ? current : (persons[0] || 'sebastian');
+    ui.avatarPersonSelect.value = state.avatarDesigner.person;
+    renderAvatarPreview();
+  }
+
+  function updateAvatarProfile(person, patch = {}) {
+    const key = String(person || '').trim().toLowerCase();
+    if (!key) return;
+    const base = avatarProfile(key);
+    state.avatarProfiles[key] = clampAvatarProfile({ ...base, ...patch, image: patch.image !== undefined ? patch.image : base.image });
+    persistAvatarProfilesToConfig();
+    renderAvatarPreview();
+    renderAllCanvases();
+  }
+
   function paintShield(mode) {
     if (!ui.shield) return;
     ui.shield.classList.remove('armed', 'perimeter', 'disarmed');
@@ -3360,10 +3457,10 @@
     paintChip(ui.liveAussenhaut, aussenArmed);
     paintChip(ui.liveInnenraum, innenArmed);
     paintChip(ui.liveCameras, camerasArmed);
-    setToggleButton($('toggleAlarmBtn'), 'Alarm', fullArmed);
-    setToggleButton($('toggleHullBtn'), 'Hull', rawHull || fullArmed);
+    setToggleButton($('toggleAlarmBtn'), 'Vollschutz', fullArmed);
+    setToggleButton($('toggleHullBtn'), 'Außenhaut', rawHull || fullArmed);
     setToggleButton($('togglePerimeterBtn'), 'Perimeter', rawPerimeterCombined || fullArmed);
-    setToggleButton($('toggleCamerasBtn'), 'Camera', asArmed(cam?.val) || camerasArmed);
+    setToggleButton($('toggleCamerasBtn'), 'Kamera', asArmed(cam?.val) || camerasArmed);
     // Keep canvas blink logic aligned with effective armed evaluation
     // (datapoints + zone states), not only raw zone states.
     state.live.perimeterArmed = perimeterArmed;
@@ -3443,6 +3540,7 @@
   function renderAll() {
     rebuildProfileSelect();
     renderFields();
+    renderAvatarDesigner();
     ensureFloorLayouts();
     ensureDesignerData();
     applyFloorplanImages();
@@ -3816,6 +3914,92 @@
     $('addSensorBtn').addEventListener('click', addNewEntity);
     $('addZoneActionBtn').addEventListener('click', addZoneAction);
     if (ui.uploadFloorplansBtn) ui.uploadFloorplansBtn.addEventListener('click', () => uploadFloorplanImages().catch(e => setStatus(String(e), true)));
+    if (ui.avatarPersonSelect) {
+      ui.avatarPersonSelect.addEventListener('change', () => {
+        state.avatarDesigner.person = String(ui.avatarPersonSelect.value || 'sebastian').toLowerCase();
+        renderAvatarPreview();
+      });
+    }
+    if (ui.avatarUploadInput) {
+      ui.avatarUploadInput.addEventListener('change', async () => {
+        const file = ui.avatarUploadInput.files && ui.avatarUploadInput.files[0];
+        if (!file) return;
+        try {
+          const dataUrl = await fileToDataUrl(file);
+          updateAvatarProfile(state.avatarDesigner.person, { image: dataUrl, zoom: 1, panX: 0, panY: 0 });
+          setStatus(`Avatar geladen: ${state.avatarDesigner.person}`);
+        } catch (e) {
+          setStatus(String(e), true);
+        }
+      });
+    }
+    if (ui.avatarZoomInBtn) {
+      ui.avatarZoomInBtn.addEventListener('click', () => {
+        const p = avatarProfile(state.avatarDesigner.person);
+        updateAvatarProfile(state.avatarDesigner.person, { zoom: Math.min(4, Number(p.zoom || 1) + 0.1) });
+      });
+    }
+    if (ui.avatarZoomOutBtn) {
+      ui.avatarZoomOutBtn.addEventListener('click', () => {
+        const p = avatarProfile(state.avatarDesigner.person);
+        updateAvatarProfile(state.avatarDesigner.person, { zoom: Math.max(0.5, Number(p.zoom || 1) - 0.1) });
+      });
+    }
+    if (ui.avatarResetBtn) {
+      ui.avatarResetBtn.addEventListener('click', () => {
+        updateAvatarProfile(state.avatarDesigner.person, { zoom: 1, panX: 0, panY: 0 });
+      });
+    }
+    if (ui.avatarApplyBtn) {
+      ui.avatarApplyBtn.addEventListener('click', () => {
+        persistAvatarProfilesToConfig();
+        setStatus('Avatar-Konfiguration übernommen (Speichern nicht vergessen)');
+      });
+    }
+    if (ui.avatarPreviewCircle) {
+      const startDrag = (clientX, clientY) => {
+        const person = String(state.avatarDesigner.person || 'sebastian');
+        const p = avatarProfile(person);
+        state.avatarDesigner.dragging = true;
+        state.avatarDesigner.startX = Number(clientX);
+        state.avatarDesigner.startY = Number(clientY);
+        state.avatarDesigner.startPanX = Number(p.panX || 0);
+        state.avatarDesigner.startPanY = Number(p.panY || 0);
+        ui.avatarPreviewCircle.classList.add('dragging');
+      };
+      const moveDrag = (clientX, clientY) => {
+        if (!state.avatarDesigner.dragging) return;
+        const rect = ui.avatarPreviewCircle.getBoundingClientRect();
+        const dxPct = ((Number(clientX) - state.avatarDesigner.startX) / Math.max(1, rect.width)) * 100;
+        const dyPct = ((Number(clientY) - state.avatarDesigner.startY) / Math.max(1, rect.height)) * 100;
+        updateAvatarProfile(state.avatarDesigner.person, {
+          panX: Math.max(-100, Math.min(100, state.avatarDesigner.startPanX + dxPct)),
+          panY: Math.max(-100, Math.min(100, state.avatarDesigner.startPanY + dyPct))
+        });
+      };
+      const endDrag = () => {
+        state.avatarDesigner.dragging = false;
+        ui.avatarPreviewCircle.classList.remove('dragging');
+      };
+      ui.avatarPreviewCircle.addEventListener('mousedown', ev => {
+        ev.preventDefault();
+        startDrag(ev.clientX, ev.clientY);
+      });
+      window.addEventListener('mousemove', ev => moveDrag(ev.clientX, ev.clientY));
+      window.addEventListener('mouseup', endDrag);
+      ui.avatarPreviewCircle.addEventListener('touchstart', ev => {
+        const t = ev.touches && ev.touches[0];
+        if (!t) return;
+        startDrag(t.clientX, t.clientY);
+      }, { passive: true });
+      window.addEventListener('touchmove', ev => {
+        const t = ev.touches && ev.touches[0];
+        if (!t) return;
+        moveDrag(t.clientX, t.clientY);
+      }, { passive: true });
+      window.addEventListener('touchend', endDrag);
+      window.addEventListener('touchcancel', endDrag);
+    }
     const tidyBtn = $('tidyCanvasBtn');
     if (tidyBtn) tidyBtn.addEventListener('click', tidyCanvasLayout);
 

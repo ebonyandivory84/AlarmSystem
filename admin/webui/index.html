@@ -32,10 +32,10 @@
         <div class="canvas-overlay left-stack">
           <div class="controls-card">
             <div class="row">
-              <button id="toggleAlarmBtn" class="btn" title="Alarm umschalten">Alarm off</button>
-              <button id="toggleHullBtn" class="btn" title="Außenhaut umschalten">Hull off</button>
+              <button id="toggleAlarmBtn" class="btn" title="Vollschutz umschalten">Vollschutz off</button>
+              <button id="toggleHullBtn" class="btn" title="Außenhaut umschalten">Außenhaut off</button>
               <button id="togglePerimeterBtn" class="btn" title="Perimeter umschalten">Perimeter off</button>
-              <button id="toggleCamerasBtn" class="btn" title="Kameras umschalten">Camera off</button>
+              <button id="toggleCamerasBtn" class="btn" title="Kamera umschalten">Kamera off</button>
             </div>
             <div class="row" style="margin-top:8px">
               <button id="overviewShowSensorsBtn" class="btn ghost" title="Sensor-Detektionen im Grundriss anzeigen">Show sensors: off</button>
@@ -203,6 +203,29 @@
       </section>
 
       <section class="card"><h2>Globale Parameter</h2><div class="fields" id="globalFields"></div></section>
+      <section class="card">
+        <h2>Avatar Designer</h2>
+        <div class="row">
+          <label>Person
+            <select id="avatarPersonSelect"></select>
+          </label>
+          <label>Bild hochladen
+            <input id="avatarUploadInput" type="file" accept="image/*" />
+          </label>
+        </div>
+        <div id="avatarPreviewWrap" class="avatar-preview-wrap">
+          <div id="avatarPreviewCircle" class="avatar-preview-circle">
+            <div id="avatarPreviewImage" class="avatar-preview-image"></div>
+          </div>
+        </div>
+        <div class="row">
+          <button id="avatarZoomOutBtn" class="btn">Zoom -</button>
+          <button id="avatarZoomInBtn" class="btn">Zoom +</button>
+          <button id="avatarResetBtn" class="btn">Reset</button>
+          <button id="avatarApplyBtn" class="btn primary">Avatar übernehmen</button>
+        </div>
+        <p class="muted">Bild im Kreis mit der Maus/Finger verschieben. Zoom bestimmt den sichtbaren Ausschnitt.</p>
+      </section>
       <section class="card">
         <h2>Canvas Elemente</h2>
         <div class="row">

@@ -40,6 +40,10 @@ label{display:grid;gap:6px;min-width:220px} input,select,textarea{background:var
 .health-pill{margin-top:8px;border-radius:999px;padding:10px 12px;font-size:.92rem;font-weight:700;text-align:center;border:1px solid}
 .health-pill.ok{color:#d7ffe2;background:linear-gradient(180deg,rgba(30,120,56,.28),rgba(9,22,14,.85));border-color:#2f8a45}
 .health-pill.err{color:#ffd7d7;background:linear-gradient(180deg,rgba(142,26,36,.36),rgba(30,9,12,.88));border-color:#a22}
+.avatar-preview-wrap{margin-top:10px;display:flex;justify-content:flex-start}
+.avatar-preview-circle{position:relative;width:210px;height:210px;border-radius:50%;overflow:hidden;border:1px solid var(--line-strong);background:#0b0b0b;cursor:grab;touch-action:none}
+.avatar-preview-circle.dragging{cursor:grabbing}
+.avatar-preview-image{position:absolute;inset:0;background-repeat:no-repeat;background-position:50% 50%;background-size:100%;will-change:background-position,background-size}
 .editor-strip{display:none}
 .editor-strip .btn{min-height:48px;padding:8px 12px;font-size:1rem}
 .editor-strip select{min-width:100%;min-height:44px;padding:8px 10px}
