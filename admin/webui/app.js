@@ -2616,6 +2616,11 @@
 
   async function refreshLiveStatus() {
     const p = state.instanceId;
+    const prevLive = {
+      perimeterArmed: !!state.live.perimeterArmed,
+      aussenArmed: !!state.live.aussenArmed,
+      innenArmed: !!state.live.innenArmed
+    };
     const mode = await getState(`${p}.runtime.mode`);
     const perDp = await getState(state.config.perimeterStateId || '');
     const allDp = await getState(state.config.armStateId || '');
@@ -2670,7 +2675,16 @@
     state.live.innenArmed = innenArmed;
     applyZoneArmedVisuals(ui.mini);
     applyZoneArmedVisuals(ui.full);
-    if (presenceByPerson.sebastian !== prevPresence.sebastian || presenceByPerson.teresa !== prevPresence.teresa) {
+    const armedChanged = (
+      prevLive.perimeterArmed !== perimeterArmed
+      || prevLive.aussenArmed !== aussenArmed
+      || prevLive.innenArmed !== innenArmed
+    );
+    if (
+      armedChanged
+      || presenceByPerson.sebastian !== prevPresence.sebastian
+      || presenceByPerson.teresa !== prevPresence.teresa
+    ) {
       renderAllCanvases();
     }
   }
