@@ -387,7 +387,7 @@ body.overview-layout-floating #overviewPage .left-stack{
   left:14px;
   top:246px;
   bottom:86px;
-  width:320px;
+  width:min(360px,calc(100% - 28px));
   margin-top:0;
   z-index:16;
   grid-template-columns:1fr;
@@ -395,13 +395,11 @@ body.overview-layout-floating #overviewPage .left-stack{
   overflow:auto;
   padding-right:2px;
 }
+body.overview-layout-floating #overviewPage .left-stack .controls-card,
+body.overview-layout-floating #overviewPage .left-stack .floor-card,
 body.overview-layout-floating #overviewPage .left-stack .absence-card,
 body.overview-layout-floating #overviewPage .left-stack .presence-card,
 body.overview-layout-floating #overviewPage .left-stack .status-card{
-  display:none;
-}
-body.overview-layout-floating #overviewPage .left-stack .controls-card,
-body.overview-layout-floating #overviewPage .left-stack .floor-card{
   background:rgba(10,16,14,.42);
   border-color:rgba(124,242,165,.28);
   backdrop-filter:blur(7px);
