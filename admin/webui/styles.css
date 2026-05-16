@@ -159,6 +159,13 @@ details summary{cursor:pointer;color:var(--muted);font-weight:600}
 .designer-item .arch-soft{stroke:#9dffbf;stroke-width:1.4;fill:none;stroke-dasharray:5 3}
 .designer-item .arch-soft-fill{fill:rgba(124,242,165,.18);stroke:#7cf2a5;stroke-width:1}
 .designer-item.selected{stroke:#d7ffe8;filter:drop-shadow(0 0 4px rgba(124,242,165,.28))}
+.designer-item.sensor-preview{stroke:#2f86ff !important;fill:rgba(47,134,255,.20) !important}
+.designer-item.sensor-preview .arch-stroke,
+.designer-item.sensor-preview .arch-soft,
+.designer-item.sensor-preview .coverage-arc{stroke:#2f86ff !important}
+.designer-item.sensor-preview .arch-soft-fill{fill:rgba(47,134,255,.20) !important;stroke:#2f86ff !important}
+.designer-item.sensor-preview .coverage-anchor,
+.designer-item.sensor-preview .coverage-anchor-handle{fill:#6faeff !important;stroke:#2f86ff !important}
 .designer-item.alarm-item{stroke:#ff0000 !important;fill:rgba(255,0,0,.34) !important;animation:blinkAlarmFast .5s linear infinite}
 .designer-item.alarm-item .arch-stroke,
 .designer-item.alarm-item .arch-soft,

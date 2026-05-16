@@ -78,6 +78,7 @@
     designerNewBeamChainBtn: $('designerNewBeamChainBtn'),
     designerBindSelectedBtn: $('designerBindSelectedBtn'),
     designerClearBindBtn: $('designerClearBindBtn'),
+    designerShowSensorsBtn: $('designerShowSensorsBtn'),
     designerEntitySelect: $('designerEntitySelect'),
     designerPickEntityBtn: $('designerPickEntityBtn'),
     designerSelectedEntityInfo: $('designerSelectedEntityInfo'),
@@ -141,7 +142,8 @@
       dragRotateCenter: null,
       dragRotateStartAngle: null,
       dragRotateOrigRotation: null,
-      dragAnchorItemId: null
+      dragAnchorItemId: null,
+      showSensorsPreview: false
     },
     designerHistory: []
   };
@@ -1236,6 +1238,7 @@
       EG: { ...defaultDesignerView(), ...(base.settings?.floorView?.EG || {}) },
       OG: { ...defaultDesignerView(), ...(base.settings?.floorView?.OG || {}) }
     };
+    state.designer.showSensorsPreview = base.settings?.showSensorsPreview === true;
     state.designer.floorView.EG.workspaceScale = normalizedWorkspaceScale(state.designer.floorView.EG.workspaceScale);
     state.designer.floorView.OG.workspaceScale = normalizedWorkspaceScale(state.designer.floorView.OG.workspaceScale);
     if (typeof state.config.floorplanDesignerPublished !== 'boolean') {
@@ -1255,7 +1258,8 @@
         floorView: {
           EG: { ...defaultDesignerView(), ...(state.designer.floorView?.EG || {}) },
           OG: { ...defaultDesignerView(), ...(state.designer.floorView?.OG || {}) }
-        }
+        },
+        showSensorsPreview: !!state.designer.showSensorsPreview
       }
     });
   }
@@ -1370,7 +1374,8 @@
         floorView: {
           EG: { ...defaultDesignerView(), ...(state.designer.floorView?.EG || {}) },
           OG: { ...defaultDesignerView(), ...(state.designer.floorView?.OG || {}) }
-        }
+        },
+        showSensorsPreview: !!state.designer.showSensorsPreview
       }
     });
     if (state.designerHistory[state.designerHistory.length - 1] === snap) return;
@@ -1394,6 +1399,7 @@
         EG: { ...defaultDesignerView(), ...(s.settings?.floorView?.EG || {}) },
         OG: { ...defaultDesignerView(), ...(s.settings?.floorView?.OG || {}) }
       };
+      state.designer.showSensorsPreview = s.settings?.showSensorsPreview === true;
       state.config.floorplanDesignerPublished = !!s.published;
       state.designer.dragItemId = null;
       state.designer.pendingBeamConnect = null;
@@ -2146,7 +2152,7 @@
       }
     }
     const pirVignette = type === 'pirZone' && it.alarmActive && overview;
-    const cls = `designer-item${type === 'beam' ? ' beam' : ''}${type === 'cameraZone' ? ' camera-zone' : ''}${type === 'pirZone' ? ' pir-zone' : ''}${pirVignette ? ' pir-vignette' : ''}${isSelected ? ' selected' : ''}${it.alarmActive ? ' alarm-item' : ''}`;
+    const cls = `designer-item${type === 'beam' ? ' beam' : ''}${type === 'cameraZone' ? ' camera-zone' : ''}${type === 'pirZone' ? ' pir-zone' : ''}${pirVignette ? ' pir-vignette' : ''}${it.sensorPreview ? ' sensor-preview' : ''}${isSelected ? ' selected' : ''}${it.alarmActive ? ' alarm-item' : ''}`;
     const body = mirrorX ? `<g class="designer-item-body" transform="scale(-1,1)">${inner}</g>` : `<g class="designer-item-body">${inner}</g>`;
     return `<g class="${cls}" data-item-id="${it.id}" transform="translate(${Number(it.x) || 0},${Number(it.y) || 0}) rotate(${Number(it.r || 0)})">${body}${controls}</g>`;
   }
@@ -2233,6 +2239,11 @@
       ui.designerPublishBtn.classList.toggle('primary', isDesignerPublished());
       ui.designerPublishBtn.classList.toggle('ghost', !isDesignerPublished());
     }
+    if (ui.designerShowSensorsBtn) {
+      ui.designerShowSensorsBtn.textContent = `Sensoren anzeigen: ${state.designer.showSensorsPreview ? 'an' : 'aus'}`;
+      ui.designerShowSensorsBtn.classList.toggle('primary', !!state.designer.showSensorsPreview);
+      ui.designerShowSensorsBtn.classList.toggle('ghost', !state.designer.showSensorsPreview);
+    }
     const grid = Math.max(4, Number(state.designer.grid || 12));
     let html = '';
     if (view.showBg) {
@@ -2263,11 +2274,21 @@
     }
     const showItemHandles = activeTool === 'select' || activeTool === 'place';
     for (const it of (m.items || [])) {
+      const type = canonicalDesignerItemType(it.type);
       const bType = String(it.alarmBindingType || '');
       const bKey = String(it.alarmBindingKey || '');
       const bId = String(it.alarmBindingId || '');
       const active = !!(bType && ((bKey && state.liveAlerts?.[bType]?.[bKey]) || (bId && state.liveAlerts?.[bType]?.[bId])));
-      html += svgForDesignerItem({ ...it, alarmActive: active }, { handles: showItemHandles && Number(state.designer.selectedItemId) === Number(it.id), selected: Number(state.designer.selectedItemId) === Number(it.id) });
+      const hasBinding = !!bType;
+      const isSurface = type === 'cameraZone' || type === 'pirZone';
+      const isContactVisual = ['door', 'window', 'garagedoor'].includes(type);
+      const sensorPreview = state.designer.showSensorsPreview && hasBinding && !active
+        && ((bType === 'pir' && type === 'pirZone') || (bType === 'camera' && type === 'cameraZone') || (bType === 'contact' && isContactVisual));
+      if (isSurface && !active && !sensorPreview) continue;
+      html += svgForDesignerItem(
+        { ...it, alarmActive: active, sensorPreview },
+        { handles: showItemHandles && Number(state.designer.selectedItemId) === Number(it.id), selected: Number(state.designer.selectedItemId) === Number(it.id) }
+      );
     }
     if (state.designer.drawingWall && state.designer.drawingWall.length > 0) {
       const pts = state.designer.drawingWall.slice();
@@ -3377,6 +3398,14 @@
     }
     if (ui.designerClearBindBtn) {
       ui.designerClearBindBtn.addEventListener('click', clearBindingOnSelectedDesignerItem);
+    }
+    if (ui.designerShowSensorsBtn) {
+      ui.designerShowSensorsBtn.addEventListener('click', () => {
+        snapshotDesignerState();
+        state.designer.showSensorsPreview = !state.designer.showSensorsPreview;
+        saveDesignerData();
+        renderDesigner();
+      });
     }
     if (ui.designerPickEntityBtn) {
       ui.designerPickEntityBtn.addEventListener('click', pickDesignerEntityFromSelect);
