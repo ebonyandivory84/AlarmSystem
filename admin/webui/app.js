@@ -57,6 +57,14 @@
     presenceList: $('presenceList'),
     zoneActionsList: $('zoneActionsList'),
     zoneActionResult: $('zoneActionResult'),
+    telegramInstancesList: $('telegramInstancesList'),
+    telegramTargetsList: $('telegramTargetsList'),
+    telegramConfigInfo: $('telegramConfigInfo'),
+    telegramAddInstanceBtn: $('telegramAddInstanceBtn'),
+    telegramAddTargetBtn: $('telegramAddTargetBtn'),
+    telegramTestTextBtn: $('telegramTestTextBtn'),
+    telegramTestPhotoBtn: $('telegramTestPhotoBtn'),
+    telegramTestPhotoCaptionBtn: $('telegramTestPhotoCaptionBtn'),
     canvasEntitySearch: $('canvasEntitySearch'),
     canvasEntitiesList: $('canvasEntitiesList'),
     floorplanEgInput: $('floorplanEgInput'),
@@ -433,6 +441,22 @@
       }
     });
     if (!Array.isArray(state.config.zoneActionsTable)) state.config.zoneActionsTable = [];
+    if (!Array.isArray(state.config.telegramInstancesTable)) {
+      let parsed = [];
+      try {
+        const legacy = JSON.parse(String(state.config.telegramInstancesJson || '[]'));
+        if (Array.isArray(legacy)) parsed = legacy;
+      } catch {}
+      state.config.telegramInstancesTable = parsed;
+    }
+    if (!Array.isArray(state.config.telegramTargetsTable)) {
+      let parsed = [];
+      try {
+        const legacy = JSON.parse(String(state.config.telegramTargetsJson || '[]'));
+        if (Array.isArray(legacy)) parsed = legacy;
+      } catch {}
+      state.config.telegramTargetsTable = parsed;
+    }
   }
 
   function getHullProtectionId() {
@@ -3196,6 +3220,13 @@
     ui.dp.querySelectorAll('[data-key]').forEach(el => { state.config[el.dataset.key] = el.value || ''; });
     state.config.floorplanEgImage = String(ui.floorplanEgInput?.value || './assets/EG.jpg').trim();
     state.config.floorplanOgImage = String(ui.floorplanOgInput?.value || state.config.floorplanEgImage || './assets/OG.jpg').trim();
+    ensureTables();
+    state.config.telegramInstancesTable = (state.config.telegramInstancesTable || [])
+      .map(normalizeTelegramInstanceRow)
+      .filter(r => r.instance);
+    state.config.telegramTargetsTable = (state.config.telegramTargetsTable || [])
+      .map(normalizeTelegramTargetRow)
+      .filter(r => r.instance && r.chatId);
   }
 
   function renderZoneActions() {
@@ -3215,6 +3246,72 @@
       const pulse = Number(r.pulseMs || 0) > 0 ? `${Number(r.pulseMs)}ms` : '-';
       return `<div class="sensor-item"><span>${label} [${zone}]<br><span class="muted">${dp} | on=${onValue} | off=${offValue} | pulse=${pulse}</span></span><button class="btn danger" data-del-zone-action="${idx}">Löschen</button></div>`;
     }).join('');
+  }
+
+  function normalizeTelegramInstanceRow(row) {
+    return {
+      instance: String(row?.instance || '').trim(),
+      token: String(row?.token || '').trim()
+    };
+  }
+
+  function normalizeTelegramTargetRow(row) {
+    return {
+      instance: String(row?.instance || '').trim(),
+      chatId: String(row?.chatId || '').trim()
+    };
+  }
+
+  function renderTelegramConfigCard() {
+    ensureTables();
+    if (!ui.telegramInstancesList || !ui.telegramTargetsList) return;
+    const instances = (state.config.telegramInstancesTable || []).map(normalizeTelegramInstanceRow);
+    const targets = (state.config.telegramTargetsTable || []).map(normalizeTelegramTargetRow);
+    if (instances.length === 0) {
+      ui.telegramInstancesList.innerHTML = '<div class="muted">Keine Telegram-Instanz eingetragen.</div>';
+    } else {
+      ui.telegramInstancesList.innerHTML = instances.map((r, idx) => `
+        <div class="sensor-item telegram-row">
+          <label>Instance<input type="text" data-telegram-instance-field="instance" data-telegram-instance-idx="${idx}" value="${r.instance}" placeholder="telegram.0" /></label>
+          <label>Token (optional)<input type="text" data-telegram-instance-field="token" data-telegram-instance-idx="${idx}" value="${r.token}" placeholder="nur falls benötigt" /></label>
+          <button class="btn danger" data-del-telegram-instance="${idx}">Löschen</button>
+        </div>
+      `).join('');
+    }
+    if (targets.length === 0) {
+      ui.telegramTargetsList.innerHTML = '<div class="muted">Keine Chat-IDs eingetragen.</div>';
+    } else {
+      ui.telegramTargetsList.innerHTML = targets.map((r, idx) => `
+        <div class="sensor-item telegram-row">
+          <label>Instance<input type="text" data-telegram-target-field="instance" data-telegram-target-idx="${idx}" value="${r.instance}" placeholder="telegram.0" /></label>
+          <label>Chat ID<input type="text" data-telegram-target-field="chatId" data-telegram-target-idx="${idx}" value="${r.chatId}" placeholder="123456789 oder -100..." /></label>
+          <button class="btn danger" data-del-telegram-target="${idx}">Löschen</button>
+        </div>
+      `).join('');
+    }
+    if (ui.telegramConfigInfo) {
+      ui.telegramConfigInfo.textContent = `${instances.length} Instanz(en), ${targets.length} Target(s) konfiguriert. Änderungen gelten nach „In Instanz speichern“.`;
+    }
+  }
+
+  async function triggerTelegramTest(kind) {
+    const cmdByKind = {
+      text: 'commands.telegramTestText',
+      photo: 'commands.telegramTestPhoto',
+      photoCaption: 'commands.telegramTestPhotoCaption'
+    };
+    const key = cmdByKind[kind];
+    if (!key) return;
+    const id = `${state.instanceId}.${key}`;
+    await setState(id, true);
+    const labelByKind = {
+      text: 'Test Nachricht',
+      photo: 'Test Bild ohne Caption',
+      photoCaption: 'Test Bild mit Caption'
+    };
+    const label = labelByKind[kind] || 'Telegram Test';
+    setStatus(`Telegram: ${label} ausgelöst`);
+    showToast(`Telegram: ${label}`);
   }
 
   function addZoneAction() {
@@ -3775,6 +3872,7 @@
     renderAllCanvases();
     renderDesigner();
     renderZoneActions();
+    renderTelegramConfigCard();
   }
 
   async function reloadFromInstance() {
@@ -4367,6 +4465,66 @@
         renderZoneActions();
       });
     }
+    if (ui.telegramAddInstanceBtn) {
+      ui.telegramAddInstanceBtn.addEventListener('click', () => {
+        ensureTables();
+        state.config.telegramInstancesTable.push({ instance: '', token: '' });
+        renderTelegramConfigCard();
+      });
+    }
+    if (ui.telegramAddTargetBtn) {
+      ui.telegramAddTargetBtn.addEventListener('click', () => {
+        ensureTables();
+        const firstInstance = String((state.config.telegramInstancesTable?.[0] || {}).instance || '').trim();
+        state.config.telegramTargetsTable.push({ instance: firstInstance, chatId: '' });
+        renderTelegramConfigCard();
+      });
+    }
+    if (ui.telegramInstancesList) {
+      ui.telegramInstancesList.addEventListener('click', ev => {
+        const btn = ev.target.closest('[data-del-telegram-instance]');
+        if (!btn) return;
+        const idx = Number(btn.getAttribute('data-del-telegram-instance'));
+        if (!Number.isInteger(idx) || idx < 0) return;
+        ensureTables();
+        state.config.telegramInstancesTable.splice(idx, 1);
+        renderTelegramConfigCard();
+      });
+      ui.telegramInstancesList.addEventListener('input', ev => {
+        const input = ev.target.closest('[data-telegram-instance-field]');
+        if (!input) return;
+        const idx = Number(input.getAttribute('data-telegram-instance-idx'));
+        const field = String(input.getAttribute('data-telegram-instance-field') || '');
+        if (!Number.isInteger(idx) || idx < 0 || !['instance', 'token'].includes(field)) return;
+        ensureTables();
+        if (!state.config.telegramInstancesTable[idx]) return;
+        state.config.telegramInstancesTable[idx][field] = String(input.value || '').trim();
+      });
+    }
+    if (ui.telegramTargetsList) {
+      ui.telegramTargetsList.addEventListener('click', ev => {
+        const btn = ev.target.closest('[data-del-telegram-target]');
+        if (!btn) return;
+        const idx = Number(btn.getAttribute('data-del-telegram-target'));
+        if (!Number.isInteger(idx) || idx < 0) return;
+        ensureTables();
+        state.config.telegramTargetsTable.splice(idx, 1);
+        renderTelegramConfigCard();
+      });
+      ui.telegramTargetsList.addEventListener('input', ev => {
+        const input = ev.target.closest('[data-telegram-target-field]');
+        if (!input) return;
+        const idx = Number(input.getAttribute('data-telegram-target-idx'));
+        const field = String(input.getAttribute('data-telegram-target-field') || '');
+        if (!Number.isInteger(idx) || idx < 0 || !['instance', 'chatId'].includes(field)) return;
+        ensureTables();
+        if (!state.config.telegramTargetsTable[idx]) return;
+        state.config.telegramTargetsTable[idx][field] = String(input.value || '').trim();
+      });
+    }
+    if (ui.telegramTestTextBtn) ui.telegramTestTextBtn.addEventListener('click', () => triggerTelegramTest('text').catch(e => setStatus(String(e), true)));
+    if (ui.telegramTestPhotoBtn) ui.telegramTestPhotoBtn.addEventListener('click', () => triggerTelegramTest('photo').catch(e => setStatus(String(e), true)));
+    if (ui.telegramTestPhotoCaptionBtn) ui.telegramTestPhotoCaptionBtn.addEventListener('click', () => triggerTelegramTest('photoCaption').catch(e => setStatus(String(e), true)));
     if (ui.canvasEntitiesList) {
       ui.canvasEntitiesList.addEventListener('click', ev => {
         const editBtn = ev.target.closest('[data-entity-edit]');

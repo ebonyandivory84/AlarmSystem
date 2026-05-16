@@ -139,6 +139,10 @@ label{display:grid;gap:6px;min-width:220px} input,select,textarea{background:var
 .cfg-chip-floor{background:rgba(88,164,255,.16);border-color:rgba(120,184,255,.45);color:#c8e6ff}
 .cfg-chip.cfg-on{background:rgba(55,210,140,.18);border-color:rgba(98,242,176,.48);color:#d4ffea}
 .cfg-chip.cfg-off{opacity:.58}
+.telegram-list{max-height:260px}
+.telegram-row{display:grid;grid-template-columns:repeat(2,minmax(180px,1fr)) auto;gap:8px;align-items:end;cursor:default}
+.telegram-row label{min-width:0}
+.telegram-row .btn{min-height:42px}
 .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.status{margin:0;padding:10px;border-radius:10px;border:1px solid var(--line-strong);background:#0f0f0f}.status.err{border-color:#a44;color:#ffd4d4}
 .status-shield{display:flex;align-items:center;justify-content:center;gap:10px;min-height:92px;margin:0 0 8px;border-radius:10px;border:1px solid var(--line-strong);font-size:1.2rem;font-weight:800;letter-spacing:.5px;background:#0f0f0f;white-space:nowrap;text-align:center;padding:0 18px}
 .status-shield svg{width:30px;height:30px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}

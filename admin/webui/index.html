@@ -210,6 +210,25 @@
 
       <section class="card"><h2>Globale Parameter</h2><div class="fields" id="globalFields"></div></section>
       <section class="card">
+        <h2>Telegram Einstellungen</h2>
+        <div class="row">
+          <strong>Instanzen</strong>
+          <button id="telegramAddInstanceBtn" class="btn">Instanz hinzufügen</button>
+        </div>
+        <div id="telegramInstancesList" class="sensor-list telegram-list"></div>
+        <div class="row">
+          <strong>Targets (Chat IDs)</strong>
+          <button id="telegramAddTargetBtn" class="btn">Target hinzufügen</button>
+        </div>
+        <div id="telegramTargetsList" class="sensor-list telegram-list"></div>
+        <p id="telegramConfigInfo" class="muted">Konfiguration gilt nach „In Instanz speichern“.</p>
+        <div class="row">
+          <button id="telegramTestTextBtn" class="btn">Test Nachricht</button>
+          <button id="telegramTestPhotoBtn" class="btn">Test Bild (ohne Caption)</button>
+          <button id="telegramTestPhotoCaptionBtn" class="btn">Test Bild (mit Caption)</button>
+        </div>
+      </section>
+      <section class="card">
         <h2>Avatar Designer</h2>
         <div class="row">
           <label>Person

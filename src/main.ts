@@ -199,6 +199,21 @@ class AlarmSystemAdapter extends utils.Adapter {
       common: { name: 'Disarm cameras', type: 'boolean', role: 'button', read: true, write: true, def: false },
       native: {}
     });
+    await this.setObjectNotExistsAsync('commands.telegramTestText', {
+      type: 'state',
+      common: { name: 'Telegram test text', type: 'boolean', role: 'button', read: true, write: true, def: false },
+      native: {}
+    });
+    await this.setObjectNotExistsAsync('commands.telegramTestPhoto', {
+      type: 'state',
+      common: { name: 'Telegram test photo', type: 'boolean', role: 'button', read: true, write: true, def: false },
+      native: {}
+    });
+    await this.setObjectNotExistsAsync('commands.telegramTestPhotoCaption', {
+      type: 'state',
+      common: { name: 'Telegram test photo with caption', type: 'boolean', role: 'button', read: true, write: true, def: false },
+      native: {}
+    });
   }
 
   private buildConfig(): Config {
@@ -464,7 +479,10 @@ class AlarmSystemAdapter extends utils.Adapter {
       ['config.activeProfileJson', '{}'],
       ['commands.ackActiveCase', false],
       ['commands.armCameras', false],
-      ['commands.disarmCameras', false]
+      ['commands.disarmCameras', false],
+      ['commands.telegramTestText', false],
+      ['commands.telegramTestPhoto', false],
+      ['commands.telegramTestPhotoCaption', false]
     ];
     for (const [id, val] of defaults) await this.setStateAsync(id, val, true);
   }
@@ -627,6 +645,19 @@ class AlarmSystemAdapter extends utils.Adapter {
         this.camerasManualArmed = false;
         await this.setStateAsync('runtime.camerasManualArmed', false, true);
         await this.applyCameraOutputs();
+        await this.setStateAsync(local, false, true);
+      }
+      if (local === 'commands.telegramTestText' && state.val === true) {
+        await this.sendTelegramText('Test');
+        await this.logEvent('info', 'telegram_test_text', 'Telegram Testnachricht gesendet');
+        await this.setStateAsync(local, false, true);
+      }
+      if (local === 'commands.telegramTestPhoto' && state.val === true) {
+        await this.sendTelegramTestPhoto();
+        await this.setStateAsync(local, false, true);
+      }
+      if (local === 'commands.telegramTestPhotoCaption' && state.val === true) {
+        await this.sendTelegramTestPhoto('Test');
         await this.setStateAsync(local, false, true);
       }
       if (local === 'runtime.simulationMode') {
@@ -1143,11 +1174,33 @@ class AlarmSystemAdapter extends utils.Adapter {
     }
   }
 
-  private async sendTelegramPhoto(file: string, caption: string): Promise<void> {
+  private async sendTelegramPhoto(file: string, caption?: string): Promise<void> {
     for (const inst of this.cfg.telegramInstances) {
       const targets = this.cfg.telegramTargets.filter(t => t.instance === inst.instance);
-      if (targets.length === 0) await this.sendToAsync(inst.instance, 'send', { text: file, type: 'photo', caption });
-      else for (const t of targets) await this.sendToAsync(inst.instance, 'send', { user: t.chatId, text: file, type: 'photo', caption });
+      const payloadBase: Record<string, unknown> = { text: file, type: 'photo' };
+      if (caption !== undefined) payloadBase.caption = caption;
+      if (targets.length === 0) await this.sendToAsync(inst.instance, 'send', payloadBase);
+      else for (const t of targets) await this.sendToAsync(inst.instance, 'send', { ...payloadBase, user: t.chatId });
+    }
+  }
+
+  private async sendTelegramTestPhoto(caption?: string): Promise<void> {
+    const cam = this.cfg.cameras.find(c => String(c.snapshotUrl || '').trim());
+    if (!cam) {
+      await this.logEvent('warn', 'telegram_test_photo_missing_snapshot', 'Telegram Testbild nicht gesendet: keine Kamera mit snapshotUrl konfiguriert');
+      await this.sendTelegramText('Test: Kein Snapshot konfiguriert');
+      return;
+    }
+    const url = this.applyCredentials(cam.snapshotUrl, cam.username, cam.password);
+    try {
+      const res = await axios.get(url, { responseType: 'arraybuffer', timeout: 8000, validateStatus: s => s < 500 });
+      if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
+      const file = path.join(os.tmpdir(), `alarm_telegram_test_${Date.now()}.jpg`);
+      await fs.writeFile(file, Buffer.from(res.data));
+      await this.sendTelegramPhoto(file, caption);
+      await this.logEvent('info', 'telegram_test_photo', `Telegram Testbild gesendet (${cam.label || cam.key || cam.ip || 'Kamera'})`);
+    } catch (e) {
+      await this.logEvent('warn', 'telegram_test_photo_error', `Telegram Testbild fehlgeschlagen: ${String(e)}`);
     }
   }
 
