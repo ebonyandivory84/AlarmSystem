@@ -1288,41 +1288,15 @@
     return { x: -dy / len, y: dx / len };
   }
 
-  function normalizeVec(v) {
-    const len = Math.hypot(Number(v.x), Number(v.y));
-    if (!len) return { x: 0, y: 0 };
-    return { x: Number(v.x) / len, y: Number(v.y) / len };
-  }
-
-  function offsetWallPolyline(points, offset) {
-    const pts = normalizeWallPoints(points);
-    if (pts.length < 2) return pts;
-    const out = [];
-    for (let i = 0; i < pts.length; i++) {
-      const p = pts[i];
-      let n = { x: 0, y: 0 };
-      if (i === 0) {
-        n = segmentNormal(pts[0], pts[1]);
-      } else if (i === pts.length - 1) {
-        n = segmentNormal(pts[pts.length - 2], pts[pts.length - 1]);
-      } else {
-        const n1 = segmentNormal(pts[i - 1], pts[i]);
-        const n2 = segmentNormal(pts[i], pts[i + 1]);
-        n = normalizeVec({ x: n1.x + n2.x, y: n1.y + n2.y });
-        if (!n.x && !n.y) n = n2;
-      }
-      out.push({ x: p.x + (n.x * offset), y: p.y + (n.y * offset) });
-    }
-    return out;
-  }
-
   function wallRenderHtml(points, wallId, cls, interactive = false) {
     const pts = normalizeWallPoints(points);
     if (pts.length < 2) return '';
     const off = 6;
-    if (pts.length === 2) {
-      const a0 = pts[0];
-      const a1 = pts[1];
+    let out = '';
+    for (let i = 1; i < pts.length; i++) {
+      const a0 = pts[i - 1];
+      const a1 = pts[i];
+      if (isSamePoint(a0, a1)) continue;
       const n = segmentNormal(a0, a1);
       const l1 = {
         x1: a0.x + (n.x * off), y1: a0.y + (n.y * off),
@@ -1332,15 +1306,9 @@
         x1: a0.x - (n.x * off), y1: a0.y - (n.y * off),
         x2: a1.x - (n.x * off), y2: a1.y - (n.y * off)
       };
-      let out = `<line class="${cls} wall-edge"${interactive ? ` data-wall-id="${wallId}"` : ''} x1="${l1.x1}" y1="${l1.y1}" x2="${l1.x2}" y2="${l1.y2}"></line>`;
+      out += `<line class="${cls} wall-edge"${interactive ? ` data-wall-id="${wallId}"` : ''} x1="${l1.x1}" y1="${l1.y1}" x2="${l1.x2}" y2="${l1.y2}"></line>`;
       out += `<line class="${cls} wall-edge"${interactive ? ` data-wall-id="${wallId}"` : ''} x1="${l2.x1}" y1="${l2.y1}" x2="${l2.x2}" y2="${l2.y2}"></line>`;
-      if (interactive) out += `<line class="designer-wall-hit" data-wall-id="${wallId}" x1="${a0.x}" y1="${a0.y}" x2="${a1.x}" y2="${a1.y}"></line>`;
-      return out;
     }
-    const up = offsetWallPolyline(pts, off);
-    const dn = offsetWallPolyline(pts, -off);
-    let out = `<polyline class="${cls} wall-edge"${interactive ? ` data-wall-id="${wallId}"` : ''} points="${wallPointsAttr(up)}"></polyline>`;
-    out += `<polyline class="${cls} wall-edge"${interactive ? ` data-wall-id="${wallId}"` : ''} points="${wallPointsAttr(dn)}"></polyline>`;
     if (interactive) out += `<polyline class="designer-wall-hit" data-wall-id="${wallId}" points="${wallPointsAttr(pts)}"></polyline>`;
     return out;
   }
