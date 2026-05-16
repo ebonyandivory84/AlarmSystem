@@ -65,8 +65,12 @@
     ruleHealthHeartbeatId: $('ruleHealthHeartbeatId'),
     ruleHealthHeartbeatMaxSec: $('ruleHealthHeartbeatMaxSec'),
     ruleHealthOnlineId: $('ruleHealthOnlineId'),
+    ruleSnapshotDatapointId: $('ruleSnapshotDatapointId'),
+    ruleSnapshotZoneMode: $('ruleSnapshotZoneMode'),
+    ruleSnapshotZones: $('ruleSnapshotZones'),
     browseRuleHeartbeatIdBtn: $('browseRuleHeartbeatIdBtn'),
     browseRuleOnlineIdBtn: $('browseRuleOnlineIdBtn'),
+    browseRuleSnapshotDatapointBtn: $('browseRuleSnapshotDatapointBtn'),
     pinModal: $('pinModal'),
     pinDots: $('pinDots'),
     pinHint: $('pinHint'),
@@ -340,7 +344,10 @@
   function ensureTables() {
     ['pirSensorsTable','contactSensorsTable','presenceSensorsTable','personDetectionTable','camerasTable'].forEach(k => {
       if (!Array.isArray(state.config[k])) state.config[k] = [];
-      for (const row of state.config[k]) ensureEntityHealthFields(row);
+      for (const row of state.config[k]) {
+        ensureEntityHealthFields(row);
+        ensureEntitySnapshotFields(row);
+      }
     });
     if (!Array.isArray(state.config.zoneActionsTable)) state.config.zoneActionsTable = [];
   }
@@ -351,6 +358,14 @@
     if (typeof row.healthHeartbeatId !== 'string') row.healthHeartbeatId = '';
     if (!Number.isFinite(Number(row.healthHeartbeatMaxSec))) row.healthHeartbeatMaxSec = 2;
     if (typeof row.healthOnlineId !== 'string') row.healthOnlineId = '';
+  }
+
+  function ensureEntitySnapshotFields(row) {
+    if (!row || typeof row !== 'object') return;
+    if (typeof row.snapshotDatapointId !== 'string') row.snapshotDatapointId = '';
+    const mode = String(row.snapshotZoneMode || 'none');
+    row.snapshotZoneMode = ['none', 'any', 'selected'].includes(mode) ? mode : 'none';
+    if (typeof row.snapshotZonesCsv !== 'string') row.snapshotZonesCsv = '';
   }
 
   function getEntities() {
@@ -783,6 +798,35 @@
     if (ui.ruleHealthHeartbeatMaxSec) ui.ruleHealthHeartbeatMaxSec.value = String(Math.max(1, Number(r.healthHeartbeatMaxSec || 2)));
     if (ui.ruleHealthOnlineId) ui.ruleHealthOnlineId.value = String(r.healthOnlineId || '');
   }
+  function readSnapshotForm() {
+    const zones = Array.from(ui.ruleSnapshotZones?.selectedOptions || [])
+      .map(o => String(o.value || ''))
+      .filter(v => ['perimeter', 'aussenhaut', 'innenraum'].includes(v));
+    return {
+      snapshotDatapointId: String(ui.ruleSnapshotDatapointId?.value || '').trim(),
+      snapshotZoneMode: ['none', 'any', 'selected'].includes(String(ui.ruleSnapshotZoneMode?.value || 'none'))
+        ? String(ui.ruleSnapshotZoneMode?.value || 'none')
+        : 'none',
+      snapshotZonesCsv: zones.join(',')
+    };
+  }
+  function writeSnapshotForm(row) {
+    const r = row || {};
+    ensureEntitySnapshotFields(r);
+    if (ui.ruleSnapshotDatapointId) ui.ruleSnapshotDatapointId.value = String(r.snapshotDatapointId || '');
+    if (ui.ruleSnapshotZoneMode) ui.ruleSnapshotZoneMode.value = ['none', 'any', 'selected'].includes(String(r.snapshotZoneMode || 'none')) ? String(r.snapshotZoneMode) : 'none';
+    const selected = new Set(String(r.snapshotZonesCsv || '').split(',').map(x => x.trim()).filter(Boolean));
+    if (ui.ruleSnapshotZones) {
+      Array.from(ui.ruleSnapshotZones.options).forEach(opt => {
+        opt.selected = selected.has(String(opt.value || ''));
+      });
+    }
+    updateSnapshotZoneUiState();
+  }
+  function updateSnapshotZoneUiState() {
+    if (!ui.ruleSnapshotZones) return;
+    ui.ruleSnapshotZones.disabled = String(ui.ruleSnapshotZoneMode?.value || 'none') !== 'selected';
+  }
   function readZoneSel(){ return $('ruleZone').value; }
   function writeZoneSel(z){ $('ruleZone').value = z || 'perimeter'; }
   function readFloorSel(){ return $('ruleFloor').value === 'OG' ? 'OG' : 'EG'; }
@@ -882,6 +926,7 @@
     writeFloorSel(e.floor || 'EG');
     writeRuleForm(getRulesMap()[ruleId(e)]);
     writeHealthForm(state.config?.[e.kind]?.[e.idx] || null);
+    writeSnapshotForm(state.config?.[e.kind]?.[e.idx] || null);
     refreshDesignerBindingPanel();
     if (openModal) ui.entityModal.classList.remove('hidden');
   }
@@ -3034,6 +3079,7 @@
     if (kind === 'personDetectionTable') state.config[kind].push({ ...base, mode, detectValue: mode === 'string' ? (detect || 'human detected') : '' });
     else state.config[kind].push({ ...base, activeValuesCsv: active || 'true' });
     ensureEntityHealthFields(state.config[kind][state.config[kind].length - 1]);
+    ensureEntitySnapshotFields(state.config[kind][state.config[kind].length - 1]);
     renderAllCanvases();
     ui.addResult.textContent = `Hinzugefügt: ${base.label}`;
   }
@@ -3041,6 +3087,7 @@
   function openObjectBrowser(targetInput) {
     state.objectTarget = targetInput;
     ui.objectModal.classList.remove('hidden');
+    ui.objectModal.style.zIndex = '70';
     ui.objectSearch.value = targetInput.value || '';
     ui.objectResults.innerHTML = '<div class="muted">Lade Objekte…</div>';
     void ensureStateIdsLoaded().then(() => renderObjectResults());
@@ -3049,6 +3096,7 @@
 
   function closeObjectBrowser() {
     ui.objectModal.classList.add('hidden');
+    ui.objectModal.style.zIndex = '';
     state.objectTarget = null;
   }
 
@@ -3748,6 +3796,8 @@
     $('browseZoneActionIdBtn').addEventListener('click', () => openObjectBrowser($('zoneActionId')));
     if (ui.browseRuleHeartbeatIdBtn && ui.ruleHealthHeartbeatId) ui.browseRuleHeartbeatIdBtn.addEventListener('click', () => openObjectBrowser(ui.ruleHealthHeartbeatId));
     if (ui.browseRuleOnlineIdBtn && ui.ruleHealthOnlineId) ui.browseRuleOnlineIdBtn.addEventListener('click', () => openObjectBrowser(ui.ruleHealthOnlineId));
+    if (ui.browseRuleSnapshotDatapointBtn && ui.ruleSnapshotDatapointId) ui.browseRuleSnapshotDatapointBtn.addEventListener('click', () => openObjectBrowser(ui.ruleSnapshotDatapointId));
+    if (ui.ruleSnapshotZoneMode) ui.ruleSnapshotZoneMode.addEventListener('change', updateSnapshotZoneUiState);
     $('closeBrowserBtn').addEventListener('click', closeObjectBrowser);
     ui.objectSearch.addEventListener('input', renderObjectResults);
     ui.objectResults.addEventListener('click', ev => {
@@ -3763,7 +3813,8 @@
       const z = readZoneSel();
       const f = readFloorSel();
       const h = readHealthForm();
-      setEntity(state.selectedEntity.kind, state.selectedEntity.idx, { zone: z, floor: f, ...h });
+      const snap = readSnapshotForm();
+      setEntity(state.selectedEntity.kind, state.selectedEntity.idx, { zone: z, floor: f, ...h, ...snap });
       const m = getRulesMap();
       m[ruleId(state.selectedEntity)] = readRuleForm();
       setRulesMap(m);
@@ -3905,6 +3956,7 @@
       $('newLabel')?.focus();
     });
 
+    updateSnapshotZoneUiState();
     await refreshLiveStatus();
     await refreshPanicButton();
     switchPage('overview');

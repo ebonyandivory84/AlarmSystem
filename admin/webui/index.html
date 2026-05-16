@@ -305,6 +305,29 @@
             <button id="browseRuleOnlineIdBtn" class="icon-btn" type="button" title="Objektbrowser öffnen">🔎</button>
           </span>
         </label>
+        <label title="Optionaler Datapoint mit Snapshot-URL (z. B. Kamera-JPEG URL), der bei Trigger per Telegram gesendet wird.">
+          Snapshot Datapoint
+          <span class="input-wrap">
+            <input id="ruleSnapshotDatapointId" class="state-input" list="stateIds" type="text" />
+            <button id="browseRuleSnapshotDatapointBtn" class="icon-btn" type="button" title="Objektbrowser öffnen">🔎</button>
+          </span>
+        </label>
+        <label title="Bedingung, wann der Snapshot gesendet wird.">
+          Snapshot Zonen-Bedingung
+          <select id="ruleSnapshotZoneMode">
+            <option value="none">Keine Bedingung</option>
+            <option value="any">Irgendeine Zone aktiv</option>
+            <option value="selected">Ausgewählte Zonen aktiv</option>
+          </select>
+        </label>
+        <label title="Nur relevant bei 'Ausgewählte Zonen aktiv'. Mehrfachauswahl mit Cmd/Ctrl-Klick.">
+          Snapshot Zonen
+          <select id="ruleSnapshotZones" multiple size="3">
+            <option value="perimeter">perimeter</option>
+            <option value="aussenhaut">aussenhaut</option>
+            <option value="innenraum">innenraum</option>
+          </select>
+        </label>
       </div>
       <div class="row">
         <button id="saveEntityRuleBtn" class="btn">Für Element speichern</button>

@@ -8,6 +8,7 @@ import SunCalc from 'suncalc';
 type Zone = 'perimeter' | 'aussenhaut' | 'innenraum';
 type SensorType = 'pir' | 'contact' | 'presence';
 type DetectionMode = 'boolean' | 'string';
+type SnapshotZoneMode = 'none' | 'any' | 'selected';
 
 interface SensorDef {
   key: string;
@@ -16,6 +17,9 @@ interface SensorDef {
   sensorType: SensorType;
   zone: Zone;
   activeValues: Array<string | boolean | number>;
+  snapshotDatapointId?: string;
+  snapshotZoneMode: SnapshotZoneMode;
+  snapshotZones: Zone[];
 }
 
 interface PersonDetectionDef {
@@ -25,6 +29,9 @@ interface PersonDetectionDef {
   zone: Zone;
   mode: DetectionMode;
   detectValue?: string;
+  snapshotDatapointId?: string;
+  snapshotZoneMode: SnapshotZoneMode;
+  snapshotZones: Zone[];
 }
 
 interface CameraDef {
@@ -298,7 +305,10 @@ class AlarmSystemAdapter extends utils.Adapter {
       label: String(r.label || r.key || r.id),
       sensorType,
       zone: this.parseZone(r.zone),
-      activeValues: String(r.activeValuesCsv || 'open').split(',').map((x: string) => x.trim()).filter(Boolean).map((x: string) => this.parseScalar(x))
+      activeValues: String(r.activeValuesCsv || 'open').split(',').map((x: string) => x.trim()).filter(Boolean).map((x: string) => this.parseScalar(x)),
+      snapshotDatapointId: r.snapshotDatapointId ? String(r.snapshotDatapointId) : undefined,
+      snapshotZoneMode: this.parseSnapshotZoneMode(r.snapshotZoneMode),
+      snapshotZones: this.parseSnapshotZones(r.snapshotZonesCsv)
     }));
   }
 
@@ -310,8 +320,27 @@ class AlarmSystemAdapter extends utils.Adapter {
       label: String(r.label || r.key || r.id),
       zone: this.parseZone(r.zone),
       mode: r.mode === 'string' ? 'string' : 'boolean',
-      detectValue: r.detectValue ? String(r.detectValue) : undefined
+      detectValue: r.detectValue ? String(r.detectValue) : undefined,
+      snapshotDatapointId: r.snapshotDatapointId ? String(r.snapshotDatapointId) : undefined,
+      snapshotZoneMode: this.parseSnapshotZoneMode(r.snapshotZoneMode),
+      snapshotZones: this.parseSnapshotZones(r.snapshotZonesCsv)
     }));
+  }
+
+  private parseSnapshotZoneMode(v: any): SnapshotZoneMode {
+    const m = String(v || '').toLowerCase();
+    if (m === 'any') return 'any';
+    if (m === 'selected') return 'selected';
+    return 'none';
+  }
+
+  private parseSnapshotZones(v: any): Zone[] {
+    const raw = String(v || '').split(',').map(x => x.trim()).filter(Boolean);
+    const out: Zone[] = [];
+    for (const z of raw) {
+      if (z === 'perimeter' || z === 'aussenhaut' || z === 'innenraum') out.push(z);
+    }
+    return Array.from(new Set(out));
   }
 
   private parseCamerasTable(rows: any): CameraDef[] {
@@ -617,6 +646,7 @@ class AlarmSystemAdapter extends utils.Adapter {
       const active = this.matchesAny(state.val, s.activeValues);
       if (active && this.zoneArmed[s.zone] && this.allowEvent(id)) {
         await this.writeDailyTriggerLog('sensor', s.label, s.id, s.zone, state.val);
+        await this.tryTriggerConfiguredSnapshot(s.label, s.snapshotDatapointId, s.snapshotZoneMode, s.snapshotZones);
         await this.handleZoneTrigger(s.label, s.zone);
       }
       return;
@@ -627,6 +657,7 @@ class AlarmSystemAdapter extends utils.Adapter {
       const active = this.matchesPerson(state.val, p);
       if (active && this.zoneArmed[p.zone] && this.allowEvent(id)) {
         await this.writeDailyTriggerLog('personDetection', p.label, p.id, p.zone, state.val);
+        await this.tryTriggerConfiguredSnapshot(p.label, p.snapshotDatapointId, p.snapshotZoneMode, p.snapshotZones);
         await this.handleZoneTrigger(p.label, p.zone);
       }
       return;
@@ -930,6 +961,37 @@ class AlarmSystemAdapter extends utils.Adapter {
     for (let i = 0; i < this.cfg.snapshotBurstCount; i++) {
       const delay = this.cfg.snapshotDelayMs + i * this.cfg.snapshotBurstIntervalMs;
       this.setTimeout(() => void this.sendSnapshot(url, cam.label, i + 1), delay);
+    }
+  }
+
+  private isAnyZoneArmed(): boolean {
+    return this.zoneArmed.perimeter || this.zoneArmed.aussenhaut || this.zoneArmed.innenraum;
+  }
+
+  private snapshotZoneConditionMatches(mode: SnapshotZoneMode, zones: Zone[]): boolean {
+    if (mode === 'none') return true;
+    if (mode === 'any') return this.isAnyZoneArmed();
+    if (!zones.length) return false;
+    return zones.some(z => this.zoneArmed[z]);
+  }
+
+  private async tryTriggerConfiguredSnapshot(label: string, datapointId?: string, mode: SnapshotZoneMode = 'none', zones: Zone[] = []): Promise<void> {
+    const id = String(datapointId || '').trim();
+    if (!id) return;
+    if (!this.snapshotZoneConditionMatches(mode, zones)) return;
+    const st = await this.getForeignStateAsync(id);
+    const url = typeof st?.val === 'string' ? st.val.trim() : '';
+    if (!url) {
+      await this.logEvent('warn', 'snapshot_dp_empty', `Snapshot datapoint leer: ${id} (${label})`);
+      return;
+    }
+    if (!/^https?:\/\//i.test(url)) {
+      await this.logEvent('warn', 'snapshot_dp_invalid', `Snapshot datapoint ist keine URL: ${id} (${label})`);
+      return;
+    }
+    for (let i = 0; i < this.cfg.snapshotBurstCount; i++) {
+      const delay = this.cfg.snapshotDelayMs + i * this.cfg.snapshotBurstIntervalMs;
+      this.setTimeout(() => void this.sendSnapshot(url, label, i + 1), delay);
     }
   }
 
