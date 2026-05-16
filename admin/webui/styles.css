@@ -153,6 +153,7 @@ details summary{cursor:pointer;color:var(--muted);font-weight:600}
 .designer-room{fill:rgba(124,242,165,.08);stroke:#7cf2a5;stroke-width:1.5}
 .designer-perimeter{stroke:#7cf2a5;stroke-dasharray:8 6;stroke-width:2;fill:rgba(124,242,165,.04)}
 .designer-item{stroke:#7cf2a5;fill:rgba(124,242,165,.10);stroke-width:1.5}
+.designer-item .designer-item-hit{fill:rgba(0,0,0,.001);stroke:none;pointer-events:all;cursor:pointer}
 .designer-item text{fill:#b7ffd1;font-size:11px;font-weight:700}
 .designer-item.beam{fill:rgba(124,242,165,.3);stroke:#b8ffd0;stroke-width:1.8}
 .designer-item .arch-stroke{stroke:#7cf2a5;stroke-width:1.5;fill:none}

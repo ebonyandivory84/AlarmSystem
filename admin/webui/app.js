@@ -2153,8 +2153,12 @@
     }
     const pirVignette = type === 'pirZone' && it.alarmActive && overview;
     const cls = `designer-item${type === 'beam' ? ' beam' : ''}${type === 'cameraZone' ? ' camera-zone' : ''}${type === 'pirZone' ? ' pir-zone' : ''}${pirVignette ? ' pir-vignette' : ''}${it.sensorPreview ? ' sensor-preview' : ''}${isSelected ? ' selected' : ''}${it.alarmActive ? ' alarm-item' : ''}`;
+    const hitPad = type === 'door' ? 14 : 8;
+    const hitW = w + (hitPad * 2);
+    const hitH = h + (hitPad * 2);
+    const hitRect = `<rect class="designer-item-hit" x="${-hitW / 2}" y="${-hitH / 2}" width="${hitW}" height="${hitH}" rx="${Math.max(4, Math.min(14, Math.min(hitW, hitH) * 0.18))}"></rect>`;
     const body = mirrorX ? `<g class="designer-item-body" transform="scale(-1,1)">${inner}</g>` : `<g class="designer-item-body">${inner}</g>`;
-    return `<g class="${cls}" data-item-id="${it.id}" transform="translate(${Number(it.x) || 0},${Number(it.y) || 0}) rotate(${Number(it.r || 0)})">${body}${controls}</g>`;
+    return `<g class="${cls}" data-item-id="${it.id}" transform="translate(${Number(it.x) || 0},${Number(it.y) || 0}) rotate(${Number(it.r || 0)})">${hitRect}${body}${controls}</g>`;
   }
 
   function linkWallBetweenBeams(model, fromBeam, toBeam) {
