@@ -149,7 +149,7 @@ details summary{cursor:pointer;color:var(--muted);font-weight:600}
 .btn.toggle-off{background:#145f34;border-color:#2dbf6d;color:#fff}
 .designer-wrap{margin-top:12px;border:1px dashed var(--line-strong);border-radius:14px;background:linear-gradient(180deg,rgba(0,0,0,.18),rgba(0,0,0,.10));overflow:hidden}
 .designer-bind-panel{margin-top:12px;padding:12px;border-radius:12px;border:1px solid var(--line-strong);background:#101010}
-.designer-svg{display:block;width:100%;height:min(74vh,820px);background:#040705}
+.designer-svg{display:block;width:100%;height:min(148vh,1640px);background:#040705}
 .designer-svg.erase-mode{cursor:not-allowed}
 .designer-grid line{stroke:rgba(124,242,165,.18);stroke-width:1}
 .designer-wall{stroke:#7cf2a5;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
