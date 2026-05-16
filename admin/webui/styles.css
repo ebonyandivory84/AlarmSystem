@@ -16,6 +16,11 @@ label{display:grid;gap:6px;min-width:220px} input,select,textarea{background:var
 .input-wrap input{flex:1}
 .icon-btn{width:40px;height:40px;border-radius:10px;border:1px solid var(--line-strong);background:#1a1a1a;color:#fff;cursor:pointer}
 .btn{border:1px solid var(--line-strong);background:#1d1d1d;color:var(--text);border-radius:12px;padding:10px 14px;min-height:44px;cursor:pointer;transition:.16s transform,.16s background,.16s border-color}.btn:hover{background:#242424;border-color:#4a4a4a}.btn:active{transform:translateY(1px)}.btn.primary{background:linear-gradient(135deg,var(--accent-2),var(--accent));border:none}.btn.ghost{background:transparent}.btn.danger{background:#341517;border-color:#6b2a2f}
+.btn.floor-btn{position:relative;font-weight:700}
+.btn.floor-btn.floor-btn-safe{background:linear-gradient(135deg,#145f34,#2dbf6d);border-color:#2dbf6d;color:#eafff1}
+.btn.floor-btn.floor-btn-open{background:#ffb6b6;border-color:#ff7f7f;color:#3b0f13;animation:blinkFloorDoor 1s linear infinite}
+.btn.floor-btn.floor-btn-selected{box-shadow:0 0 0 2px #6ad2ff inset, 0 0 0 1px rgba(255,255,255,.18)}
+@keyframes blinkFloorDoor{0%{opacity:1}50%{opacity:.35}100%{opacity:1}}
 .status-chip{display:inline-block;padding:8px 12px;border-radius:999px;border:1px solid var(--line-strong);background:var(--bg-soft);color:var(--text);font-size:12px}
 .status-chip.armed{background:#4a1016;border-color:#a22;color:#ffd9d9;animation:blinkArmed 1s linear infinite}
 .status-chip.armed-perimeter{background:#5b4b0f;border-color:#b5962d;color:#fff3c7;animation:blinkArmed 1s linear infinite}

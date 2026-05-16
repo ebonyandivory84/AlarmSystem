@@ -141,6 +141,7 @@ interface Config {
 class AlarmSystemAdapter extends utils.Adapter {
   private cfg!: Config;
   private zoneArmed: Record<Zone, boolean> = { perimeter: false, aussenhaut: false, innenraum: false };
+  private camerasManualArmed = false;
   private zoneExitTimers: Partial<Record<Zone, ioBroker.Timeout>> = {};
   private dedupe = new Map<string, number>();
   private lastSeen = new Map<string, number>();
@@ -168,7 +169,10 @@ class AlarmSystemAdapter extends utils.Adapter {
     this.triggerLogDir = path.join(utils.getAbsoluteInstanceDataDir(this), 'trigger-logs');
     await this.subscribeStates('*');
     await this.subscribeForeignInputs();
+    await this.ensureWebUiCameraStates();
     await this.ensureStates();
+    this.camerasManualArmed = (await this.getStateAsync('runtime.camerasManualArmed'))?.val === true;
+    await this.applyCameraOutputs();
     await this.refreshTriggerLogState(this.dayString(new Date()));
     await this.publishConfigStates();
     await this.refreshInitialSeen();
@@ -177,6 +181,24 @@ class AlarmSystemAdapter extends utils.Adapter {
     this.startHeartbeatWatchdog();
     this.startStandbySafetyCheck();
     await this.logEvent('info', 'system_start', 'AlarmSystem gestartet');
+  }
+
+  private async ensureWebUiCameraStates(): Promise<void> {
+    await this.setObjectNotExistsAsync('runtime.camerasManualArmed', {
+      type: 'state',
+      common: { name: 'Cameras manually armed', type: 'boolean', role: 'switch', read: true, write: true, def: false },
+      native: {}
+    });
+    await this.setObjectNotExistsAsync('commands.armCameras', {
+      type: 'state',
+      common: { name: 'Arm cameras', type: 'boolean', role: 'button', read: true, write: true, def: false },
+      native: {}
+    });
+    await this.setObjectNotExistsAsync('commands.disarmCameras', {
+      type: 'state',
+      common: { name: 'Disarm cameras', type: 'boolean', role: 'button', read: true, write: true, def: false },
+      native: {}
+    });
   }
 
   private buildConfig(): Config {
@@ -424,6 +446,7 @@ class AlarmSystemAdapter extends utils.Adapter {
       ['runtime.activeCaseId', ''],
       ['runtime.lastTrigger', ''],
       ['runtime.simulationMode', this.cfg.simulationMode],
+      ['runtime.camerasManualArmed', false],
       ['runtime.countdownRemainingSec', 0],
       ['zones.perimeter.armed', false],
       ['zones.aussenhaut.armed', false],
@@ -439,7 +462,9 @@ class AlarmSystemAdapter extends utils.Adapter {
       ['config.profileNamesJson', '[]'],
       ['config.activeProfile', 'default.json'],
       ['config.activeProfileJson', '{}'],
-      ['commands.ackActiveCase', false]
+      ['commands.ackActiveCase', false],
+      ['commands.armCameras', false],
+      ['commands.disarmCameras', false]
     ];
     for (const [id, val] of defaults) await this.setStateAsync(id, val, true);
   }
@@ -592,8 +617,24 @@ class AlarmSystemAdapter extends utils.Adapter {
         await this.ackActiveCase();
         await this.setStateAsync(local, false, true);
       }
+      if (local === 'commands.armCameras' && state.val === true) {
+        this.camerasManualArmed = true;
+        await this.setStateAsync('runtime.camerasManualArmed', true, true);
+        await this.applyCameraOutputs();
+        await this.setStateAsync(local, false, true);
+      }
+      if (local === 'commands.disarmCameras' && state.val === true) {
+        this.camerasManualArmed = false;
+        await this.setStateAsync('runtime.camerasManualArmed', false, true);
+        await this.applyCameraOutputs();
+        await this.setStateAsync(local, false, true);
+      }
       if (local === 'runtime.simulationMode') {
         this.cfg.simulationMode = state.val === true;
+      }
+      if (local === 'runtime.camerasManualArmed') {
+        this.camerasManualArmed = state.val === true;
+        await this.applyCameraOutputs();
       }
       if (local === 'diagnostics.triggerLogDate' && typeof state.val === 'string') {
         await this.refreshTriggerLogState(state.val);
@@ -619,8 +660,7 @@ class AlarmSystemAdapter extends utils.Adapter {
       if (state.val === true) {
         await this.armZone('perimeter');
         await this.armZone('aussenhaut');
-        await this.setOutput(this.cfg.cctvArmedId, true);
-        await this.setOutput(this.cfg.cctvDisarmedId, false);
+        await this.applyCameraOutputs();
       } else if (state.val === false) {
         const hullSt = await this.getForeignStateAsync(this.cfg.hullProtectionStateId);
         const allSt = await this.getForeignStateAsync(this.cfg.armStateId);
@@ -628,8 +668,7 @@ class AlarmSystemAdapter extends utils.Adapter {
         if (!(hullSt?.val === true || allSt?.val === true)) {
           await this.disarmZone('aussenhaut');
         }
-        await this.setOutput(this.cfg.cctvArmedId, false);
-        await this.setOutput(this.cfg.cctvDisarmedId, true);
+        await this.applyCameraOutputs();
       }
       return;
     }
@@ -782,15 +821,22 @@ class AlarmSystemAdapter extends utils.Adapter {
     await this.disarmZone('innenraum');
     await this.abortCountdown();
     await this.setOutput(this.cfg.sirenStateId, false);
-    await this.setOutput(this.cfg.cctvArmedId, false);
-    await this.setOutput(this.cfg.cctvDisarmedId, true);
+    this.camerasManualArmed = false;
+    await this.setStateAsync('runtime.camerasManualArmed', false, true);
+    await this.applyCameraOutputs();
+  }
+
+  private async applyCameraOutputs(): Promise<void> {
+    const anyZoneArmed = this.zoneArmed.perimeter || this.zoneArmed.aussenhaut || this.zoneArmed.innenraum;
+    const camerasEffectiveArmed = anyZoneArmed || this.camerasManualArmed;
+    await this.setOutput(this.cfg.cctvArmedId, camerasEffectiveArmed);
+    await this.setOutput(this.cfg.cctvDisarmedId, !camerasEffectiveArmed);
   }
 
   private async updateModeState(): Promise<void> {
     const any = this.zoneArmed.perimeter || this.zoneArmed.aussenhaut || this.zoneArmed.innenraum;
     await this.setStateAsync('runtime.mode', any ? 'armed' : 'disarmed', true);
-    await this.setOutput(this.cfg.cctvArmedId, any);
-    if (!any) await this.setOutput(this.cfg.cctvDisarmedId, true);
+    await this.applyCameraOutputs();
     await this.updateStatusAndChecks();
   }
 

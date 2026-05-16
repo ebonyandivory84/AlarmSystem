@@ -597,7 +597,7 @@
     normalizeDesignerItems(model);
     const wallCutMap = doorCutsByWall(model);
     const perimeterAlarm = !!state.live.perimeterArmed;
-    const outerAlarm = perimeterAlarm || !!state.live.aussenArmed;
+    const outerAlarm = !!state.live.aussenArmed;
     const innerAlarm = !!state.live.innerFillArmed;
     const ws = getDesignerWorkspace(true);
     const view = getDesignerFloorView(true);
@@ -3193,8 +3193,16 @@
     if (which === 'disarmHull') await setState(getHullProtectionId(), false);
     if (which === 'armPerimeter') await setState(state.config.perimeterStateId, true);
     if (which === 'disarmPerimeter') await setState(state.config.perimeterStateId, false);
-    if (which === 'armCameras') { const ids = JSON.parse(state.config.cameraAlarmOnIdsJson || '[]'); for (const id of ids) await pulse(id); await pulse(state.config.cctvArmedId); }
-    if (which === 'disarmCameras') { const ids = JSON.parse(state.config.cameraAlarmOffIdsJson || '[]'); for (const id of ids) await pulse(id); await pulse(state.config.cctvDisarmedId); }
+    if (which === 'armCameras') {
+      const ids = JSON.parse(state.config.cameraAlarmOnIdsJson || '[]');
+      for (const id of ids) await pulse(id);
+      await setState(`${state.instanceId}.commands.armCameras`, true);
+    }
+    if (which === 'disarmCameras') {
+      const ids = JSON.parse(state.config.cameraAlarmOffIdsJson || '[]');
+      for (const id of ids) await pulse(id);
+      await setState(`${state.instanceId}.commands.disarmCameras`, true);
+    }
     setStatus('Manuelle Aktion ausgeführt');
   }
 
@@ -3266,6 +3274,49 @@
     btn.textContent = `${label} ${isOn ? 'on' : 'off'}`;
     btn.classList.toggle('toggle-on', !!isOn);
     btn.classList.toggle('toggle-off', !isOn);
+  }
+
+  function floorNorm(v) {
+    return String(v || 'EG').toUpperCase() === 'OG' ? 'OG' : 'EG';
+  }
+
+  function doorSensorIsOpen(row, val) {
+    const raw = String(val ?? '').trim().toLowerCase();
+    const csv = String(row?.activeValuesCsv || '').trim().toLowerCase();
+    if (csv) {
+      const vals = csv.split(',').map(x => x.trim()).filter(Boolean);
+      if (vals.length > 0) return vals.includes(raw);
+    }
+    return asArmed(val);
+  }
+
+  async function refreshFloorDoorStatus() {
+    const rows = Array.isArray(state.config?.contactSensorsTable) ? state.config.contactSensorsTable : [];
+    const openByFloor = { EG: false, OG: false };
+    for (const row of rows) {
+      const id = String(row?.id || '').trim();
+      if (!id) continue;
+      const st = await getState(id);
+      if (!doorSensorIsOpen(row, st?.val)) continue;
+      const floor = floorNorm(row?.floor);
+      openByFloor[floor] = true;
+    }
+    return openByFloor;
+  }
+
+  function applyFloorButtonState(btn, isSelected, hasOpenDoor) {
+    if (!btn) return;
+    btn.classList.remove('primary', 'ghost');
+    btn.classList.add('floor-btn');
+    btn.classList.toggle('floor-btn-selected', !!isSelected);
+    btn.classList.toggle('floor-btn-safe', !hasOpenDoor);
+    btn.classList.toggle('floor-btn-open', !!hasOpenDoor);
+  }
+
+  async function updateFloorButtons() {
+    const openByFloor = await refreshFloorDoorStatus();
+    applyFloorButtonState(ui.floorEgBtn, state.currentFloor === 'EG', !!openByFloor.EG);
+    applyFloorButtonState(ui.floorOgBtn, state.currentFloor === 'OG', !!openByFloor.OG);
   }
 
   function updateOverviewShowSensorsButton() {
@@ -3390,7 +3441,6 @@
   }
 
   async function refreshLiveStatus() {
-    const p = state.instanceId;
     const prevLive = {
       perimeterArmed: !!state.live.perimeterArmed,
       aussenArmed: !!state.live.aussenArmed,
@@ -3398,11 +3448,11 @@
       fullArmed: !!state.live.fullArmed,
       innerFillArmed: !!state.live.innerFillArmed
     };
-    const mode = await getState(`${p}.runtime.mode`);
     const perDp = await getState(state.config.perimeterStateId || '');
     const hullDp = await getState(getHullProtectionId());
     const allDp = await getState(state.config.armStateId || '');
     const cam = await getState(state.config.cctvArmedId || '');
+    const camManual = await getState(`${state.instanceId}.runtime.camerasManualArmed`);
     const prevPresence = state.presenceByPerson || { sebastian: false, teresa: false };
     const prevAlerts = JSON.stringify(state.liveAlerts || {});
     const prevHealthOk = !!state.health?.ok;
@@ -3417,26 +3467,17 @@
     }
     state.presenceByPerson = presenceByPerson;
 
-    const modeTextRaw = String(mode?.val || '').toLowerCase();
-    const modePerimeter = modeTextRaw.includes('perimeter');
-    const modeFull = (
-      modeTextRaw === 'armed'
-      || modeTextRaw === 'full'
-      || modeTextRaw === 'all'
-      || modeTextRaw === 'scharf'
-      || modeTextRaw.includes('voll')
-    );
     // Keep UI semantics strict to configured datapoints:
     // Alarm=all, Hull=outside shell, Camera=camera only, Perimeter=Hull+Camera.
-    const rawPerimeterCombined = asArmed(perDp?.val) || modePerimeter;
+    const rawPerimeterCombined = asArmed(perDp?.val);
     const rawHull = asArmed(hullDp?.val);
-    const fullArmed = modeFull || asArmed(allDp?.val);
+    const fullArmed = asArmed(allDp?.val);
     const innerFillArmed = fullArmed;
     const rawAll = fullArmed;
     const allArmed = rawAll;
     const innenArmed = rawAll;
     const aussenArmed = rawAll || rawHull || rawPerimeterCombined;
-    const camerasArmed = asArmed(cam?.val);
+    const camerasArmed = asArmed(cam?.val) || asArmed(camManual?.val);
     const perimeterArmed = rawAll || camerasArmed || rawPerimeterCombined;
 
     const modeText = (perimeterArmed || aussenArmed || innenArmed || allArmed) ? 'armed' : 'disarmed';
@@ -3470,6 +3511,7 @@
     state.live.innerFillArmed = innerFillArmed;
     await refreshAlertStates({ fullArmed, aussenArmed, perimeterArmed, camerasArmed, showSensors: state.overviewShowSensors });
     await evaluateSystemHealth();
+    await updateFloorButtons();
     applyZoneArmedVisuals(ui.mini);
     applyZoneArmedVisuals(ui.full);
     const alertsChanged = JSON.stringify(state.liveAlerts || {}) !== prevAlerts;
@@ -3539,6 +3581,7 @@
 
   function renderAll() {
     rebuildProfileSelect();
+    void updateFloorButtons();
     renderFields();
     renderAvatarDesigner();
     ensureFloorLayouts();
@@ -3852,14 +3895,12 @@
     bindDesignerInteractions();
     ui.floorEgBtn.addEventListener('click', () => {
       state.currentFloor = 'EG';
-      ui.floorEgBtn.classList.add('primary'); ui.floorEgBtn.classList.remove('ghost');
-      ui.floorOgBtn.classList.add('ghost'); ui.floorOgBtn.classList.remove('primary');
+      void updateFloorButtons();
       renderAllCanvases();
     });
     ui.floorOgBtn.addEventListener('click', () => {
       state.currentFloor = 'OG';
-      ui.floorOgBtn.classList.add('primary'); ui.floorOgBtn.classList.remove('ghost');
-      ui.floorEgBtn.classList.add('ghost'); ui.floorEgBtn.classList.remove('primary');
+      void updateFloorButtons();
       renderAllCanvases();
     });
     ui.editImageBtn.addEventListener('click', () => {
@@ -4082,7 +4123,8 @@
     $('toggleCamerasBtn').addEventListener('click', async () => {
       try {
         const st = await getState(state.config.cctvArmedId || '');
-        const toOn = !asArmed(st?.val);
+        const manual = await getState(`${state.instanceId}.runtime.camerasManualArmed`);
+        const toOn = !(asArmed(st?.val) || asArmed(manual?.val));
         if (toOn) await manualControl('armCameras');
         else openPinModal('disarmCameras');
       } catch (e) {
@@ -4136,10 +4178,7 @@
           const row = state.config[kind][idx];
           const floor = String(row.floor || 'EG') === 'OG' ? 'OG' : 'EG';
           state.currentFloor = floor;
-          ui.floorEgBtn.classList.toggle('primary', floor === 'EG');
-          ui.floorEgBtn.classList.toggle('ghost', floor !== 'EG');
-          ui.floorOgBtn.classList.toggle('primary', floor === 'OG');
-          ui.floorOgBtn.classList.toggle('ghost', floor !== 'OG');
+          void updateFloorButtons();
           const id = kind === 'camerasTable'
             ? String(row.personDetectionDp || row.snapshotUrl || row.ip || '')
             : String(row.id || '');
