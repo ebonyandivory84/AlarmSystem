@@ -76,6 +76,12 @@
     designerUndoBtn: $('designerUndoBtn'),
     designerFinishWallBtn: $('designerFinishWallBtn'),
     designerNewBeamChainBtn: $('designerNewBeamChainBtn'),
+    designerBindSelectedBtn: $('designerBindSelectedBtn'),
+    designerClearBindBtn: $('designerClearBindBtn'),
+    designerEntitySelect: $('designerEntitySelect'),
+    designerPickEntityBtn: $('designerPickEntityBtn'),
+    designerSelectedEntityInfo: $('designerSelectedEntityInfo'),
+    designerSelectedItemInfo: $('designerSelectedItemInfo'),
     designerCopyFloorBtn: $('designerCopyFloorBtn'),
     designerClearBtn: $('designerClearBtn'),
     designerSvg: $('designerSvg')
@@ -93,6 +99,7 @@
     selectedEntity: null,
     objectTarget: null,
     live: { perimeterArmed: false, aussenArmed: false, innenArmed: false, fullArmed: false, innerFillArmed: false },
+    liveAlerts: { contact: {}, pir: {}, camera: {} },
     presenceByPerson: { sebastian: false, teresa: false },
     pinInput: '',
     pinTargetAction: null,
@@ -514,10 +521,49 @@
         : 'designer-wall';
       html += wallRenderHtml(wall.points, wall.id, cls, false, wallCutMap);
     }
-    for (const item of (model.items || [])) html += svgForDesignerItem(item, { handles: false, selected: false });
+    for (const item of (model.items || [])) {
+      const t = String(item.type || '');
+      const bType = String(item.alarmBindingType || '');
+      const bKey = String(item.alarmBindingKey || '');
+      const active = !!(bType && bKey && state.liveAlerts?.[bType]?.[bKey]);
+      if (t === 'pirZone' && !active) continue;
+      html += svgForDesignerItem({ ...item, alarmActive: active }, { handles: false, selected: false });
+    }
     svg.innerHTML += html;
     wrap.appendChild(svg);
     canvas.appendChild(wrap);
+  }
+
+  function itemAlarmTypeForEntityKind(kind) {
+    if (kind === 'contactSensorsTable') return 'contact';
+    if (kind === 'pirSensorsTable') return 'pir';
+    if (kind === 'camerasTable' || kind === 'personDetectionTable') return 'camera';
+    return '';
+  }
+
+  async function refreshAlertStates() {
+    const next = { contact: {}, pir: {}, camera: {} };
+    const readRows = async (rows, type, mode = 'activeValues') => {
+      for (const row of (rows || [])) {
+        const key = String(row?.key || row?.id || row?.personDetectionDp || row?.snapshotUrl || row?.ip || '');
+        const id = String((type === 'camera' ? row?.personDetectionDp : row?.id) || '');
+        if (!key || !id) continue;
+        const st = await getState(id);
+        const raw = String(st?.val ?? '').trim().toLowerCase();
+        let on = false;
+        if (mode === 'detectValue') on = raw === String(row?.detectValue || 'human detected').trim().toLowerCase();
+        else if (String(row?.activeValuesCsv || '').trim()) {
+          const vals = String(row.activeValuesCsv).toLowerCase().split(',').map(x => x.trim()).filter(Boolean);
+          on = vals.includes(raw);
+        } else on = asArmed(st?.val);
+        if (on) next[type][key] = true;
+      }
+    };
+    await readRows(state.config.contactSensorsTable, 'contact', 'activeValues');
+    await readRows(state.config.pirSensorsTable, 'pir', 'activeValues');
+    await readRows(state.config.camerasTable, 'camera', 'activeValues');
+    await readRows(state.config.personDetectionTable, 'camera', 'detectValue');
+    state.liveAlerts = next;
   }
 
   function addZones(canvas) {
@@ -679,16 +725,103 @@
   function readFloorSel(){ return $('ruleFloor').value === 'OG' ? 'OG' : 'EG'; }
   function writeFloorSel(f){ $('ruleFloor').value = f === 'OG' ? 'OG' : 'EG'; }
 
-  function selectEntity(e) {
+  function entityRef(kind, idx) {
+    return `${String(kind || '')}:${Number(idx)}`;
+  }
+
+  function isBindableEntityKind(kind) {
+    return ['contactSensorsTable', 'pirSensorsTable', 'camerasTable', 'personDetectionTable'].includes(String(kind || ''));
+  }
+
+  function formatDesignerItemType(type) {
+    const t = canonicalDesignerItemType(type);
+    if (t === 'door') return 'Tür';
+    if (t === 'window') return 'Fenster';
+    if (t === 'garagedoor') return 'Garagentor';
+    if (t === 'cameraZone') return 'Kamerafläche';
+    if (t === 'pirZone') return 'PIR-Fläche';
+    if (t === 'pavingDriveway') return 'Pflastersteine (Einfahrt)';
+    if (t === 'pavingTerrace') return 'Pflastersteine (Terrasse)';
+    return t || '-';
+  }
+
+  function refreshDesignerBindingPanel() {
+    if (ui.designerEntitySelect) {
+      const bindRows = getAllCanvasEntities()
+        .filter(r => isBindableEntityKind(r.kind))
+        .sort((a, b) => String(a.label || '').localeCompare(String(b.label || ''), 'de'));
+      ui.designerEntitySelect.innerHTML = bindRows.length
+        ? bindRows.map(r => `<option value="${entityRef(r.kind, r.idx)}">${r.label} (${kindLabel(r.kind)}) [${r.floor}]</option>`).join('')
+        : '<option value="">Keine Sensoren/Kameras vorhanden</option>';
+      if (state.selectedEntity && isBindableEntityKind(state.selectedEntity.kind)) {
+        const val = entityRef(state.selectedEntity.kind, state.selectedEntity.idx);
+        if (bindRows.some(r => entityRef(r.kind, r.idx) === val)) ui.designerEntitySelect.value = val;
+      }
+    }
+    if (ui.designerSelectedEntityInfo) {
+      const e = state.selectedEntity;
+      ui.designerSelectedEntityInfo.textContent = (e && isBindableEntityKind(e.kind))
+        ? `Sensor: ${e.label} (${kindLabel(e.kind)})`
+        : 'Sensor: -';
+    }
+    if (ui.designerSelectedItemInfo) {
+      const model = getDesignerFloorModel();
+      const it = findDesignerItemById(model, Number(state.designer.selectedItemId));
+      if (!it) {
+        ui.designerSelectedItemInfo.textContent = 'Objekt: -';
+      } else {
+        const bindText = (it.alarmBindingType && it.alarmBindingKey)
+          ? ` | bind=${it.alarmBindingType}:${it.alarmBindingKey}`
+          : '';
+        ui.designerSelectedItemInfo.textContent = `Objekt: #${it.id} ${formatDesignerItemType(it.type)}${bindText}`;
+      }
+    }
+  }
+
+  function pickDesignerEntityFromSelect() {
+    const raw = String(ui.designerEntitySelect?.value || '');
+    const [kind, idxRaw] = raw.split(':');
+    const idx = Number(idxRaw);
+    if (!kind || !Number.isInteger(idx)) {
+      setStatus('Bitte zuerst einen Sensor aus der Liste wählen', true);
+      return;
+    }
+    const rows = getAllCanvasEntities();
+    const r = rows.find(x => String(x.kind) === kind && Number(x.idx) === idx);
+    if (!r) {
+      setStatus('Sensor in Liste nicht mehr vorhanden', true);
+      refreshDesignerBindingPanel();
+      return;
+    }
+    const x = r.floor === 'OG' ? r.posXOg : r.posXEg;
+    const y = r.floor === 'OG' ? r.posYOg : r.posYEg;
+    selectEntity({
+      kind: r.kind,
+      idx: r.idx,
+      entityKey: String(r.key || r.id),
+      label: String(r.label || r.key || r.id),
+      zone: String(r.zone || 'pool'),
+      floor: String(r.floor || 'EG') === 'OG' ? 'OG' : 'EG',
+      posX: Number.isFinite(Number(x)) ? Number(x) : null,
+      posY: Number.isFinite(Number(y)) ? Number(y) : null,
+      hasPos: Number.isFinite(Number(x)) && Number.isFinite(Number(y))
+    }, { openModal: false });
+    setStatus(`Sensor ausgewählt: ${r.label}`);
+  }
+
+  function selectEntity(e, opts = {}) {
+    const openModal = opts.openModal !== false;
     state.selectedEntity = e;
     ui.entityLabel.textContent = `Ausgewählt: ${e.label} (${e.zone})`;
     writeZoneSel(e.zone);
     writeFloorSel(e.floor || 'EG');
     writeRuleForm(getRulesMap()[ruleId(e)]);
-    ui.entityModal.classList.remove('hidden');
+    refreshDesignerBindingPanel();
+    if (openModal) ui.entityModal.classList.remove('hidden');
   }
 
   function drawEntity(canvas, e, detailed) {
+    if (!detailed && e.kind !== 'presenceSensorsTable') return;
     const el = document.createElement('div');
     el.className = (detailed ? 'chip ' : 'mini-node ') + zoneClass(e.zone);
     if (!detailed && e.kind === 'presenceSensorsTable') el.classList.add('presence-node');
@@ -744,10 +877,14 @@
     const home = [];
     if (state.presenceByPerson.sebastian) home.push({ person: 'sebastian' }); else away.push({ person: 'sebastian' });
     if (state.presenceByPerson.teresa) home.push({ person: 'teresa' }); else away.push({ person: 'teresa' });
-    ui.absenceCard.classList.toggle('hidden', away.length === 0);
-    ui.presenceCard.classList.toggle('hidden', home.length === 0);
-    ui.absenceList.innerHTML = away.map(a => `<div class="legend-row"><span class="presence-avatar tiny" style="background-image:url('${presenceAvatarPath(a.person).replace(/'/g, "\\'")}')"></span></div>`).join('');
-    ui.presenceList.innerHTML = home.map(a => `<div class="legend-row"><span class="presence-avatar tiny" style="background-image:url('${presenceAvatarPath(a.person).replace(/'/g, "\\'")}')"></span></div>`).join('');
+    ui.absenceCard.classList.remove('hidden');
+    ui.presenceCard.classList.remove('hidden');
+    ui.absenceList.innerHTML = away.length
+      ? away.map(a => `<div class="legend-row"><span class="presence-avatar tiny" style="background-image:url('${presenceAvatarPath(a.person).replace(/'/g, "\\'")}')"></span></div>`).join('')
+      : '<div class="muted">Niemand</div>';
+    ui.presenceList.innerHTML = home.length
+      ? home.map(a => `<div class="legend-row"><span class="presence-avatar tiny" style="background-image:url('${presenceAvatarPath(a.person).replace(/'/g, "\\'")}')"></span></div>`).join('')
+      : '<div class="muted">Niemand</div>';
   }
 
   function renderCanvasEntitiesList() {
@@ -952,6 +1089,7 @@
     if (ui.full) bindCanvasDrops(ui.full);
     bindEditorInteractions(ui.mini);
     if (ui.full) bindEditorInteractions(ui.full);
+    refreshDesignerBindingPanel();
   }
 
   function tidyCanvasLayout() {
@@ -1300,6 +1438,63 @@
 
   function findDesignerItemById(model, itemId) {
     return (model.items || []).find(it => Number(it.id) === Number(itemId));
+  }
+
+  function bindSelectedEntityToSelectedDesignerItem() {
+    const model = getDesignerFloorModel();
+    const item = findDesignerItemById(model, Number(state.designer.selectedItemId));
+    const entity = state.selectedEntity;
+    if (!item) {
+      setStatus('Bitte im Designer zuerst ein Objekt auswählen', true);
+      return;
+    }
+    if (!entity) {
+      setStatus('Bitte zuerst ein Sensor-Element auswählen (Canvas Elemente)', true);
+      return;
+    }
+    const bindType = itemAlarmTypeForEntityKind(entity.kind);
+    if (!bindType) {
+      setStatus('Dieses Element kann nicht an Grundriss-Objekte gebunden werden', true);
+      return;
+    }
+    const itemType = String(item.type || '');
+    if (bindType === 'pir' && itemType !== 'pirZone') {
+      setStatus('PIR-Sensoren können nur an PIR-Flächen zugeordnet werden', true);
+      return;
+    }
+    if (bindType === 'camera' && itemType !== 'cameraZone') {
+      setStatus('Kamera/PersonDetection kann nur an Kameraflächen zugeordnet werden', true);
+      return;
+    }
+    if (bindType === 'contact' && !['door', 'window', 'garagedoor'].includes(itemType)) {
+      setStatus('Tür-/Fensterkontakt nur an Tür, Fenster oder Garagentor zuordnen', true);
+      return;
+    }
+    snapshotDesignerState();
+    item.alarmBindingType = bindType;
+    item.alarmBindingKey = String(entity.entityKey || entity.label || '').trim();
+    saveDesignerData();
+    renderDesigner();
+    renderAllCanvases();
+    refreshDesignerBindingPanel();
+    setStatus(`Zugeordnet: ${entity.label} -> Objekt ${item.id}`);
+  }
+
+  function clearBindingOnSelectedDesignerItem() {
+    const model = getDesignerFloorModel();
+    const item = findDesignerItemById(model, Number(state.designer.selectedItemId));
+    if (!item) {
+      setStatus('Bitte im Designer zuerst ein Objekt auswählen', true);
+      return;
+    }
+    snapshotDesignerState();
+    delete item.alarmBindingType;
+    delete item.alarmBindingKey;
+    saveDesignerData();
+    renderDesigner();
+    renderAllCanvases();
+    refreshDesignerBindingPanel();
+    setStatus(`Zuweisung entfernt (Objekt ${item.id})`);
   }
 
   function isSamePoint(a, b) {
@@ -1663,9 +1858,15 @@
   }
 
   function defaultDesignerItemSpec(typeRaw) {
-    const type = String(typeRaw || '');
+    const type = canonicalDesignerItemType(typeRaw);
     if (type === 'door') return { w: 48, h: 48, r: 0 };
+    if (type === 'window') return { w: 62, h: 24, r: 0 };
+    if (type === 'garagedoor') return { w: 150, h: 34, r: 0 };
     if (type === 'garage') return { w: 150, h: 70, r: 0 };
+    if (type === 'pavingDriveway') return { w: 220, h: 120, r: 0 };
+    if (type === 'pavingTerrace') return { w: 180, h: 110, r: 0 };
+    if (type === 'cameraZone') return { w: 180, h: 110, r: 0 };
+    if (type === 'pirZone') return { w: 140, h: 90, r: 0 };
     if (type === 'stairs') return { w: 160, h: 56, r: 0 };
     if (type === 'wc') return { w: 42, h: 34, r: 0 };
     if (type === 'washbasin') return { w: 54, h: 36, r: 0 };
@@ -1684,14 +1885,22 @@
   }
 
   function itemSupportsResize(typeRaw) {
-    const type = String(typeRaw || '');
+    const type = canonicalDesignerItemType(typeRaw);
     return type !== 'beam';
+  }
+
+  function canonicalDesignerItemType(typeRaw) {
+    const t = String(typeRaw || '');
+    if (t === 'pavingStoneDriveway') return 'pavingDriveway';
+    if (t === 'flasterTerrace') return 'pavingTerrace';
+    return t;
   }
 
   function normalizeDesignerItems(model) {
     if (!model || !Array.isArray(model.items)) return;
     for (const it of model.items) {
       if (!it) continue;
+      it.type = canonicalDesignerItemType(it.type);
       if (String(it.type || '') === 'table') it.type = 'tableRect';
       const d = defaultDesignerItemSpec(it.type);
       if (!Number.isFinite(Number(it.w)) || Number(it.w) < 8) it.w = d.w;
@@ -1706,11 +1915,14 @@
         it.h = side;
         it.r = snapRightAngleDeg(it.r);
       }
+      if (String(it.type || '') === 'cameraZone' || String(it.type || '') === 'pirZone') {
+        if (!it.coverageAnchor || typeof it.coverageAnchor !== 'object') it.coverageAnchor = { edge: 'top', t: 0.5 };
+      }
     }
   }
 
   function svgForDesignerItem(it, opts = {}) {
-    const type = String(it.type || 'item');
+    const type = canonicalDesignerItemType(it.type || 'item');
     const w = Math.max(8, Number(it.w || defaultDesignerItemSpec(type).w));
     const h = Math.max(8, Number(it.h || defaultDesignerItemSpec(type).h));
     const hw = w / 2;
@@ -1726,6 +1938,31 @@
       const hy = hs;
       inner += `<line x1="${hx}" y1="${hy}" x2="${hx + side}" y2="${hy}" class="arch-stroke"></line>`;
       inner += `<path d="M ${hx + side} ${hy} A ${side} ${side} 0 0 0 ${hx} ${hy - side}" class="arch-soft"></path>`;
+    } else if (type === 'window') {
+      inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="3"></rect>`;
+      inner += `<line x1="0" y1="${-hh}" x2="0" y2="${hh}" class="arch-stroke"></line>`;
+    } else if (type === 'garagedoor') {
+      inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="2"></rect>`;
+      for (let x = -hw + 12; x < hw; x += 12) inner += `<line x1="${x}" y1="${-hh}" x2="${x}" y2="${hh}" class="arch-stroke"></line>`;
+    } else if (type === 'pavingDriveway' || type === 'pavingTerrace') {
+      inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="2"></rect>`;
+      for (let y = -hh + 10; y < hh; y += 10) inner += `<line x1="${-hw}" y1="${y}" x2="${hw}" y2="${y}" class="arch-soft"></line>`;
+      for (let x = -hw + 14; x < hw; x += 14) inner += `<line x1="${x}" y1="${-hh}" x2="${x}" y2="${hh}" class="arch-soft"></line>`;
+    } else if (type === 'cameraZone') {
+      const ca = it.coverageAnchor || { edge: 'top', t: 0.5 };
+      const edge = String(ca.edge || 'top');
+      const t = Math.max(0, Math.min(1, Number(ca.t || 0.5)));
+      let ax = 0; let ay = -hh;
+      if (edge === 'bottom') { ax = -hw + (w * t); ay = hh; }
+      else if (edge === 'left') { ax = -hw; ay = -hh + (h * t); }
+      else if (edge === 'right') { ax = hw; ay = -hh + (h * t); }
+      else { ax = -hw + (w * t); ay = -hh; }
+      inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="4"></rect>`;
+      inner += `<path class="coverage-arc" d="M ${ax} ${ay} Q ${ax - (w * 0.08)} ${ay + (h * 0.18)} ${ax + (w * 0.12)} ${ay + (h * 0.28)}"></path>`;
+      inner += `<path class="coverage-arc" d="M ${ax} ${ay} Q ${ax - (w * 0.2)} ${ay + (h * 0.35)} ${ax + (w * 0.24)} ${ay + (h * 0.52)}"></path>`;
+      inner += `<circle class="coverage-anchor" cx="${ax}" cy="${ay}" r="4"></circle>`;
+    } else if (type === 'pirZone') {
+      inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="4"></rect>`;
     } else if (type === 'cabinet') {
       inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="2"></rect>`;
       inner += `<line x1="${-hw}" y1="${-hh}" x2="${hw}" y2="${hh}" class="arch-stroke"></line>`;
@@ -1823,7 +2060,7 @@
         controls += `<rect class="designer-item-resize" data-item-resize="${it.id}" x="${hw - 5}" y="${hh - 5}" width="10" height="10" rx="2"></rect>`;
       }
     }
-    const cls = `designer-item${type === 'beam' ? ' beam' : ''}${isSelected ? ' selected' : ''}`;
+    const cls = `designer-item${type === 'beam' ? ' beam' : ''}${type === 'cameraZone' ? ' camera-zone' : ''}${type === 'pirZone' ? ' pir-zone' : ''}${isSelected ? ' selected' : ''}${it.alarmActive ? ' alarm-item' : ''}`;
     const body = mirrorX ? `<g class="designer-item-body" transform="scale(-1,1)">${inner}</g>` : `<g class="designer-item-body">${inner}</g>`;
     return `<g class="${cls}" data-item-id="${it.id}" transform="translate(${Number(it.x) || 0},${Number(it.y) || 0}) rotate(${Number(it.r || 0)})">${body}${controls}</g>`;
   }
@@ -1940,7 +2177,10 @@
     }
     const showItemHandles = activeTool === 'select' || activeTool === 'place';
     for (const it of (m.items || [])) {
-      html += svgForDesignerItem(it, { handles: showItemHandles && Number(state.designer.selectedItemId) === Number(it.id), selected: Number(state.designer.selectedItemId) === Number(it.id) });
+      const bType = String(it.alarmBindingType || '');
+      const bKey = String(it.alarmBindingKey || '');
+      const active = !!(bType && bKey && state.liveAlerts?.[bType]?.[bKey]);
+      html += svgForDesignerItem({ ...it, alarmActive: active }, { handles: showItemHandles && Number(state.designer.selectedItemId) === Number(it.id), selected: Number(state.designer.selectedItemId) === Number(it.id) });
     }
     if (state.designer.drawingWall && state.designer.drawingWall.length > 0) {
       const pts = state.designer.drawingWall.slice();
@@ -1954,6 +2194,7 @@
       html += `<rect class="designer-perimeter" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}"></rect>`;
     }
     svg.innerHTML = html;
+    refreshDesignerBindingPanel();
   }
 
   function bindDesignerInteractions() {
@@ -2660,6 +2901,7 @@
     const zInn = await getState(`${p}.zones.innenraum.armed`);
     const cam = await getState(state.config.cctvArmedId || '');
     const prevPresence = state.presenceByPerson || { sebastian: false, teresa: false };
+    const prevAlerts = JSON.stringify(state.liveAlerts || {});
     const presenceRows = Array.isArray(state.config.presenceSensorsTable) ? state.config.presenceSensorsTable : [];
     const presenceByPerson = { sebastian: false, teresa: false };
     for (const row of presenceRows) {
@@ -2669,6 +2911,7 @@
       presenceByPerson[person] = isPresenceHome(row, st?.val);
     }
     state.presenceByPerson = presenceByPerson;
+    await refreshAlertStates();
 
     const modeTextRaw = String(mode?.val || '').toLowerCase();
     const modePerimeter = modeTextRaw.includes('perimeter');
@@ -2728,6 +2971,7 @@
     );
     if (
       armedChanged
+      || JSON.stringify(state.liveAlerts || {}) !== prevAlerts
       || presenceByPerson.sebastian !== prevPresence.sebastian
       || presenceByPerson.teresa !== prevPresence.teresa
     ) {
@@ -3010,6 +3254,18 @@
         state.designer.pendingBeamConnect = null;
         setStatus('Neue Balkenkette gestartet (nächster Balken ohne Auto-Verbindung)');
       });
+    }
+    if (ui.designerBindSelectedBtn) {
+      ui.designerBindSelectedBtn.addEventListener('click', bindSelectedEntityToSelectedDesignerItem);
+    }
+    if (ui.designerClearBindBtn) {
+      ui.designerClearBindBtn.addEventListener('click', clearBindingOnSelectedDesignerItem);
+    }
+    if (ui.designerPickEntityBtn) {
+      ui.designerPickEntityBtn.addEventListener('click', pickDesignerEntityFromSelect);
+    }
+    if (ui.designerEntitySelect) {
+      ui.designerEntitySelect.addEventListener('change', () => pickDesignerEntityFromSelect());
     }
     if (ui.designerCopyFloorBtn) {
       ui.designerCopyFloorBtn.addEventListener('click', () => {

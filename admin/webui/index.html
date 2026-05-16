@@ -30,26 +30,27 @@
         <div class="canvas-overlay status-mini">
           <div id="statusShield" class="status-shield disarmed" aria-live="polite">🛡️ UNSCHARF</div>
         </div>
-        <div class="canvas-overlay controls-card">
-          <div class="row">
-            <button id="toggleAlarmBtn" class="btn" title="Alarm umschalten">Alarm off</button>
-            <button id="togglePerimeterBtn" class="btn" title="Perimeter umschalten">Perimeter off</button>
-            <button id="toggleCamerasBtn" class="btn" title="Kameras umschalten">Camera off</button>
+        <div class="canvas-overlay left-stack">
+          <div class="controls-card">
+            <div class="row">
+              <button id="toggleAlarmBtn" class="btn" title="Alarm umschalten">Alarm off</button>
+              <button id="togglePerimeterBtn" class="btn" title="Perimeter umschalten">Perimeter off</button>
+              <button id="toggleCamerasBtn" class="btn" title="Kameras umschalten">Camera off</button>
+            </div>
           </div>
-        </div>
-        <div class="canvas-overlay absence-card" id="absenceCard">
-          <strong>Abwesend</strong>
-          <div id="absenceList" class="absence-list"></div>
-        </div>
-        <div class="canvas-overlay presence-card" id="presenceCard">
-          <strong>Anwesend</strong>
-          <div id="presenceList" class="absence-list"></div>
-        </div>
-        <div class="canvas-overlay legend-card">
-          <strong>Legende</strong>
-          <div class="legend-row"><span class="sensor-dot dot-pir"></span><span>PIR</span></div>
-          <div class="legend-row"><span class="sensor-dot dot-contact"></span><span>Tür / Fenster</span></div>
-          <div class="legend-row"><span class="sensor-dot dot-cam"></span><span>Cam</span></div>
+          <div class="absence-card" id="absenceCard">
+            <strong>Abwesend</strong>
+            <div id="absenceList" class="absence-list"></div>
+          </div>
+          <div class="presence-card" id="presenceCard">
+            <strong>Anwesend</strong>
+            <div id="presenceList" class="absence-list"></div>
+          </div>
+          <div class="legend-card">
+            <strong>Legende</strong>
+            <div class="legend-row"><span>Sensoren sind im Grundriss integriert</span></div>
+            <div class="legend-row"><span>Alarm: rot blinkende Flächen/Objekte</span></div>
+          </div>
         </div>
         <div class="canvas-overlay canvas-tools">
           <div class="row">
@@ -95,7 +96,7 @@
         <div class="row">
           <label>Etage<select id="designerFloor"><option value="EG">EG</option><option value="OG">OG</option></select></label>
           <label>Werkzeug<select id="designerTool"><option value="select">Auswählen/Verschieben</option><option value="place">Objekt platzieren</option><option value="wall">Wand zeichnen</option><option value="outer">Außenhaut markieren</option><option value="perimeter">Perimeter Rechteck</option><option value="erase">Radiergummi</option></select></label>
-          <label>Objekt<select id="designerItemType"><option value="door">Tür (Architekt)</option><option value="garage">Garage</option><option value="stairs">Treppe</option><option value="wc">WC</option><option value="washbasin">Waschbecken</option><option value="bathtub">Badewanne</option><option value="shower">Dusche</option><option value="sink">Spüle</option><option value="kitchen">Küche</option><option value="stove">Kochfeld</option><option value="cabinet">Schrank</option><option value="sofa">Sofa</option><option value="tableRect">Tisch rechteckig</option><option value="tableRound">Tisch rund</option><option value="chair">Stuhl</option><option value="beam">Balken (Quadrat)</option></select></label>
+          <label>Objekt<select id="designerItemType"><option value="door">Tür (Architekt)</option><option value="window">Fenster</option><option value="garagedoor">Garagentor</option><option value="garage">Garage</option><option value="pavingDriveway">Pflastersteine (Einfahrt)</option><option value="pavingStoneDriveway">Pflasterstein (Einfahrt)</option><option value="pavingTerrace">Pflastersteine (Terrasse)</option><option value="flasterTerrace">Flastersteine (Terrasse)</option><option value="cameraZone">Kamerafläche</option><option value="pirZone">PIR-Fläche</option><option value="stairs">Treppe</option><option value="wc">WC</option><option value="washbasin">Waschbecken</option><option value="bathtub">Badewanne</option><option value="shower">Dusche</option><option value="sink">Spüle</option><option value="kitchen">Küche</option><option value="stove">Kochfeld</option><option value="cabinet">Schrank</option><option value="sofa">Sofa</option><option value="tableRect">Tisch rechteckig</option><option value="tableRound">Tisch rund</option><option value="chair">Stuhl</option><option value="beam">Balken (Quadrat)</option></select></label>
           <label>Raster px<input id="designerGrid" type="number" min="4" max="64" step="1" value="12" /></label>
         </div>
         <div class="row">
@@ -113,9 +114,23 @@
           <button id="designerUndoBtn" class="btn">↶ Rückgängig</button>
           <button id="designerFinishWallBtn" class="btn">Wand abschließen</button>
           <button id="designerNewBeamChainBtn" class="btn">Neue Balkenkette</button>
+          <button id="designerBindSelectedBtn" class="btn">Auswahl zuweisen</button>
+          <button id="designerClearBindBtn" class="btn">Zuweisung löschen</button>
           <button id="designerCopyFloorBtn" class="btn">Auf andere Etage kopieren</button>
           <button id="designerClearBtn" class="btn danger">Designer leeren</button>
         </div>
+        <section class="designer-bind-panel">
+          <strong>Sensor-Zuordnung</strong>
+          <div class="row">
+            <label>Sensor / Kamera<select id="designerEntitySelect"></select></label>
+            <button id="designerPickEntityBtn" class="btn">Sensor auswählen</button>
+          </div>
+          <div class="row">
+            <span id="designerSelectedEntityInfo" class="status-chip">Sensor: -</span>
+            <span id="designerSelectedItemInfo" class="status-chip">Objekt: -</span>
+          </div>
+          <p class="muted">Ablauf: Sensor wählen, im Plan das Ziel anklicken, dann „Auswahl zuweisen“.</p>
+        </section>
         <div id="designerCanvasWrap" class="designer-wrap">
           <svg id="designerSvg" class="designer-svg" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet"></svg>
         </div>
