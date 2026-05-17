@@ -120,6 +120,8 @@
     modeFlowActionCameraLedTriggerCamera: $('modeFlowActionCameraLedTriggerCamera'),
     modeFlowActionCameraAlarmAll: $('modeFlowActionCameraAlarmAll'),
     modeFlowActionCameraLedAll: $('modeFlowActionCameraLedAll'),
+    modeFlowActionTelegram: $('modeFlowActionTelegram'),
+    modeFlowActionTelegramText: $('modeFlowActionTelegramText'),
     modeFlowActionAlexaSpeak: $('modeFlowActionAlexaSpeak'),
     modeFlowActionAlexaText: $('modeFlowActionAlexaText'),
     addModeFlowRuleBtn: $('addModeFlowRuleBtn'),
@@ -3858,7 +3860,7 @@
   }
 
   function normalizeModeFlowRuleRow(row) {
-    const mode = ['vollschutz', 'aussenhaut', 'perimeter', 'kamera'].includes(String(row?.mode || ''))
+    const mode = ['vollschutz', 'aussenhaut', 'perimeter', 'kamera', 'immer'].includes(String(row?.mode || ''))
       ? String(row.mode)
       : 'perimeter';
     const sourceKind = ['sensor', 'personDetection', 'camera'].includes(String(row?.sourceKind || ''))
@@ -3867,7 +3869,7 @@
     const sourceZone = ['any', 'perimeter', 'aussenhaut', 'innenraum'].includes(String(row?.sourceZone || ''))
       ? String(row.sourceZone)
       : 'any';
-    const alarmLevel = ['perimeter_alarm', 'interior_alarm', 'full_alarm'].includes(String(row?.alarmLevel || ''))
+    const alarmLevel = ['none', 'perimeter_alarm', 'interior_alarm', 'full_alarm'].includes(String(row?.alarmLevel || ''))
       ? String(row.alarmLevel)
       : 'perimeter_alarm';
     const announceDelaySec = Math.max(0, Number(row?.announceDelaySec || 0));
@@ -3888,6 +3890,8 @@
       actionCameraLedTriggerCamera: row?.actionCameraLedTriggerCamera === true || String(row?.actionCameraLedTriggerCamera || '').toLowerCase() === 'true',
       actionCameraAlarmAll: row?.actionCameraAlarmAll === true || String(row?.actionCameraAlarmAll || '').toLowerCase() === 'true',
       actionCameraLedAll: row?.actionCameraLedAll === true || String(row?.actionCameraLedAll || '').toLowerCase() === 'true',
+      actionTelegram: row?.actionTelegram === true || String(row?.actionTelegram || '').toLowerCase() === 'true',
+      actionTelegramText: String(row?.actionTelegramText || '').trim(),
       actionAlexaSpeak: row?.actionAlexaSpeak === true || String(row?.actionAlexaSpeak || '').toLowerCase() === 'true',
       actionAlexaText: String(row?.actionAlexaText || '').trim()
     };
@@ -3897,6 +3901,7 @@
     if (mode === 'vollschutz') return 'Vollschutz';
     if (mode === 'aussenhaut') return 'Außenhaut';
     if (mode === 'kamera') return 'Kamera';
+    if (mode === 'immer') return 'Immer';
     return 'Perimeter';
   }
 
@@ -3907,6 +3912,7 @@
   }
 
   function modeFlowLevelLabel(level) {
+    if (level === 'none') return 'Kein Alarmlevel';
     if (level === 'interior_alarm') return 'InteriorAlarm';
     if (level === 'full_alarm') return 'FullAlarm';
     return 'PerimeterAlarm';
@@ -4452,6 +4458,7 @@
     if (row.actionCameraLedTriggerCamera) tags.push('CamLED(trigger-cam)');
     if (row.actionCameraAlarmAll) tags.push('CamAlarm(all)');
     if (row.actionCameraLedAll) tags.push('CamLED(all)');
+    if (row.actionTelegram) tags.push(`Telegram="${row.actionTelegramText || ''}"`);
     if (row.actionAlexaSpeak) tags.push(`Alexa="${row.actionAlexaText || ''}"`);
     return tags.join(' | ');
   }
@@ -4506,6 +4513,8 @@
       actionCameraLedTriggerCamera: !!ui.modeFlowActionCameraLedTriggerCamera?.checked,
       actionCameraAlarmAll: !!ui.modeFlowActionCameraAlarmAll?.checked,
       actionCameraLedAll: !!ui.modeFlowActionCameraLedAll?.checked,
+      actionTelegram: !!ui.modeFlowActionTelegram?.checked,
+      actionTelegramText: String(ui.modeFlowActionTelegramText?.value || '').trim(),
       actionAlexaSpeak: !!ui.modeFlowActionAlexaSpeak?.checked,
       actionAlexaText: String(ui.modeFlowActionAlexaText?.value || '').trim()
     };

@@ -244,7 +244,7 @@
       </section>
       <section class="card">
         <h2>Snapshot Aktionen (zentral)</h2>
-        <p class="muted">Hier definierst du zentrale Snapshot-Datapoints, die durch Alarm Actions/PANIC Actions ausgelöst werden können.</p>
+        <p class="muted">Hier definierst du zentrale Snapshot-Datapoints, die durch Modus-Flow-Regeln und PANIC-Aktionen ausgelöst werden können.</p>
         <div class="fields">
           <label title="Stabiler Schlüssel für diese Snapshot-Aktion.">
             Key
@@ -280,100 +280,9 @@
         </div>
         <div id="snapshotActionsList" class="sensor-list" style="margin-top:10px"></div>
       </section>
-      <section class="card" id="alarmActionsAssistantCard">
-        <h2>Alarm Actions Assistent</h2>
-        <p class="muted">Vereinfachte Eingabe als eigene Card. Die bestehende Card „Alarm Actions“ bleibt unverändert. Regeln werden in dieselben Tabellen gespeichert.</p>
-        <div class="fields">
-          <label title="Definiert, bei welchem Ereignis diese Regel geprüft wird.">
-            Szenario
-            <select id="quickAlarmScenario">
-              <option value="zone_trigger">Zone Trigger</option>
-              <option value="panic_on">PANIC an</option>
-              <option value="panic_off">PANIC aus</option>
-            </select>
-          </label>
-          <label id="quickAlarmZoneWrap" title="Optionaler Filter auf eine Zone.">
-            Zone
-            <select id="quickAlarmZone">
-              <option value="any">any</option>
-              <option value="perimeter">perimeter</option>
-              <option value="aussenhaut">aussenhaut</option>
-              <option value="innenraum">innenraum</option>
-            </select>
-          </label>
-          <label id="quickAlarmTriggerTypeWrap" title="Optionaler Filter für Trigger-Typ.">
-            Trigger-Typ
-            <select id="quickAlarmTriggerType">
-              <option value="any">any</option>
-              <option value="sensor">Sensor</option>
-              <option value="personDetection">PersonDetection</option>
-              <option value="camera">Camera</option>
-            </select>
-          </label>
-          <label id="quickAlarmTriggerEntityWrap" title="Optionaler Filter auf ein konkretes Element.">
-            Trigger-Element
-            <select id="quickAlarmTriggerEntity"></select>
-          </label>
-          <label id="quickAlarmArmedModeWrap" title="Scharf/Unscharf-Bedingung für die Regel.">
-            Scharfstatus
-            <select id="quickAlarmArmedMode">
-              <option value="any">any</option>
-              <option value="armed">armed</option>
-              <option value="unarmed">unarmed</option>
-            </select>
-          </label>
-          <label id="quickAlarmTimingWrap" title="Ausführungszeitpunkt bei Zone-Triggern.">
-            Ausführung
-            <select id="quickAlarmTiming">
-              <option value="global">global</option>
-              <option value="after_alarm">nach Alarmaktivierung</option>
-              <option value="immediate">sofort beim Trigger</option>
-            </select>
-          </label>
-          <fieldset id="quickAlarmKindsWrap" class="multi-select-group" title="Mehrere Aktionen gleichzeitig auswählbar.">
-            <legend>Aktion (Mehrfachauswahl)</legend>
-            <label class="check-row"><input id="quickAlarmKindDatapoint" type="checkbox" checked /> Datapoint setzen</label>
-            <label class="check-row"><input id="quickAlarmKindTelegram" type="checkbox" /> Telegram senden</label>
-            <label class="check-row"><input id="quickAlarmKindAlexa" type="checkbox" /> Alexa Speak</label>
-            <label class="check-row"><input id="quickAlarmKindSnapshot" type="checkbox" /> Snapshot senden</label>
-            <label class="check-row"><input id="quickAlarmKindCameraLed" type="checkbox" /> Kamera-LED triggern</label>
-          </fieldset>
-          <label id="quickAlarmDpWrap" title="Datapoint für Aktion 'Datapoint setzen'.">
-            Datapoint ID
-            <span class="input-wrap">
-              <input id="quickAlarmDatapointId" class="state-input" list="stateIds" type="text" />
-              <button id="browseQuickAlarmDatapointBtn" class="icon-btn" type="button" title="Objektbrowser öffnen">🔎</button>
-            </span>
-          </label>
-          <label id="quickAlarmOnWrap">On-Value<input id="quickAlarmOnValue" type="text" placeholder="true / 1 / on" /></label>
-          <label id="quickAlarmOffWrap">Off-Value (optional)<input id="quickAlarmOffValue" type="text" placeholder="false / 0 / off" /></label>
-          <label id="quickAlarmDurationWrap">Timer ms (optional)<input id="quickAlarmDurationMs" type="number" min="0" placeholder="z.B. 10000" /></label>
-          <label id="quickAlarmTelegramWrap">Telegram Nachricht<input id="quickAlarmTelegramText" type="text" placeholder="Alarm: {trigger} in {zone}" /></label>
-          <label id="quickAlarmAlexaWrap">Alexa Speak Text<input id="quickAlarmAlexaText" type="text" placeholder="Achtung, Alarm ausgelöst." /></label>
-          <label id="quickAlarmSnapshotWrap">
-            Snapshot Aktion
-            <select id="quickAlarmSnapshotTarget"></select>
-          </label>
-          <label id="quickAlarmCameraLedWrap">
-            Kamera LED Ziel
-            <select id="quickAlarmCameraTarget"></select>
-          </label>
-          <label id="quickAlarmRepeatCountWrap">Wiederholungen<input id="quickAlarmRepeatCount" type="number" min="1" value="1" /></label>
-          <label id="quickAlarmRepeatIntervalWrap">Intervall ms<input id="quickAlarmRepeatIntervalMs" type="number" min="0" value="1000" /></label>
-          <label title="Optionaler Name für die erzeugten Regeln.">
-            Regelname (optional)
-            <input id="quickAlarmLabel" type="text" placeholder="z.B. Eingang: Telegram + Snapshot" />
-          </label>
-        </div>
-        <div class="row">
-          <button id="addQuickAlarmActionBtn" class="btn primary">Assistent-Regel hinzufügen</button>
-          <span id="quickAlarmActionResult" class="muted"></span>
-        </div>
-        <div id="quickAlarmActionsList" class="sensor-list" style="margin-top:10px"></div>
-      </section>
       <section class="card" id="modeFlowCard">
         <h2>Modus-Flow Automationen</h2>
-        <p class="muted">Node-Red-artige Logik: Modus → Trigger-Element → Alarmebene → Aktionen. Diese Card ist zusätzlich zu „Alarm Actions“ und verändert diese nicht.</p>
+        <p class="muted">Node-Red-artige Logik: Modus → Trigger-Element → Alarmebene → Aktionen. Mit Modus „Immer (ohne Scharfschaltung)“ sind Snapshot/Telegram auch im unscharfen Zustand möglich.</p>
 
         <div class="mode-flow-board">
           <article class="mode-flow-node">
@@ -385,6 +294,7 @@
                 <option value="aussenhaut">Außenhaut</option>
                 <option value="perimeter">Perimeter</option>
                 <option value="kamera">Kamera</option>
+                <option value="immer">Immer (ohne Scharfschaltung)</option>
               </select>
             </label>
             <label>
@@ -407,6 +317,7 @@
             <label>
               Ebene
               <select id="modeFlowAlarmLevel">
+                <option value="none">Keine Alarmebene</option>
                 <option value="perimeter_alarm">PerimeterAlarm (Camera-Ton)</option>
                 <option value="interior_alarm">InteriorAlarm (Innensirene)</option>
                 <option value="full_alarm">FullAlarm (alles)</option>
@@ -434,8 +345,13 @@
               <label class="check-row"><input id="modeFlowActionCameraLedTriggerCamera" type="checkbox" /> Triggernde Kamera: LED einschalten</label>
               <label class="check-row"><input id="modeFlowActionCameraAlarmAll" type="checkbox" /> Alle Kameras: Alarm auslösen</label>
               <label class="check-row"><input id="modeFlowActionCameraLedAll" type="checkbox" /> Alle Kameras: LED einschalten</label>
+              <label class="check-row"><input id="modeFlowActionTelegram" type="checkbox" /> Telegram Nachricht senden</label>
               <label class="check-row"><input id="modeFlowActionAlexaSpeak" type="checkbox" /> Alexa Speak</label>
             </fieldset>
+            <label>
+              Telegram Text
+              <input id="modeFlowActionTelegramText" type="text" placeholder="z.B. Driveway erkannt: {trigger} ({mode})" />
+            </label>
             <label>
               Alexa Text
               <input id="modeFlowActionAlexaText" type="text" placeholder="z.B. Achtung, Alarm in {mode} ({level}) bei {trigger}" />
@@ -484,171 +400,6 @@
             <input id="modeFlowAutoAwayDelaySec" type="number" min="0" value="60" />
           </label>
         </div>
-      </section>
-      <section class="card">
-        <h2>Alarm Actions</h2>
-        <p class="muted">Zonen → Sensoren/Kameras → Trigger → Aktoren (Datapoint, Telegram, Alexa, Snapshot). Hinweise zeigen mögliche Überschneidungen mit Element-Regeln.</p>
-        <p class="muted">Unterschied PANIC: "Szenario PANIC an/aus" gehört zur flexiblen Trigger-Matrix. "PANIC Actions" ist die dedizierte PANIC-Schnellkonfiguration. Beide können parallel aktiv sein.</p>
-        <div class="row">
-          <label title="Globaler Standard für Zone-Trigger-Actions. Gilt für alle Zeilen mit Ausführung=global. Beispiel: Du stellst hier 'nach Alarmaktivierung' ein, dann laufen alle globalen Actions erst nach Countdown-Ende.">
-            Globale Trigger-Ausführung
-            <select id="alarmActionGlobalTiming">
-              <option value="after_alarm">nach Alarmaktivierung</option>
-              <option value="immediate">sofort beim Trigger</option>
-            </select>
-          </label>
-          <label title="Legacy-kompatibel: Countdown stoppen, wenn während Countdown unscharf geschaltet wird. Beispiel: 'nur betroffene Zone' stoppt den Countdown bei Unscharf dieser Trigger-Zone.">
-            Countdown-Abbruch bei Unscharf
-            <select id="alarmCountdownAbortMode">
-              <option value="zone_disarmed">nur betroffene Zone</option>
-              <option value="any_disarm">bei jeder Unscharfschaltung</option>
-              <option value="off">aus</option>
-            </select>
-          </label>
-          <label title="Wiederholt Telegram-Erinnerungen, solange die Sirene aktiv ist. Beispiel: Bei aktivem Alarm alle 60s erneut Alarmtext senden.">
-            Alarm-Reminder Telegram
-            <select id="alarmRepeatTelegramEnabled">
-              <option value="false">aus</option>
-              <option value="true">an</option>
-            </select>
-          </label>
-          <label title="Intervall für Alarm-Reminder in Sekunden. Beispiel: 30 = alle 30 Sekunden eine Nachricht, solange Alarm aktiv ist.">
-            Reminder Intervall (s)
-            <input id="alarmRepeatTelegramIntervalSec" type="number" min="5" value="60" />
-          </label>
-          <label title="Text für den wiederholten Alarm-Reminder (Legacy: Alarm !!!). Beispiel: 'Alarm läuft weiterhin, bitte prüfen!'.">
-            Reminder Text
-            <input id="alarmRepeatTelegramText" type="text" placeholder="Alarm !!!" />
-          </label>
-        </div>
-        <div id="alarmActionConflictHint" class="status" style="margin-top:10px;white-space:pre-wrap"></div>
-        <div id="alarmActionConflictDetails" class="status hidden" style="margin-top:10px"></div>
-
-        <h3 class="subhead">Trigger-Aktion hinzufügen</h3>
-        <div class="fields">
-          <label title="Legt fest, bei welchem Ereignis diese Action geprüft wird: Zone Trigger oder PANIC an/aus. Beispiel: 'Zone Trigger' für Türkontakt, 'PANIC an' für Panikbutton-Aktionen.">
-            Szenario
-            <select id="alarmActionScenario">
-              <option value="zone_trigger">Zone Trigger</option>
-              <option value="panic_on">PANIC an</option>
-              <option value="panic_off">PANIC aus</option>
-            </select>
-          </label>
-          <label title="Filtert auf eine Zone. Nur relevant bei Szenario Zone Trigger. 'any' = alle Zonen. Beispiel: 'aussenhaut' reagiert nur auf Außenhaut-Trigger.">
-            Zone
-            <select id="alarmActionZone">
-              <option value="any">any</option>
-              <option value="perimeter">perimeter</option>
-              <option value="aussenhaut">aussenhaut</option>
-              <option value="innenraum">innenraum</option>
-            </select>
-          </label>
-          <label title="Filtert, welcher Trigger-Typ die Action auslösen darf. 'any' = alle Trigger-Typen. Beispiel: 'camera' nur bei Kamera-Detection.">
-            Trigger-Typ
-            <select id="alarmActionTriggerType">
-              <option value="any">any</option>
-              <option value="sensor">Sensor</option>
-              <option value="personDetection">PersonDetection</option>
-              <option value="camera">Camera</option>
-            </select>
-          </label>
-          <label title="Optionaler Feinfilter auf ein konkretes Element. Leer = alle Elemente passend zum Trigger-Typ. Beispiel: nur 'Haustuer' statt alle Kontakte.">
-            Trigger-Element
-            <select id="alarmActionTriggerEntity"></select>
-          </label>
-          <label title="Definiert, ob die Action nur im scharf/unscharf Zustand laufen soll oder immer. Beispiel: 'armed' verhindert Aktionen bei unscharfem System.">
-            Scharfstatus
-            <select id="alarmActionArmedMode">
-              <option value="any">any</option>
-              <option value="armed">armed</option>
-              <option value="unarmed">unarmed</option>
-            </select>
-          </label>
-          <fieldset id="alarmActionKindsWrap" class="multi-select-group" title="Mehrere Aktoren gleichzeitig auswählbar. Beim Speichern wird je Auswahl eine Action angelegt. Beispiel: Datapoint + Telegram gleichzeitig erzeugt zwei Action-Zeilen.">
-            <legend>Aktion (Mehrfachauswahl)</legend>
-            <label class="check-row"><input id="alarmActionKindDatapoint" type="checkbox" checked /> Datapoint setzen</label>
-            <label class="check-row"><input id="alarmActionKindTelegram" type="checkbox" /> Telegram senden</label>
-            <label class="check-row"><input id="alarmActionKindAlexa" type="checkbox" /> Alexa Speak</label>
-            <label class="check-row"><input id="alarmActionKindSnapshot" type="checkbox" /> Snapshot senden</label>
-            <label class="check-row"><input id="alarmActionKindCameraLed" type="checkbox" /> Kamera-LED triggern</label>
-          </fieldset>
-          <label id="alarmActionTimingWrap" title="Steuert den Ausführungszeitpunkt für Zone Trigger: globaler Standard, sofort oder erst nach Alarmaktivierung. Beispiel: 'sofort beim Trigger' schaltet Licht direkt, noch vor Sirene.">
-            Ausführung
-            <select id="alarmActionTiming">
-              <option value="global">global</option>
-              <option value="after_alarm">nach Alarmaktivierung</option>
-              <option value="immediate">sofort beim Trigger</option>
-            </select>
-          </label>
-          <label id="alarmActionDpWrap" title="Datapoint, der bei Trigger gesetzt wird (nur Aktion=Datapoint). Beispiel: mqtt.1.AlarmCenter.Buzzer.">
-            Datapoint ID
-            <span class="input-wrap">
-              <input id="alarmActionDatapointId" class="state-input" list="stateIds" type="text" />
-              <button id="browseAlarmActionDatapointBtn" class="icon-btn" type="button" title="Objektbrowser öffnen">🔎</button>
-            </span>
-          </label>
-          <label id="alarmActionOnWrap" title="Wert für den Datapoint beim Auslösen. Typen wie true/false, Zahl oder Text sind möglich. Beispiel: true oder 'beep 2x'.">On-Value<input id="alarmActionOnValue" type="text" placeholder="true / 1 / on" /></label>
-          <label id="alarmActionOffWrap" title="Optionaler Rücksetz-Wert nach Timer-Ablauf. Beispiel: false zum automatischen Ausschalten.">Off-Value (optional)<input id="alarmActionOffValue" type="text" placeholder="false / 0 / off" /></label>
-          <label id="alarmActionDurationWrap" title="Optionaler Timer: nach X ms wird auf Off-Value zurückgesetzt. 0 = kein Auto-Reset. Beispiel: 10000 = nach 10s reset.">Timer ms (optional)<input id="alarmActionDurationMs" type="number" min="0" placeholder="z.B. 10000" /></label>
-          <label id="alarmActionRepeatCountWrap" title="Wie oft dieselbe Action ausgeführt wird. Beispiel: 3 = dreimal senden/schalten.">Wiederholungen<input id="alarmActionRepeatCount" type="number" min="1" value="1" /></label>
-          <label id="alarmActionRepeatIntervalWrap" title="Abstand in Millisekunden zwischen den Wiederholungen. Beispiel: 5000 = alle 5s.">Intervall ms<input id="alarmActionRepeatIntervalMs" type="number" min="0" value="1000" /></label>
-          <label id="alarmActionTelegramWrap" title="Telegram-Text für diese Action. Unterstützt Platzhalter wie {zone}, {trigger}, {sourceId}, {value}, {caseId}. Beispiel: 'Alarm {trigger} in {zone} ({caseId})'.">Telegram Nachricht<input id="alarmActionTelegramText" type="text" placeholder="Alarm: {trigger} in {zone}" /></label>
-          <label id="alarmActionAlexaWrap" title="Alexa Speak-Text für diese Action. Unterstützt Platzhalter wie {zone}, {trigger}, {sourceId}, {value}, {caseId}. Beispiel: 'Achtung, Alarm im {zone}-Bereich'.">Alexa Speak Text<input id="alarmActionAlexaText" type="text" placeholder="Achtung, Alarm ausgelöst." /></label>
-          <label id="alarmActionSnapshotWrap" title="Zentrale Snapshot-Aktion, die ausgelöst wird. Beispiel: 'cam_driveway_snapshot' setzt den Snapshot-DP der Einfahrt.">
-            Snapshot Aktion
-            <select id="alarmActionSnapshotTarget"></select>
-          </label>
-          <label id="alarmActionCameraLedWrap" title="Kamera mit konfiguriertem LED-Datapoint. Beispiel: 'CamDriveway' LED für 10s einschalten.">
-            Kamera LED Ziel
-            <select id="alarmActionCameraTarget"></select>
-          </label>
-        </div>
-        <div class="row">
-          <button id="addAlarmActionBtn" class="btn">Alarm Action hinzufügen</button>
-          <span id="alarmActionResult" class="muted"></span>
-        </div>
-        <div id="alarmActionsList" class="sensor-list" style="margin-top:10px"></div>
-
-        <h3 class="subhead">PANIC Actions</h3>
-        <div class="fields">
-          <label title="Definiert, ob die Action bei PANIC an oder PANIC aus laufen soll. Beispiel: bei 'an' Sirene/Telegram sofort starten.">
-            Bei PANIC
-            <select id="panicActionWhen">
-              <option value="on">an</option>
-              <option value="off">aus</option>
-            </select>
-          </label>
-          <fieldset id="panicActionKindsWrap" class="multi-select-group" title="Mehrere PANIC-Aktionen gleichzeitig auswählbar. Beim Speichern wird je Auswahl eine Action angelegt. Beispiel: Telegram + Snapshot bei PANIC an.">
-            <legend>Aktion (Mehrfachauswahl)</legend>
-            <label class="check-row"><input id="panicActionKindDatapoint" type="checkbox" checked /> Datapoint setzen</label>
-            <label class="check-row"><input id="panicActionKindTelegram" type="checkbox" /> Telegram senden</label>
-            <label class="check-row"><input id="panicActionKindAlexa" type="checkbox" /> Alexa Speak</label>
-            <label class="check-row"><input id="panicActionKindSnapshot" type="checkbox" /> Snapshot senden</label>
-          </fieldset>
-          <label id="panicActionDpWrap" title="Datapoint, der bei PANIC gesetzt wird (nur Aktion=Datapoint). Beispiel: reolink.0.settings.playAlarm.">
-            Datapoint ID
-            <span class="input-wrap">
-              <input id="panicActionDatapointId" class="state-input" list="stateIds" type="text" />
-              <button id="browsePanicActionDatapointBtn" class="icon-btn" type="button" title="Objektbrowser öffnen">🔎</button>
-            </span>
-          </label>
-          <label id="panicActionOnWrap" title="Wert für den Datapoint bei PANIC. Beispiel: 20 für Reolink-Alarm.">On-Value<input id="panicActionOnValue" type="text" placeholder="true / 1 / on" /></label>
-          <label id="panicActionOffWrap" title="Optionaler Rücksetz-Wert nach Timer-Ablauf. Beispiel: 0 zum Stoppen.">Off-Value (optional)<input id="panicActionOffValue" type="text" placeholder="false / 0 / off" /></label>
-          <label id="panicActionDurationWrap" title="Optionaler Timer: nach X ms auf Off-Value zurücksetzen. Beispiel: 15000 = 15s aktiv.">Timer ms (optional)<input id="panicActionDurationMs" type="number" min="0" placeholder="z.B. 10000" /></label>
-          <label id="panicActionRepeatCountWrap" title="Wie oft dieselbe PANIC-Action ausgeführt wird. Beispiel: 5 Wiederholungen.">Wiederholungen<input id="panicActionRepeatCount" type="number" min="1" value="1" /></label>
-          <label id="panicActionRepeatIntervalWrap" title="Abstand in Millisekunden zwischen den Wiederholungen. Beispiel: 3000 = alle 3s.">Intervall ms<input id="panicActionRepeatIntervalMs" type="number" min="0" value="1000" /></label>
-          <label id="panicActionTelegramWrap" title="Telegram-Text für PANIC. Unterstützt Platzhalter wie {panic}, {caseId}. Beispiel: 'PANIC {panic} ({caseId})'.">Telegram Nachricht<input id="panicActionTelegramText" type="text" placeholder="PANIC wurde aktiviert." /></label>
-          <label id="panicActionAlexaWrap" title="Alexa Speak-Text für PANIC. Unterstützt Platzhalter wie {panic}, {caseId}. Beispiel: 'Panic Alarm aktiv'.">Alexa Speak Text<input id="panicActionAlexaText" type="text" placeholder="Panic Alarm aktiv." /></label>
-          <label id="panicActionSnapshotWrap" title="Zentrale Snapshot-Aktion, die bei PANIC ausgelöst wird. Beispiel: alle Einfahrtskameras Snapshots senden.">
-            Snapshot Aktion
-            <select id="panicActionSnapshotTarget"></select>
-          </label>
-        </div>
-        <div class="row">
-          <button id="addPanicActionBtn" class="btn">PANIC Action hinzufügen</button>
-          <span id="panicActionResult" class="muted"></span>
-        </div>
-        <div id="panicActionsList" class="sensor-list" style="margin-top:10px"></div>
       </section>
       <section class="card">
         <h2>Geofence / Abwesenheit</h2>

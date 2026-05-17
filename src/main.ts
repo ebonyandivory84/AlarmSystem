@@ -15,9 +15,9 @@ type AlarmActionArmedMode = 'any' | 'armed' | 'unarmed';
 type AlarmActionKind = 'datapoint' | 'telegram' | 'alexa' | 'snapshot' | 'camera_led';
 type AlarmActionTiming = 'global' | 'immediate' | 'after_alarm';
 type CountdownAbortMode = 'off' | 'zone_disarmed' | 'any_disarm';
-type MonitorMode = 'vollschutz' | 'aussenhaut' | 'perimeter' | 'kamera';
+type MonitorMode = 'vollschutz' | 'aussenhaut' | 'perimeter' | 'kamera' | 'immer';
 type ModeFlowSourceKind = 'sensor' | 'personDetection' | 'camera';
-type ModeFlowAlarmLevel = 'perimeter_alarm' | 'interior_alarm' | 'full_alarm';
+type ModeFlowAlarmLevel = 'none' | 'perimeter_alarm' | 'interior_alarm' | 'full_alarm';
 type ModeFlowAutoAwayMode = 'legacy' | 'off' | 'perimeter' | 'vollschutz';
 
 interface SensorDef {
@@ -129,6 +129,8 @@ interface ModeFlowRuleDef {
   actionCameraLedTriggerCamera: boolean;
   actionCameraAlarmAll: boolean;
   actionCameraLedAll: boolean;
+  actionTelegram: boolean;
+  actionTelegramText?: string;
   actionAlexaSpeak: boolean;
   actionAlexaText?: string;
 }
@@ -851,6 +853,8 @@ class AlarmSystemAdapter extends utils.Adapter {
         actionCameraLedTriggerCamera: this.toBool(r?.actionCameraLedTriggerCamera, false),
         actionCameraAlarmAll: this.toBool(r?.actionCameraAlarmAll, false),
         actionCameraLedAll: this.toBool(r?.actionCameraLedAll, false),
+        actionTelegram: this.toBool(r?.actionTelegram, false),
+        actionTelegramText: String(r?.actionTelegramText || '').trim() || undefined,
         actionAlexaSpeak: this.toBool(r?.actionAlexaSpeak, false),
         actionAlexaText: String(r?.actionAlexaText || '').trim() || undefined
       };
@@ -864,6 +868,7 @@ class AlarmSystemAdapter extends utils.Adapter {
     if (s === 'vollschutz') return 'vollschutz';
     if (s === 'aussenhaut') return 'aussenhaut';
     if (s === 'kamera') return 'kamera';
+    if (s === 'immer') return 'immer';
     return 'perimeter';
   }
 
@@ -876,6 +881,7 @@ class AlarmSystemAdapter extends utils.Adapter {
 
   private parseModeFlowAlarmLevel(v: any): ModeFlowAlarmLevel {
     const s = String(v || '').toLowerCase();
+    if (s === 'none') return 'none';
     if (s === 'interior_alarm') return 'interior_alarm';
     if (s === 'full_alarm') return 'full_alarm';
     return 'perimeter_alarm';
@@ -1116,6 +1122,7 @@ class AlarmSystemAdapter extends utils.Adapter {
       if (r.actionCameraLedTriggerCamera) actions.push('cam-led(trigger-cam)');
       if (r.actionCameraAlarmAll) actions.push('cam-alarm(all)');
       if (r.actionCameraLedAll) actions.push('cam-led(all)');
+      if (r.actionTelegram) actions.push(`telegram="${String(r.actionTelegramText || '')}"`);
       if (r.actionAlexaSpeak) actions.push(`alexa="${String(r.actionAlexaText || '')}"`);
       rules.push({
         if: `ModeFlow ${r.mode} + ${r.sourceKind}:${r.sourceLabel} (${r.sourceZone})`,
@@ -1848,6 +1855,7 @@ class AlarmSystemAdapter extends utils.Adapter {
   }
 
   private isMonitorModeActive(mode: MonitorMode): boolean {
+    if (mode === 'immer') return true;
     if (mode === 'vollschutz') return this.zoneArmed.perimeter && this.zoneArmed.aussenhaut && this.zoneArmed.innenraum;
     if (mode === 'aussenhaut') return this.zoneArmed.aussenhaut;
     if (mode === 'kamera') {
@@ -1879,12 +1887,14 @@ class AlarmSystemAdapter extends utils.Adapter {
   }
 
   private getModeFlowLevelCommandId(level: ModeFlowAlarmLevel): string {
+    if (level === 'none') return '';
     if (level === 'interior_alarm') return this.cfg.modeFlowInteriorAlarmCommandId;
     if (level === 'full_alarm') return this.cfg.modeFlowFullAlarmCommandId;
     return this.cfg.modeFlowPerimeterAlarmCommandId;
   }
 
   private getModeFlowLevelTelegramText(level: ModeFlowAlarmLevel): string {
+    if (level === 'none') return '';
     if (level === 'interior_alarm') return String(this.cfg.modeFlowTelegramInteriorText || '').trim();
     if (level === 'full_alarm') return String(this.cfg.modeFlowTelegramFullText || '').trim();
     return String(this.cfg.modeFlowTelegramPerimeterText || '').trim();
@@ -1925,8 +1935,9 @@ class AlarmSystemAdapter extends utils.Adapter {
   }
 
   private async activateModeFlowAlarmLevel(level: ModeFlowAlarmLevel, ctx: AlarmActionContext, reason: string, mode: MonitorMode = 'perimeter'): Promise<void> {
+    if (level === 'none') return;
     const cmdId = this.getModeFlowLevelCommandId(level);
-    await this.pulseCommandDatapoint(cmdId, 1200);
+    if (cmdId) await this.pulseCommandDatapoint(cmdId, 1200);
 
     if (level === 'perimeter_alarm') {
       await this.triggerAllCameraAlarmOutputs();
@@ -1960,6 +1971,10 @@ class AlarmSystemAdapter extends utils.Adapter {
     }
     if (row.actionCameraAlarmAll) await this.triggerAllCameraAlarmOutputs();
     if (row.actionCameraLedAll) await this.triggerAllCameraLeds(10000);
+    if (row.actionTelegram) {
+      const msg = this.formatModeFlowText(row.actionTelegramText || '', ctx, row.mode, row.alarmLevel).trim();
+      if (msg) await this.sendTelegramText(msg);
+    }
     if (row.actionAlexaSpeak && this.cfg.speakId) {
       const speak = this.formatModeFlowText(row.actionAlexaText || '', ctx, row.mode, row.alarmLevel).trim();
       if (speak) await this.setOutput(this.cfg.speakId, speak);
@@ -1968,7 +1983,9 @@ class AlarmSystemAdapter extends utils.Adapter {
 
   private async runModeFlowRule(row: ModeFlowRuleDef, ctx: AlarmActionContext, triggerCam?: CameraDef): Promise<void> {
     const runLevelAndActions = async (): Promise<void> => {
-      await this.activateModeFlowAlarmLevel(row.alarmLevel, ctx, `rule:${row.label}`, row.mode);
+      if (row.alarmLevel !== 'none') {
+        await this.activateModeFlowAlarmLevel(row.alarmLevel, ctx, `rule:${row.label}`, row.mode);
+      }
       await this.executeModeFlowRuleActions(row, ctx, triggerCam);
     };
     if (row.announceBefore) {
