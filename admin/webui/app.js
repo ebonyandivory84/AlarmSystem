@@ -161,6 +161,7 @@
     avatarDesigner: { person: 'sebastian', dragging: false, startX: 0, startY: 0, startPanX: 0, startPanY: 0 },
     health: { ok: true, reasons: [], checks: [] },
     healthDetailsOpen: false,
+    entityModalBaseline: '',
     presenceByPerson: { sebastian: false, teresa: false },
     pinInput: '',
     pinTargetAction: null,
@@ -1030,6 +1031,83 @@
   function readFloorSel(){ return $('ruleFloor').value === 'OG' ? 'OG' : 'EG'; }
   function writeFloorSel(f){ $('ruleFloor').value = f === 'OG' ? 'OG' : 'EG'; }
 
+  function normalizeCsvSorted(v) {
+    return String(v || '')
+      .split(',')
+      .map(x => x.trim())
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b, 'de'))
+      .join(',');
+  }
+
+  function readEntityModalDraft() {
+    if (!state.selectedEntity) return null;
+    const ref = entityRef(state.selectedEntity.kind, state.selectedEntity.idx);
+    const snap = readSnapshotForm();
+    return {
+      ref,
+      zone: readZoneSel(),
+      floor: readFloorSel(),
+      rule: readRuleForm(),
+      health: readHealthForm(),
+      snapshot: {
+        snapshotDatapointId: String(snap.snapshotDatapointId || '').trim(),
+        snapshotZoneMode: String(snap.snapshotZoneMode || 'none'),
+        snapshotZonesCsv: normalizeCsvSorted(snap.snapshotZonesCsv || '')
+      }
+    };
+  }
+
+  function serializeEntityModalDraft(draft) {
+    return JSON.stringify(draft || null);
+  }
+
+  function captureEntityModalBaseline() {
+    state.entityModalBaseline = serializeEntityModalDraft(readEntityModalDraft());
+  }
+
+  function entityModalHasUnsavedChanges() {
+    if (!ui.entityModal || ui.entityModal.classList.contains('hidden')) return false;
+    if (!state.selectedEntity) return false;
+    return serializeEntityModalDraft(readEntityModalDraft()) !== String(state.entityModalBaseline || '');
+  }
+
+  function closeEntityModalNow() {
+    if (!ui.entityModal) return;
+    ui.entityModal.classList.add('hidden');
+    state.entityModalBaseline = '';
+  }
+
+  function saveSelectedEntitySettings(showFeedback = true) {
+    if (!state.selectedEntity) {
+      setStatus('Bitte erst ein Element anklicken', true);
+      return false;
+    }
+    const z = readZoneSel();
+    const f = readFloorSel();
+    const h = readHealthForm();
+    const snap = readSnapshotForm();
+    setEntity(state.selectedEntity.kind, state.selectedEntity.idx, { zone: z, floor: f, ...h, ...snap });
+    const m = getRulesMap();
+    m[ruleId(state.selectedEntity)] = readRuleForm();
+    setRulesMap(m);
+    renderAllCanvases();
+    captureEntityModalBaseline();
+    if (showFeedback) {
+      setStatus('Elementeinstellungen gespeichert');
+      showToast('Element-Einstellungen gespeichert');
+    }
+    return true;
+  }
+
+  function confirmEntitySettingsBeforeContinue() {
+    if (!entityModalHasUnsavedChanges()) return true;
+    const saveNow = window.confirm('Element-Einstellungen wurden geändert.\nÄnderungen übernehmen?');
+    if (saveNow) return saveSelectedEntitySettings(true);
+    const discard = window.confirm('Änderungen verwerfen und fortfahren?');
+    return !!discard;
+  }
+
   function entityRef(kind, idx) {
     return `${String(kind || '')}:${Number(idx)}`;
   }
@@ -1118,6 +1196,12 @@
 
   function selectEntity(e, opts = {}) {
     const openModal = opts.openModal !== false;
+    const skipConfirm = opts.skipConfirm === true;
+    if (!skipConfirm && ui.entityModal && !ui.entityModal.classList.contains('hidden') && state.selectedEntity) {
+      const prevRef = entityRef(state.selectedEntity.kind, state.selectedEntity.idx);
+      const nextRef = entityRef(e.kind, e.idx);
+      if (prevRef !== nextRef && !confirmEntitySettingsBeforeContinue()) return;
+    }
     state.selectedEntity = e;
     ui.entityLabel.textContent = `Ausgewählt: ${e.label} (${e.zone})`;
     writeZoneSel(e.zone);
@@ -1126,7 +1210,10 @@
     writeHealthForm(state.config?.[e.kind]?.[e.idx] || null);
     writeSnapshotForm(state.config?.[e.kind]?.[e.idx] || null);
     refreshDesignerBindingPanel();
-    if (openModal) ui.entityModal.classList.remove('hidden');
+    if (openModal) {
+      ui.entityModal.classList.remove('hidden');
+      captureEntityModalBaseline();
+    }
   }
 
   function drawEntity(canvas, e, detailed) {
@@ -4568,20 +4655,19 @@
       });
     }
 
-    $('closeEntitySettingsBtn').addEventListener('click', () => ui.entityModal.classList.add('hidden'));
+    $('closeEntitySettingsBtn').addEventListener('click', () => {
+      if (!confirmEntitySettingsBeforeContinue()) return;
+      closeEntityModalNow();
+    });
+    if (ui.entityModal) {
+      ui.entityModal.addEventListener('click', ev => {
+        if (ev.target !== ui.entityModal) return;
+        if (!confirmEntitySettingsBeforeContinue()) return;
+        closeEntityModalNow();
+      });
+    }
     $('saveEntityRuleBtn').addEventListener('click', () => {
-      if (!state.selectedEntity) return setStatus('Bitte erst ein Element anklicken', true);
-      const z = readZoneSel();
-      const f = readFloorSel();
-      const h = readHealthForm();
-      const snap = readSnapshotForm();
-      setEntity(state.selectedEntity.kind, state.selectedEntity.idx, { zone: z, floor: f, ...h, ...snap });
-      const m = getRulesMap();
-      m[ruleId(state.selectedEntity)] = readRuleForm();
-      setRulesMap(m);
-      renderAllCanvases();
-      setStatus('Elementeinstellungen gespeichert');
-      showToast('Element-Einstellungen gespeichert');
+      saveSelectedEntitySettings(true);
     });
     $('applyZoneRuleBtn').addEventListener('click', () => {
       if (!state.selectedEntity) return setStatus('Bitte erst ein Element anklicken', true);
@@ -4787,7 +4873,7 @@
           state.config[kind].splice(idx, 1);
           if (state.selectedEntity && state.selectedEntity.kind === kind && state.selectedEntity.idx === idx) {
             state.selectedEntity = null;
-            ui.entityModal.classList.add('hidden');
+            closeEntityModalNow();
           }
           renderAllCanvases();
           setStatus(`Element gelöscht: ${String(deleted.label || deleted.key || kind)}`);
