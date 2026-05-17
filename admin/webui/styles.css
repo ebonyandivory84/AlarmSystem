@@ -162,9 +162,20 @@ details summary{cursor:pointer;color:var(--muted);font-weight:600}
 #objectBrowserModal{z-index:70}
 .modal-close{position:absolute;top:10px;right:10px;width:40px;height:40px;border-radius:999px;border:1px solid #555;background:#1a1a1a;color:#fff;cursor:pointer}.zone-canvas.full{height:calc(100% - 64px)}
 .browser-inner{height:min(720px,88vh)}
-.object-results{margin-top:10px;max-height:calc(100% - 92px);overflow:auto;border:1px solid var(--line-strong);border-radius:10px;padding:8px;background:#111}
+.object-browser-layout{display:grid;grid-template-columns:minmax(280px,1fr) minmax(320px,1fr);gap:10px;height:calc(100% - 92px)}
+.object-browser-col{display:grid;grid-template-rows:auto 1fr;gap:8px;min-height:0}
+.object-browser-label{font-size:.92rem;color:var(--muted)}
+.object-results,.object-tree{margin-top:0;max-height:none;overflow:auto;border:1px solid var(--line-strong);border-radius:10px;padding:8px;background:#111;min-height:0}
 .object-item{padding:8px 10px;border-bottom:1px solid #262626;cursor:pointer}
 .object-item:hover{background:#1f1f1f}
+.object-tree-item{display:flex;align-items:center;gap:4px;border-bottom:1px solid #262626;padding:2px 0 2px calc(4px + var(--depth,0) * 14px)}
+.object-tree-item:last-child{border-bottom:none}
+.object-tree-toggle{width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:1px solid transparent;border-radius:6px;color:#b7ffd1;cursor:pointer}
+.object-tree-toggle:hover{border-color:#345}
+.object-tree-label{flex:1;min-width:0;text-align:left;background:transparent;border:1px solid transparent;color:#e8edf7;border-radius:6px;padding:3px 6px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.object-tree-label:hover{background:#1a1f1d}
+.object-tree-item.leaf .object-tree-label{color:#cfe7ff}
+.object-tree-item.selected .object-tree-label{background:#17333a;border-color:#2f86ff;color:#e7f4ff}
 .pin-inner{width:min(420px,96vw);height:auto;padding-bottom:18px}
 .pin-dots{display:flex;gap:12px;justify-content:center;margin:14px 0}
 .pin-dot{width:14px;height:14px;border-radius:50%;border:1px solid #666;background:#101010}
@@ -513,6 +524,14 @@ body.overview-layout-floating #overviewPage .panic-btn{
   body.overview-layout-floating #overviewPage .panic-btn{
     position:static;
     width:100%;
+  }
+  .object-browser-layout{
+    grid-template-columns:1fr;
+    height:calc(100% - 120px);
+  }
+  .object-results,.object-tree{
+    min-height:180px;
+    max-height:26dvh;
   }
   #designerPage .designer-wrap{min-height:56dvh}
   #designerPage .designer-svg{width:100%;height:56dvh}

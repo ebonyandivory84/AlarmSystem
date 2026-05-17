@@ -18,6 +18,7 @@
     objectModal: $('objectBrowserModal'),
     objectSearch: $('objectSearch'),
     objectResults: $('objectResults'),
+    objectTree: $('objectTree'),
     stateIds: $('stateIds'),
     addResult: $('addResult'),
     hover: $('miniHoverInfo'),
@@ -148,6 +149,9 @@
     profiles: {},
     activeProfile: 'default.json',
     stateIds: [],
+    objectTreeRoot: null,
+    objectTreeExpanded: new Set(),
+    objectTreeSelectedId: '',
     selectedEntity: null,
     objectTarget: null,
     live: { perimeterArmed: false, aussenArmed: false, innenArmed: false, fullArmed: false, innerFillArmed: false },
@@ -410,6 +414,7 @@
       const done = ids => {
         state.stateIds = Array.isArray(ids) ? ids : [];
         ui.stateIds.innerHTML = state.stateIds.slice(0, 5000).map(id => `<option value="${id}"></option>`).join('');
+        rebuildObjectTree();
         resolve();
       };
       const parse = raw => {
@@ -429,6 +434,63 @@
       .then(() => { state.stateIdsLoaded = true; })
       .finally(() => { state.stateIdsLoading = null; });
     return state.stateIdsLoading;
+  }
+
+  function htmlEsc(v) {
+    return String(v ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function buildObjectTreeFromIds(ids) {
+    const root = { name: '', path: '', leafId: null, children: [], map: Object.create(null) };
+    for (const id of (ids || [])) {
+      const full = String(id || '').trim();
+      if (!full) continue;
+      const parts = full.split('.').filter(Boolean);
+      if (parts.length === 0) continue;
+      let cur = root;
+      let path = '';
+      for (const p of parts) {
+        path = path ? `${path}.${p}` : p;
+        let node = cur.map[p];
+        if (!node) {
+          node = { name: p, path, leafId: null, children: [], map: Object.create(null) };
+          cur.map[p] = node;
+          cur.children.push(node);
+        }
+        cur = node;
+      }
+      cur.leafId = full;
+    }
+    const sortTree = node => {
+      node.children.sort((a, b) => a.name.localeCompare(b.name, 'de', { numeric: true, sensitivity: 'base' }));
+      node.children.forEach(sortTree);
+    };
+    sortTree(root);
+    return root;
+  }
+
+  function rebuildObjectTree() {
+    state.objectTreeRoot = buildObjectTreeFromIds(state.stateIds);
+    if (!(state.objectTreeExpanded instanceof Set)) state.objectTreeExpanded = new Set();
+    state.objectTreeExpanded.clear();
+    const roots = (state.objectTreeRoot?.children || []).slice(0, 8);
+    roots.forEach(n => state.objectTreeExpanded.add(n.path));
+  }
+
+  function expandTreePathForId(id) {
+    const full = String(id || '').trim();
+    if (!full) return;
+    const parts = full.split('.').filter(Boolean);
+    let path = '';
+    for (const p of parts) {
+      path = path ? `${path}.${p}` : p;
+      state.objectTreeExpanded.add(path);
+    }
   }
 
   function ensureProfiles() {
@@ -3412,9 +3474,16 @@
     state.objectTarget = targetInput;
     ui.objectModal.classList.remove('hidden');
     ui.objectModal.style.zIndex = '70';
-    ui.objectSearch.value = targetInput.value || '';
+    const initial = String(targetInput.value || '').trim();
+    state.objectTreeSelectedId = initial;
+    ui.objectSearch.value = initial;
     ui.objectResults.innerHTML = '<div class="muted">Lade Objekte…</div>';
-    void ensureStateIdsLoaded().then(() => renderObjectResults());
+    if (ui.objectTree) ui.objectTree.innerHTML = '<div class="muted">Lade Objektbaum…</div>';
+    void ensureStateIdsLoaded().then(() => {
+      if (initial) expandTreePathForId(initial);
+      renderObjectResults();
+      renderObjectTree();
+    });
     ui.objectSearch.focus();
   }
 
@@ -3424,11 +3493,57 @@
     state.objectTarget = null;
   }
 
+  function applyObjectBrowserSelection(id) {
+    const chosen = String(id || '').trim();
+    if (!chosen || !state.objectTarget) return;
+    state.objectTreeSelectedId = chosen;
+    state.objectTarget.value = chosen;
+    closeObjectBrowser();
+  }
+
   function renderObjectResults() {
     const q = String(ui.objectSearch.value || '').toLowerCase().trim();
     if (q.length < 2) { ui.objectResults.innerHTML = '<div class="muted">Bitte mindestens 2 Zeichen eingeben.</div>'; return; }
     const list = state.stateIds.filter(id => id.toLowerCase().includes(q)).slice(0, 300);
-    ui.objectResults.innerHTML = list.map(id => `<div class="object-item" data-id="${id}">${id}</div>`).join('') || '<div class="muted">Keine Treffer</div>';
+    ui.objectResults.innerHTML = list.map(id => `<div class="object-item" data-id="${htmlEsc(id)}">${htmlEsc(id)}</div>`).join('') || '<div class="muted">Keine Treffer</div>';
+  }
+
+  function renderObjectTree() {
+    if (!ui.objectTree) return;
+    const root = state.objectTreeRoot;
+    if (!root || !Array.isArray(root.children) || root.children.length === 0) {
+      ui.objectTree.innerHTML = '<div class="muted">Keine Objekte verfügbar.</div>';
+      return;
+    }
+    const rows = [];
+    const walk = (nodes, depth) => {
+      for (const node of (nodes || [])) {
+        const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+        const expanded = hasChildren && state.objectTreeExpanded.has(node.path);
+        const isLeaf = !!node.leafId;
+        const selected = isLeaf && String(node.leafId) === String(state.objectTreeSelectedId || '');
+        const toggleHtml = hasChildren
+          ? `<button class="object-tree-toggle" type="button" data-tree-toggle="${htmlEsc(node.path)}">${expanded ? '▾' : '▸'}</button>`
+          : `<span class="object-tree-toggle" aria-hidden="true">•</span>`;
+        rows.push(
+          `<div class="object-tree-item${isLeaf ? ' leaf' : ''}${selected ? ' selected' : ''}" data-tree-path="${htmlEsc(node.path)}" data-tree-leaf="${htmlEsc(node.leafId || '')}" style="--depth:${depth}">`
+          + toggleHtml
+          + `<button class="object-tree-label" type="button" data-tree-node="${htmlEsc(node.path)}">${htmlEsc(node.name)}</button>`
+          + `</div>`
+        );
+        if (hasChildren && expanded) walk(node.children, depth + 1);
+      }
+    };
+    walk(root.children, 0);
+    ui.objectTree.innerHTML = rows.join('');
+  }
+
+  function toggleObjectTreePath(path) {
+    const p = String(path || '').trim();
+    if (!p) return;
+    if (state.objectTreeExpanded.has(p)) state.objectTreeExpanded.delete(p);
+    else state.objectTreeExpanded.add(p);
+    renderObjectTree();
   }
 
   async function manualControl(which) {
@@ -4430,10 +4545,28 @@
     ui.objectSearch.addEventListener('input', renderObjectResults);
     ui.objectResults.addEventListener('click', ev => {
       const item = ev.target.closest('.object-item');
-      if (!item || !state.objectTarget) return;
-      state.objectTarget.value = item.dataset.id || '';
-      closeObjectBrowser();
+      if (!item) return;
+      applyObjectBrowserSelection(item.dataset.id || '');
     });
+    if (ui.objectTree) {
+      ui.objectTree.addEventListener('click', ev => {
+        const toggle = ev.target.closest('[data-tree-toggle]');
+        if (toggle) {
+          toggleObjectTreePath(toggle.getAttribute('data-tree-toggle') || '');
+          return;
+        }
+        const node = ev.target.closest('[data-tree-node]');
+        if (!node) return;
+        const wrap = node.closest('[data-tree-path]');
+        const leafId = String(wrap?.getAttribute('data-tree-leaf') || '').trim();
+        const path = String(wrap?.getAttribute('data-tree-path') || '').trim();
+        if (leafId) {
+          applyObjectBrowserSelection(leafId);
+          return;
+        }
+        toggleObjectTreePath(path);
+      });
+    }
 
     $('closeEntitySettingsBtn').addEventListener('click', () => ui.entityModal.classList.add('hidden'));
     $('saveEntityRuleBtn').addEventListener('click', () => {

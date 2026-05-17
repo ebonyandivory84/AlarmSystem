@@ -361,8 +361,19 @@
     <div class="modal-inner browser-inner">
       <button id="closeBrowserBtn" class="modal-close">X</button>
       <h2>Objektbrowser</h2>
-      <input id="objectSearch" type="text" placeholder="Mind. 2 Zeichen eingeben (z. B. mqtt.1)" />
-      <div id="objectResults" class="object-results"></div>
+      <div class="object-browser-layout">
+        <section class="object-browser-col">
+          <label class="object-browser-label">Suche
+            <input id="objectSearch" type="text" placeholder="Mind. 2 Zeichen eingeben (z. B. mqtt.1)" />
+          </label>
+          <div id="objectResults" class="object-results"></div>
+        </section>
+        <section class="object-browser-col">
+          <div class="object-browser-label">Objektbaum</div>
+          <div id="objectTree" class="object-tree"></div>
+        </section>
+      </div>
+      <p class="muted">Im Baum: Ordner klicken zum Auf-/Zuklappen, Blatt klicken zum Übernehmen.</p>
     </div>
   </div>
 
