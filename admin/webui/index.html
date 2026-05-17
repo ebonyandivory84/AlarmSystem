@@ -285,14 +285,14 @@
         <p class="muted">Zonen → Sensoren/Kameras → Trigger → Aktoren (Datapoint, Telegram, Alexa, Snapshot). Hinweise zeigen mögliche Überschneidungen mit Element-Regeln.</p>
         <p class="muted">Unterschied PANIC: "Szenario PANIC an/aus" gehört zur flexiblen Trigger-Matrix. "PANIC Actions" ist die dedizierte PANIC-Schnellkonfiguration. Beide können parallel aktiv sein.</p>
         <div class="row">
-          <label title="Globaler Standard für Zone-Trigger-Actions. Gilt für alle Zeilen mit Ausführung=global.">
+          <label title="Globaler Standard für Zone-Trigger-Actions. Gilt für alle Zeilen mit Ausführung=global. Beispiel: Du stellst hier 'nach Alarmaktivierung' ein, dann laufen alle globalen Actions erst nach Countdown-Ende.">
             Globale Trigger-Ausführung
             <select id="alarmActionGlobalTiming">
               <option value="after_alarm">nach Alarmaktivierung</option>
               <option value="immediate">sofort beim Trigger</option>
             </select>
           </label>
-          <label title="Legacy-kompatibel: Countdown stoppen, wenn während Countdown unscharf geschaltet wird.">
+          <label title="Legacy-kompatibel: Countdown stoppen, wenn während Countdown unscharf geschaltet wird. Beispiel: 'nur betroffene Zone' stoppt den Countdown bei Unscharf dieser Trigger-Zone.">
             Countdown-Abbruch bei Unscharf
             <select id="alarmCountdownAbortMode">
               <option value="zone_disarmed">nur betroffene Zone</option>
@@ -300,18 +300,18 @@
               <option value="off">aus</option>
             </select>
           </label>
-          <label title="Wiederholt Telegram-Erinnerungen, solange die Sirene aktiv ist.">
+          <label title="Wiederholt Telegram-Erinnerungen, solange die Sirene aktiv ist. Beispiel: Bei aktivem Alarm alle 60s erneut Alarmtext senden.">
             Alarm-Reminder Telegram
             <select id="alarmRepeatTelegramEnabled">
               <option value="false">aus</option>
               <option value="true">an</option>
             </select>
           </label>
-          <label title="Intervall für Alarm-Reminder in Sekunden.">
+          <label title="Intervall für Alarm-Reminder in Sekunden. Beispiel: 30 = alle 30 Sekunden eine Nachricht, solange Alarm aktiv ist.">
             Reminder Intervall (s)
             <input id="alarmRepeatTelegramIntervalSec" type="number" min="5" value="60" />
           </label>
-          <label title="Text für den wiederholten Alarm-Reminder (Legacy: Alarm !!!).">
+          <label title="Text für den wiederholten Alarm-Reminder (Legacy: Alarm !!!). Beispiel: 'Alarm läuft weiterhin, bitte prüfen!'.">
             Reminder Text
             <input id="alarmRepeatTelegramText" type="text" placeholder="Alarm !!!" />
           </label>
@@ -321,7 +321,7 @@
 
         <h3 class="subhead">Trigger-Aktion hinzufügen</h3>
         <div class="fields">
-          <label title="Legt fest, bei welchem Ereignis diese Action geprüft wird: Zone Trigger oder PANIC an/aus.">
+          <label title="Legt fest, bei welchem Ereignis diese Action geprüft wird: Zone Trigger oder PANIC an/aus. Beispiel: 'Zone Trigger' für Türkontakt, 'PANIC an' für Panikbutton-Aktionen.">
             Szenario
             <select id="alarmActionScenario">
               <option value="zone_trigger">Zone Trigger</option>
@@ -329,7 +329,7 @@
               <option value="panic_off">PANIC aus</option>
             </select>
           </label>
-          <label title="Filtert auf eine Zone. Nur relevant bei Szenario Zone Trigger. 'any' = alle Zonen.">
+          <label title="Filtert auf eine Zone. Nur relevant bei Szenario Zone Trigger. 'any' = alle Zonen. Beispiel: 'aussenhaut' reagiert nur auf Außenhaut-Trigger.">
             Zone
             <select id="alarmActionZone">
               <option value="any">any</option>
@@ -338,7 +338,7 @@
               <option value="innenraum">innenraum</option>
             </select>
           </label>
-          <label title="Filtert, welcher Trigger-Typ die Action auslösen darf. 'any' = alle Trigger-Typen.">
+          <label title="Filtert, welcher Trigger-Typ die Action auslösen darf. 'any' = alle Trigger-Typen. Beispiel: 'camera' nur bei Kamera-Detection.">
             Trigger-Typ
             <select id="alarmActionTriggerType">
               <option value="any">any</option>
@@ -347,11 +347,11 @@
               <option value="camera">Camera</option>
             </select>
           </label>
-          <label title="Optionaler Feinfilter auf ein konkretes Element. Leer = alle Elemente passend zum Trigger-Typ.">
+          <label title="Optionaler Feinfilter auf ein konkretes Element. Leer = alle Elemente passend zum Trigger-Typ. Beispiel: nur 'Haustuer' statt alle Kontakte.">
             Trigger-Element
             <select id="alarmActionTriggerEntity"></select>
           </label>
-          <label title="Definiert, ob die Action nur im scharf/unscharf Zustand laufen soll oder immer.">
+          <label title="Definiert, ob die Action nur im scharf/unscharf Zustand laufen soll oder immer. Beispiel: 'armed' verhindert Aktionen bei unscharfem System.">
             Scharfstatus
             <select id="alarmActionArmedMode">
               <option value="any">any</option>
@@ -359,7 +359,7 @@
               <option value="unarmed">unarmed</option>
             </select>
           </label>
-          <fieldset id="alarmActionKindsWrap" class="multi-select-group" title="Mehrere Aktoren gleichzeitig auswählbar. Beim Speichern wird je Auswahl eine Action angelegt.">
+          <fieldset id="alarmActionKindsWrap" class="multi-select-group" title="Mehrere Aktoren gleichzeitig auswählbar. Beim Speichern wird je Auswahl eine Action angelegt. Beispiel: Datapoint + Telegram gleichzeitig erzeugt zwei Action-Zeilen.">
             <legend>Aktion (Mehrfachauswahl)</legend>
             <label class="check-row"><input id="alarmActionKindDatapoint" type="checkbox" checked /> Datapoint setzen</label>
             <label class="check-row"><input id="alarmActionKindTelegram" type="checkbox" /> Telegram senden</label>
@@ -367,7 +367,7 @@
             <label class="check-row"><input id="alarmActionKindSnapshot" type="checkbox" /> Snapshot senden</label>
             <label class="check-row"><input id="alarmActionKindCameraLed" type="checkbox" /> Kamera-LED triggern</label>
           </fieldset>
-          <label id="alarmActionTimingWrap" title="Steuert den Ausführungszeitpunkt für Zone Trigger: globaler Standard, sofort oder erst nach Alarmaktivierung.">
+          <label id="alarmActionTimingWrap" title="Steuert den Ausführungszeitpunkt für Zone Trigger: globaler Standard, sofort oder erst nach Alarmaktivierung. Beispiel: 'sofort beim Trigger' schaltet Licht direkt, noch vor Sirene.">
             Ausführung
             <select id="alarmActionTiming">
               <option value="global">global</option>
@@ -375,25 +375,25 @@
               <option value="immediate">sofort beim Trigger</option>
             </select>
           </label>
-          <label id="alarmActionDpWrap" title="Datapoint, der bei Trigger gesetzt wird (nur Aktion=Datapoint).">
+          <label id="alarmActionDpWrap" title="Datapoint, der bei Trigger gesetzt wird (nur Aktion=Datapoint). Beispiel: mqtt.1.AlarmCenter.Buzzer.">
             Datapoint ID
             <span class="input-wrap">
               <input id="alarmActionDatapointId" class="state-input" list="stateIds" type="text" />
               <button id="browseAlarmActionDatapointBtn" class="icon-btn" type="button" title="Objektbrowser öffnen">🔎</button>
             </span>
           </label>
-          <label id="alarmActionOnWrap" title="Wert für den Datapoint beim Auslösen. Typen wie true/false, Zahl oder Text sind möglich.">On-Value<input id="alarmActionOnValue" type="text" placeholder="true / 1 / on" /></label>
-          <label id="alarmActionOffWrap" title="Optionaler Rücksetz-Wert nach Timer-Ablauf.">Off-Value (optional)<input id="alarmActionOffValue" type="text" placeholder="false / 0 / off" /></label>
-          <label id="alarmActionDurationWrap" title="Optionaler Timer: nach X ms wird auf Off-Value zurückgesetzt. 0 = kein Auto-Reset.">Timer ms (optional)<input id="alarmActionDurationMs" type="number" min="0" placeholder="z.B. 10000" /></label>
-          <label id="alarmActionRepeatCountWrap" title="Wie oft dieselbe Action ausgeführt wird.">Wiederholungen<input id="alarmActionRepeatCount" type="number" min="1" value="1" /></label>
-          <label id="alarmActionRepeatIntervalWrap" title="Abstand in Millisekunden zwischen den Wiederholungen.">Intervall ms<input id="alarmActionRepeatIntervalMs" type="number" min="0" value="1000" /></label>
-          <label id="alarmActionTelegramWrap" title="Telegram-Text für diese Action. Unterstützt Platzhalter wie {zone}, {trigger}, {sourceId}, {value}, {caseId}.">Telegram Nachricht<input id="alarmActionTelegramText" type="text" placeholder="Alarm: {trigger} in {zone}" /></label>
-          <label id="alarmActionAlexaWrap" title="Alexa Speak-Text für diese Action. Unterstützt Platzhalter wie {zone}, {trigger}, {sourceId}, {value}, {caseId}.">Alexa Speak Text<input id="alarmActionAlexaText" type="text" placeholder="Achtung, Alarm ausgelöst." /></label>
-          <label id="alarmActionSnapshotWrap" title="Zentrale Snapshot-Aktion, die ausgelöst wird.">
+          <label id="alarmActionOnWrap" title="Wert für den Datapoint beim Auslösen. Typen wie true/false, Zahl oder Text sind möglich. Beispiel: true oder 'beep 2x'.">On-Value<input id="alarmActionOnValue" type="text" placeholder="true / 1 / on" /></label>
+          <label id="alarmActionOffWrap" title="Optionaler Rücksetz-Wert nach Timer-Ablauf. Beispiel: false zum automatischen Ausschalten.">Off-Value (optional)<input id="alarmActionOffValue" type="text" placeholder="false / 0 / off" /></label>
+          <label id="alarmActionDurationWrap" title="Optionaler Timer: nach X ms wird auf Off-Value zurückgesetzt. 0 = kein Auto-Reset. Beispiel: 10000 = nach 10s reset.">Timer ms (optional)<input id="alarmActionDurationMs" type="number" min="0" placeholder="z.B. 10000" /></label>
+          <label id="alarmActionRepeatCountWrap" title="Wie oft dieselbe Action ausgeführt wird. Beispiel: 3 = dreimal senden/schalten.">Wiederholungen<input id="alarmActionRepeatCount" type="number" min="1" value="1" /></label>
+          <label id="alarmActionRepeatIntervalWrap" title="Abstand in Millisekunden zwischen den Wiederholungen. Beispiel: 5000 = alle 5s.">Intervall ms<input id="alarmActionRepeatIntervalMs" type="number" min="0" value="1000" /></label>
+          <label id="alarmActionTelegramWrap" title="Telegram-Text für diese Action. Unterstützt Platzhalter wie {zone}, {trigger}, {sourceId}, {value}, {caseId}. Beispiel: 'Alarm {trigger} in {zone} ({caseId})'.">Telegram Nachricht<input id="alarmActionTelegramText" type="text" placeholder="Alarm: {trigger} in {zone}" /></label>
+          <label id="alarmActionAlexaWrap" title="Alexa Speak-Text für diese Action. Unterstützt Platzhalter wie {zone}, {trigger}, {sourceId}, {value}, {caseId}. Beispiel: 'Achtung, Alarm im {zone}-Bereich'.">Alexa Speak Text<input id="alarmActionAlexaText" type="text" placeholder="Achtung, Alarm ausgelöst." /></label>
+          <label id="alarmActionSnapshotWrap" title="Zentrale Snapshot-Aktion, die ausgelöst wird. Beispiel: 'cam_driveway_snapshot' setzt den Snapshot-DP der Einfahrt.">
             Snapshot Aktion
             <select id="alarmActionSnapshotTarget"></select>
           </label>
-          <label id="alarmActionCameraLedWrap" title="Kamera mit konfiguriertem LED-Datapoint.">
+          <label id="alarmActionCameraLedWrap" title="Kamera mit konfiguriertem LED-Datapoint. Beispiel: 'CamDriveway' LED für 10s einschalten.">
             Kamera LED Ziel
             <select id="alarmActionCameraTarget"></select>
           </label>
@@ -406,35 +406,35 @@
 
         <h3 class="subhead">PANIC Actions</h3>
         <div class="fields">
-          <label title="Definiert, ob die Action bei PANIC an oder PANIC aus laufen soll.">
+          <label title="Definiert, ob die Action bei PANIC an oder PANIC aus laufen soll. Beispiel: bei 'an' Sirene/Telegram sofort starten.">
             Bei PANIC
             <select id="panicActionWhen">
               <option value="on">an</option>
               <option value="off">aus</option>
             </select>
           </label>
-          <fieldset id="panicActionKindsWrap" class="multi-select-group" title="Mehrere PANIC-Aktionen gleichzeitig auswählbar. Beim Speichern wird je Auswahl eine Action angelegt.">
+          <fieldset id="panicActionKindsWrap" class="multi-select-group" title="Mehrere PANIC-Aktionen gleichzeitig auswählbar. Beim Speichern wird je Auswahl eine Action angelegt. Beispiel: Telegram + Snapshot bei PANIC an.">
             <legend>Aktion (Mehrfachauswahl)</legend>
             <label class="check-row"><input id="panicActionKindDatapoint" type="checkbox" checked /> Datapoint setzen</label>
             <label class="check-row"><input id="panicActionKindTelegram" type="checkbox" /> Telegram senden</label>
             <label class="check-row"><input id="panicActionKindAlexa" type="checkbox" /> Alexa Speak</label>
             <label class="check-row"><input id="panicActionKindSnapshot" type="checkbox" /> Snapshot senden</label>
           </fieldset>
-          <label id="panicActionDpWrap" title="Datapoint, der bei PANIC gesetzt wird (nur Aktion=Datapoint).">
+          <label id="panicActionDpWrap" title="Datapoint, der bei PANIC gesetzt wird (nur Aktion=Datapoint). Beispiel: reolink.0.settings.playAlarm.">
             Datapoint ID
             <span class="input-wrap">
               <input id="panicActionDatapointId" class="state-input" list="stateIds" type="text" />
               <button id="browsePanicActionDatapointBtn" class="icon-btn" type="button" title="Objektbrowser öffnen">🔎</button>
             </span>
           </label>
-          <label id="panicActionOnWrap" title="Wert für den Datapoint bei PANIC.">On-Value<input id="panicActionOnValue" type="text" placeholder="true / 1 / on" /></label>
-          <label id="panicActionOffWrap" title="Optionaler Rücksetz-Wert nach Timer-Ablauf.">Off-Value (optional)<input id="panicActionOffValue" type="text" placeholder="false / 0 / off" /></label>
-          <label id="panicActionDurationWrap" title="Optionaler Timer: nach X ms auf Off-Value zurücksetzen.">Timer ms (optional)<input id="panicActionDurationMs" type="number" min="0" placeholder="z.B. 10000" /></label>
-          <label id="panicActionRepeatCountWrap" title="Wie oft dieselbe PANIC-Action ausgeführt wird.">Wiederholungen<input id="panicActionRepeatCount" type="number" min="1" value="1" /></label>
-          <label id="panicActionRepeatIntervalWrap" title="Abstand in Millisekunden zwischen den Wiederholungen.">Intervall ms<input id="panicActionRepeatIntervalMs" type="number" min="0" value="1000" /></label>
-          <label id="panicActionTelegramWrap" title="Telegram-Text für PANIC. Unterstützt Platzhalter wie {panic}, {caseId}.">Telegram Nachricht<input id="panicActionTelegramText" type="text" placeholder="PANIC wurde aktiviert." /></label>
-          <label id="panicActionAlexaWrap" title="Alexa Speak-Text für PANIC. Unterstützt Platzhalter wie {panic}, {caseId}.">Alexa Speak Text<input id="panicActionAlexaText" type="text" placeholder="Panic Alarm aktiv." /></label>
-          <label id="panicActionSnapshotWrap" title="Zentrale Snapshot-Aktion, die bei PANIC ausgelöst wird.">
+          <label id="panicActionOnWrap" title="Wert für den Datapoint bei PANIC. Beispiel: 20 für Reolink-Alarm.">On-Value<input id="panicActionOnValue" type="text" placeholder="true / 1 / on" /></label>
+          <label id="panicActionOffWrap" title="Optionaler Rücksetz-Wert nach Timer-Ablauf. Beispiel: 0 zum Stoppen.">Off-Value (optional)<input id="panicActionOffValue" type="text" placeholder="false / 0 / off" /></label>
+          <label id="panicActionDurationWrap" title="Optionaler Timer: nach X ms auf Off-Value zurücksetzen. Beispiel: 15000 = 15s aktiv.">Timer ms (optional)<input id="panicActionDurationMs" type="number" min="0" placeholder="z.B. 10000" /></label>
+          <label id="panicActionRepeatCountWrap" title="Wie oft dieselbe PANIC-Action ausgeführt wird. Beispiel: 5 Wiederholungen.">Wiederholungen<input id="panicActionRepeatCount" type="number" min="1" value="1" /></label>
+          <label id="panicActionRepeatIntervalWrap" title="Abstand in Millisekunden zwischen den Wiederholungen. Beispiel: 3000 = alle 3s.">Intervall ms<input id="panicActionRepeatIntervalMs" type="number" min="0" value="1000" /></label>
+          <label id="panicActionTelegramWrap" title="Telegram-Text für PANIC. Unterstützt Platzhalter wie {panic}, {caseId}. Beispiel: 'PANIC {panic} ({caseId})'.">Telegram Nachricht<input id="panicActionTelegramText" type="text" placeholder="PANIC wurde aktiviert." /></label>
+          <label id="panicActionAlexaWrap" title="Alexa Speak-Text für PANIC. Unterstützt Platzhalter wie {panic}, {caseId}. Beispiel: 'Panic Alarm aktiv'.">Alexa Speak Text<input id="panicActionAlexaText" type="text" placeholder="Panic Alarm aktiv." /></label>
+          <label id="panicActionSnapshotWrap" title="Zentrale Snapshot-Aktion, die bei PANIC ausgelöst wird. Beispiel: alle Einfahrtskameras Snapshots senden.">
             Snapshot Aktion
             <select id="panicActionSnapshotTarget"></select>
           </label>
