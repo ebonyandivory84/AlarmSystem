@@ -229,7 +229,7 @@
     objectTarget: null,
     live: { perimeterArmed: false, aussenArmed: false, innenArmed: false, fullArmed: false, innerFillArmed: false },
     liveAlerts: { contact: {}, pir: {}, camera: {} },
-    overviewShowSensors: false,
+    overviewShowSensors: true,
     avatarProfiles: {},
     avatarDesigner: { person: 'sebastian', dragging: false, startX: 0, startY: 0, startPanX: 0, startPanY: 0 },
     health: { ok: true, reasons: [], checks: [] },
