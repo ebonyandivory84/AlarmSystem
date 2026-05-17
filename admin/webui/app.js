@@ -67,6 +67,47 @@
     alarmRepeatTelegramText: $('alarmRepeatTelegramText'),
     alarmActionsList: $('alarmActionsList'),
     alarmActionResult: $('alarmActionResult'),
+    quickAlarmScenario: $('quickAlarmScenario'),
+    quickAlarmZone: $('quickAlarmZone'),
+    quickAlarmTriggerType: $('quickAlarmTriggerType'),
+    quickAlarmTriggerEntity: $('quickAlarmTriggerEntity'),
+    quickAlarmArmedMode: $('quickAlarmArmedMode'),
+    quickAlarmTiming: $('quickAlarmTiming'),
+    quickAlarmKindDatapoint: $('quickAlarmKindDatapoint'),
+    quickAlarmKindTelegram: $('quickAlarmKindTelegram'),
+    quickAlarmKindAlexa: $('quickAlarmKindAlexa'),
+    quickAlarmKindSnapshot: $('quickAlarmKindSnapshot'),
+    quickAlarmKindCameraLed: $('quickAlarmKindCameraLed'),
+    quickAlarmDatapointId: $('quickAlarmDatapointId'),
+    quickAlarmOnValue: $('quickAlarmOnValue'),
+    quickAlarmOffValue: $('quickAlarmOffValue'),
+    quickAlarmDurationMs: $('quickAlarmDurationMs'),
+    quickAlarmTelegramText: $('quickAlarmTelegramText'),
+    quickAlarmAlexaText: $('quickAlarmAlexaText'),
+    quickAlarmSnapshotTarget: $('quickAlarmSnapshotTarget'),
+    quickAlarmCameraTarget: $('quickAlarmCameraTarget'),
+    quickAlarmRepeatCount: $('quickAlarmRepeatCount'),
+    quickAlarmRepeatIntervalMs: $('quickAlarmRepeatIntervalMs'),
+    quickAlarmLabel: $('quickAlarmLabel'),
+    quickAlarmDpWrap: $('quickAlarmDpWrap'),
+    quickAlarmOnWrap: $('quickAlarmOnWrap'),
+    quickAlarmOffWrap: $('quickAlarmOffWrap'),
+    quickAlarmDurationWrap: $('quickAlarmDurationWrap'),
+    quickAlarmTelegramWrap: $('quickAlarmTelegramWrap'),
+    quickAlarmAlexaWrap: $('quickAlarmAlexaWrap'),
+    quickAlarmSnapshotWrap: $('quickAlarmSnapshotWrap'),
+    quickAlarmCameraLedWrap: $('quickAlarmCameraLedWrap'),
+    quickAlarmRepeatCountWrap: $('quickAlarmRepeatCountWrap'),
+    quickAlarmRepeatIntervalWrap: $('quickAlarmRepeatIntervalWrap'),
+    quickAlarmZoneWrap: $('quickAlarmZoneWrap'),
+    quickAlarmTriggerTypeWrap: $('quickAlarmTriggerTypeWrap'),
+    quickAlarmTriggerEntityWrap: $('quickAlarmTriggerEntityWrap'),
+    quickAlarmArmedModeWrap: $('quickAlarmArmedModeWrap'),
+    quickAlarmTimingWrap: $('quickAlarmTimingWrap'),
+    addQuickAlarmActionBtn: $('addQuickAlarmActionBtn'),
+    quickAlarmActionResult: $('quickAlarmActionResult'),
+    quickAlarmActionsList: $('quickAlarmActionsList'),
+    browseQuickAlarmDatapointBtn: $('browseQuickAlarmDatapointBtn'),
     snapshotActionKey: $('snapshotActionKey'),
     snapshotActionLabel: $('snapshotActionLabel'),
     snapshotActionDatapointId: $('snapshotActionDatapointId'),
@@ -3788,6 +3829,16 @@
     return kinds;
   }
 
+  function getSelectedQuickAlarmKinds() {
+    const kinds = [];
+    if (ui.quickAlarmKindDatapoint?.checked) kinds.push('datapoint');
+    if (ui.quickAlarmKindTelegram?.checked) kinds.push('telegram');
+    if (ui.quickAlarmKindAlexa?.checked) kinds.push('alexa');
+    if (ui.quickAlarmKindSnapshot?.checked) kinds.push('snapshot');
+    if (ui.quickAlarmKindCameraLed?.checked) kinds.push('camera_led');
+    return kinds;
+  }
+
   function getSelectedPanicKinds() {
     const kinds = [];
     if (ui.panicActionKindDatapoint?.checked) kinds.push('datapoint');
@@ -3870,16 +3921,25 @@
   }
 
   function refreshAlarmActionTriggerEntityOptions() {
-    if (!ui.alarmActionTriggerEntity) return;
-    const triggerType = String(ui.alarmActionTriggerType?.value || 'any');
-    const current = String(ui.alarmActionTriggerEntity.value || '').trim();
+    refreshTriggerEntityOptions(ui.alarmActionTriggerEntity, ui.alarmActionTriggerType?.value || 'any');
+  }
+
+  function refreshQuickAlarmTriggerEntityOptions() {
+    refreshTriggerEntityOptions(ui.quickAlarmTriggerEntity, ui.quickAlarmTriggerType?.value || 'any');
+  }
+
+  function refreshTriggerEntityOptions(selectEl, triggerTypeRaw) {
+    const sel = selectEl || null;
+    if (!sel) return;
+    const triggerType = String(triggerTypeRaw || 'any');
+    const current = String(sel.value || '').trim();
     const rows = getAlarmTriggerEntities().filter(r => triggerType === 'any' || r.kind === triggerType);
     const opts = ['<option value="">any</option>'].concat(rows.map(r => {
       const txt = `${r.label} [${alarmTriggerTypeLabel(r.kind)} | ${r.zone}]`;
       return `<option value="${htmlEsc(r.id)}">${htmlEsc(txt)}</option>`;
     }));
-    ui.alarmActionTriggerEntity.innerHTML = opts.join('');
-    if (current && rows.some(r => r.id === current)) ui.alarmActionTriggerEntity.value = current;
+    sel.innerHTML = opts.join('');
+    if (current && rows.some(r => r.id === current)) sel.value = current;
   }
 
   function setWrapVisible(el, visible) {
@@ -3913,6 +3973,33 @@
     if (ui.alarmActionTriggerType?.closest('label')) setWrapVisible(ui.alarmActionTriggerType.closest('label'), !isPanicScenario);
     if (ui.alarmActionTriggerEntity?.closest('label')) setWrapVisible(ui.alarmActionTriggerEntity.closest('label'), !isPanicScenario);
     if (ui.alarmActionArmedMode?.closest('label')) setWrapVisible(ui.alarmActionArmedMode.closest('label'), !isPanicScenario);
+  }
+
+  function updateQuickAlarmActionUiState() {
+    const scenario = String(ui.quickAlarmScenario?.value || 'zone_trigger');
+    const kinds = new Set(getSelectedQuickAlarmKinds());
+    const isPanicScenario = scenario === 'panic_on' || scenario === 'panic_off';
+    const isDatapoint = kinds.has('datapoint');
+    const isTelegram = kinds.has('telegram');
+    const isAlexa = kinds.has('alexa');
+    const isSnapshot = kinds.has('snapshot');
+    const isCameraLed = kinds.has('camera_led');
+
+    setWrapVisible(ui.quickAlarmDpWrap, isDatapoint);
+    setWrapVisible(ui.quickAlarmOnWrap, isDatapoint);
+    setWrapVisible(ui.quickAlarmOffWrap, isDatapoint);
+    setWrapVisible(ui.quickAlarmDurationWrap, isDatapoint);
+    setWrapVisible(ui.quickAlarmRepeatCountWrap, true);
+    setWrapVisible(ui.quickAlarmRepeatIntervalWrap, true);
+    setWrapVisible(ui.quickAlarmTelegramWrap, isTelegram);
+    setWrapVisible(ui.quickAlarmAlexaWrap, isAlexa);
+    setWrapVisible(ui.quickAlarmSnapshotWrap, isSnapshot);
+    setWrapVisible(ui.quickAlarmCameraLedWrap, isCameraLed);
+    setWrapVisible(ui.quickAlarmTimingWrap, !isPanicScenario);
+    setWrapVisible(ui.quickAlarmZoneWrap, !isPanicScenario);
+    setWrapVisible(ui.quickAlarmTriggerTypeWrap, !isPanicScenario);
+    setWrapVisible(ui.quickAlarmTriggerEntityWrap, !isPanicScenario);
+    setWrapVisible(ui.quickAlarmArmedModeWrap, !isPanicScenario);
   }
 
   function updatePanicActionUiState() {
@@ -4071,6 +4158,7 @@
       }
     }
     refreshSnapshotActionTargetOptions(ui.alarmActionSnapshotTarget);
+    refreshSnapshotActionTargetOptions(ui.quickAlarmSnapshotTarget);
     refreshSnapshotActionTargetOptions(ui.panicActionSnapshotTarget);
   }
 
@@ -4153,6 +4241,42 @@
         }).join('');
       }
     }
+
+    renderQuickAlarmActionsCard();
+  }
+
+  function renderQuickAlarmActionsCard() {
+    ensureTables();
+    refreshSnapshotActionTargetOptions(ui.quickAlarmSnapshotTarget);
+    refreshCameraLedTargetOptions(ui.quickAlarmCameraTarget);
+    refreshQuickAlarmTriggerEntityOptions();
+    updateQuickAlarmActionUiState();
+
+    if (!ui.quickAlarmActionsList) return;
+    const rows = (state.config.alarmActionsTable || []).map(normalizeAlarmActionRow);
+    if (!rows.length) {
+      ui.quickAlarmActionsList.innerHTML = '<div class="muted">Keine Alarm Actions konfiguriert.</div>';
+      return;
+    }
+    ui.quickAlarmActionsList.innerHTML = rows.map((r, idx) => {
+      const header = `${alarmScenarioLabel(r.scenario)} | ${alarmActionKindLabel(r.actionKind)}`;
+      const info = [];
+      if (r.scenario === 'zone_trigger') {
+        info.push(`zone=${r.zone}`);
+        info.push(`trigger=${alarmTriggerTypeLabel(r.triggerSource)}`);
+        if (r.triggerEntityId) info.push(`entity=${r.triggerEntityId}`);
+        info.push(`armed=${r.armedMode}`);
+      }
+      if (r.actionKind === 'datapoint') info.push(`${r.datapointId} → ${r.onValue || 'true'}`);
+      if (r.actionKind === 'telegram') info.push(`msg="${r.telegramText || ''}"`);
+      if (r.actionKind === 'alexa') info.push(`speak="${r.alexaText || ''}"`);
+      if (r.actionKind === 'snapshot') info.push(`snapshot=${snapshotTargetLabelByKey(r.snapshotTargetKey) || r.snapshotTargetKey || '-'}`);
+      if (r.actionKind === 'camera_led') info.push(`camLED=${r.cameraTargetKey || '-'}`);
+      info.push(`repeat=${Number(r.repeatCount || 1)}x/${Number(r.repeatIntervalMs || 1000)}ms`);
+      const createdByAssistant = String(r.key || '').startsWith('quick_alarm_');
+      const tag = createdByAssistant ? '<span class="status-chip disarmed">Assistent</span>' : '';
+      return `<div class="sensor-item"><span>${htmlEsc(r.label)} ${tag}<br><span class="muted">${htmlEsc(header)} | ${htmlEsc(info.join(' | '))}</span></span><button class="btn danger" data-del-quick-alarm-action="${idx}">Löschen</button></div>`;
+    }).join('');
   }
 
   function normalizeTelegramInstanceRow(row) {
@@ -4341,6 +4465,73 @@
     });
     renderAlarmActionsCard();
     if (ui.alarmActionResult) ui.alarmActionResult.textContent = `Hinzugefügt: ${actionKinds.length} Aktion(en)`;
+  }
+
+  function addQuickAlarmAction() {
+    ensureTables();
+    const scenario = String(ui.quickAlarmScenario?.value || 'zone_trigger');
+    const actionKinds = getSelectedQuickAlarmKinds();
+    const triggerSource = String(ui.quickAlarmTriggerType?.value || 'any');
+    const datapointId = String(ui.quickAlarmDatapointId?.value || '').trim();
+    const snapshotTargetKey = String(ui.quickAlarmSnapshotTarget?.value || '').trim();
+    const cameraTargetKey = String(ui.quickAlarmCameraTarget?.value || '').trim();
+    const customLabel = String(ui.quickAlarmLabel?.value || '').trim();
+
+    if (!actionKinds.length) {
+      setStatus('Assistent: Bitte mindestens eine Aktion auswählen', true);
+      if (ui.quickAlarmActionResult) ui.quickAlarmActionResult.textContent = 'Mindestens eine Aktion auswählen';
+      return;
+    }
+    if (actionKinds.includes('datapoint') && !datapointId) {
+      setStatus('Assistent: Datapoint ID fehlt', true);
+      if (ui.quickAlarmActionResult) ui.quickAlarmActionResult.textContent = 'Datapoint ID fehlt';
+      return;
+    }
+    if (actionKinds.includes('snapshot') && !snapshotTargetKey) {
+      setStatus('Assistent: Snapshot Aktion auswählen', true);
+      if (ui.quickAlarmActionResult) ui.quickAlarmActionResult.textContent = 'Snapshot Aktion fehlt';
+      return;
+    }
+    if (actionKinds.includes('camera_led') && !cameraTargetKey) {
+      setStatus('Assistent: Kamera LED Ziel auswählen', true);
+      if (ui.quickAlarmActionResult) ui.quickAlarmActionResult.textContent = 'Kamera LED Ziel fehlt';
+      return;
+    }
+
+    const base = {
+      scenario,
+      zone: String(ui.quickAlarmZone?.value || 'any'),
+      triggerSource,
+      triggerEntityId: String(ui.quickAlarmTriggerEntity?.value || '').trim(),
+      armedMode: String(ui.quickAlarmArmedMode?.value || 'any'),
+      timing: String(ui.quickAlarmTiming?.value || 'global'),
+      onValue: String(ui.quickAlarmOnValue?.value || '').trim() || 'true',
+      offValue: String(ui.quickAlarmOffValue?.value || '').trim(),
+      durationMs: Math.max(0, Number(ui.quickAlarmDurationMs?.value || 0)),
+      repeatCount: Math.max(1, Number(ui.quickAlarmRepeatCount?.value || 1)),
+      repeatIntervalMs: Math.max(0, Number(ui.quickAlarmRepeatIntervalMs?.value || 1000)),
+      telegramText: String(ui.quickAlarmTelegramText?.value || '').trim(),
+      alexaText: String(ui.quickAlarmAlexaText?.value || '').trim(),
+      snapshotTargetKey,
+      cameraTargetKey
+    };
+    actionKinds.forEach((kind, idx) => {
+      const label = customLabel || `${alarmScenarioLabel(scenario)} ${alarmActionKindLabel(kind)} (Assistent)`;
+      const row = normalizeAlarmActionRow({
+        key: `quick_alarm_${Date.now()}_${kind}_${idx + 1}`,
+        label,
+        ...base,
+        actionKind: kind,
+        datapointId: kind === 'datapoint' ? datapointId : '',
+        telegramText: kind === 'telegram' ? base.telegramText : '',
+        alexaText: kind === 'alexa' ? base.alexaText : '',
+        snapshotTargetKey: kind === 'snapshot' ? base.snapshotTargetKey : '',
+        cameraTargetKey: kind === 'camera_led' ? base.cameraTargetKey : ''
+      });
+      state.config.alarmActionsTable.push(row);
+    });
+    renderAlarmActionsCard();
+    if (ui.quickAlarmActionResult) ui.quickAlarmActionResult.textContent = `Hinzugefügt: ${actionKinds.length} Aktion(en)`;
   }
 
   function addPanicAction() {
@@ -5617,10 +5808,20 @@
     });
     ui.panicBtn.addEventListener('click', () => togglePanic().catch(e => setStatus(String(e), true)));
     if (ui.addSnapshotActionBtn) ui.addSnapshotActionBtn.addEventListener('click', addSnapshotActionTarget);
+    if (ui.addQuickAlarmActionBtn) ui.addQuickAlarmActionBtn.addEventListener('click', addQuickAlarmAction);
     if (ui.addAlarmActionBtn) ui.addAlarmActionBtn.addEventListener('click', addAlarmAction);
     if (ui.addPanicActionBtn) ui.addPanicActionBtn.addEventListener('click', addPanicAction);
+    if (ui.browseQuickAlarmDatapointBtn && ui.quickAlarmDatapointId) ui.browseQuickAlarmDatapointBtn.addEventListener('click', () => openObjectBrowser(ui.quickAlarmDatapointId));
     if (ui.browseAlarmActionDatapointBtn && ui.alarmActionDatapointId) ui.browseAlarmActionDatapointBtn.addEventListener('click', () => openObjectBrowser(ui.alarmActionDatapointId));
     if (ui.browsePanicActionDatapointBtn && ui.panicActionDatapointId) ui.browsePanicActionDatapointBtn.addEventListener('click', () => openObjectBrowser(ui.panicActionDatapointId));
+    if (ui.quickAlarmScenario) ui.quickAlarmScenario.addEventListener('change', () => {
+      updateQuickAlarmActionUiState();
+      renderQuickAlarmActionsCard();
+    });
+    if (ui.quickAlarmTriggerType) ui.quickAlarmTriggerType.addEventListener('change', () => {
+      refreshQuickAlarmTriggerEntityOptions();
+      renderQuickAlarmActionsCard();
+    });
     if (ui.alarmActionScenario) ui.alarmActionScenario.addEventListener('change', () => {
       updateAlarmActionUiState();
       renderAlarmActionsCard();
@@ -5644,6 +5845,9 @@
     [ui.alarmActionKindDatapoint, ui.alarmActionKindTelegram, ui.alarmActionKindAlexa, ui.alarmActionKindSnapshot, ui.alarmActionKindCameraLed]
       .filter(Boolean)
       .forEach(el => el.addEventListener('change', updateAlarmActionUiState));
+    [ui.quickAlarmKindDatapoint, ui.quickAlarmKindTelegram, ui.quickAlarmKindAlexa, ui.quickAlarmKindSnapshot, ui.quickAlarmKindCameraLed]
+      .filter(Boolean)
+      .forEach(el => el.addEventListener('change', updateQuickAlarmActionUiState));
     [ui.panicActionKindDatapoint, ui.panicActionKindTelegram, ui.panicActionKindAlexa, ui.panicActionKindSnapshot]
       .filter(Boolean)
       .forEach(el => el.addEventListener('change', updatePanicActionUiState));
@@ -5662,6 +5866,17 @@
         const btn = ev.target.closest('[data-del-alarm-action]');
         if (!btn) return;
         const idx = Number(btn.getAttribute('data-del-alarm-action'));
+        if (!Number.isInteger(idx) || idx < 0) return;
+        ensureTables();
+        state.config.alarmActionsTable.splice(idx, 1);
+        renderAlarmActionsCard();
+      });
+    }
+    if (ui.quickAlarmActionsList) {
+      ui.quickAlarmActionsList.addEventListener('click', ev => {
+        const btn = ev.target.closest('[data-del-quick-alarm-action]');
+        if (!btn) return;
+        const idx = Number(btn.getAttribute('data-del-quick-alarm-action'));
         if (!Number.isInteger(idx) || idx < 0) return;
         ensureTables();
         state.config.alarmActionsTable.splice(idx, 1);

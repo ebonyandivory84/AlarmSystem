@@ -280,6 +280,97 @@
         </div>
         <div id="snapshotActionsList" class="sensor-list" style="margin-top:10px"></div>
       </section>
+      <section class="card" id="alarmActionsAssistantCard">
+        <h2>Alarm Actions Assistent</h2>
+        <p class="muted">Vereinfachte Eingabe als eigene Card. Die bestehende Card „Alarm Actions“ bleibt unverändert. Regeln werden in dieselben Tabellen gespeichert.</p>
+        <div class="fields">
+          <label title="Definiert, bei welchem Ereignis diese Regel geprüft wird.">
+            Szenario
+            <select id="quickAlarmScenario">
+              <option value="zone_trigger">Zone Trigger</option>
+              <option value="panic_on">PANIC an</option>
+              <option value="panic_off">PANIC aus</option>
+            </select>
+          </label>
+          <label id="quickAlarmZoneWrap" title="Optionaler Filter auf eine Zone.">
+            Zone
+            <select id="quickAlarmZone">
+              <option value="any">any</option>
+              <option value="perimeter">perimeter</option>
+              <option value="aussenhaut">aussenhaut</option>
+              <option value="innenraum">innenraum</option>
+            </select>
+          </label>
+          <label id="quickAlarmTriggerTypeWrap" title="Optionaler Filter für Trigger-Typ.">
+            Trigger-Typ
+            <select id="quickAlarmTriggerType">
+              <option value="any">any</option>
+              <option value="sensor">Sensor</option>
+              <option value="personDetection">PersonDetection</option>
+              <option value="camera">Camera</option>
+            </select>
+          </label>
+          <label id="quickAlarmTriggerEntityWrap" title="Optionaler Filter auf ein konkretes Element.">
+            Trigger-Element
+            <select id="quickAlarmTriggerEntity"></select>
+          </label>
+          <label id="quickAlarmArmedModeWrap" title="Scharf/Unscharf-Bedingung für die Regel.">
+            Scharfstatus
+            <select id="quickAlarmArmedMode">
+              <option value="any">any</option>
+              <option value="armed">armed</option>
+              <option value="unarmed">unarmed</option>
+            </select>
+          </label>
+          <label id="quickAlarmTimingWrap" title="Ausführungszeitpunkt bei Zone-Triggern.">
+            Ausführung
+            <select id="quickAlarmTiming">
+              <option value="global">global</option>
+              <option value="after_alarm">nach Alarmaktivierung</option>
+              <option value="immediate">sofort beim Trigger</option>
+            </select>
+          </label>
+          <fieldset id="quickAlarmKindsWrap" class="multi-select-group" title="Mehrere Aktionen gleichzeitig auswählbar.">
+            <legend>Aktion (Mehrfachauswahl)</legend>
+            <label class="check-row"><input id="quickAlarmKindDatapoint" type="checkbox" checked /> Datapoint setzen</label>
+            <label class="check-row"><input id="quickAlarmKindTelegram" type="checkbox" /> Telegram senden</label>
+            <label class="check-row"><input id="quickAlarmKindAlexa" type="checkbox" /> Alexa Speak</label>
+            <label class="check-row"><input id="quickAlarmKindSnapshot" type="checkbox" /> Snapshot senden</label>
+            <label class="check-row"><input id="quickAlarmKindCameraLed" type="checkbox" /> Kamera-LED triggern</label>
+          </fieldset>
+          <label id="quickAlarmDpWrap" title="Datapoint für Aktion 'Datapoint setzen'.">
+            Datapoint ID
+            <span class="input-wrap">
+              <input id="quickAlarmDatapointId" class="state-input" list="stateIds" type="text" />
+              <button id="browseQuickAlarmDatapointBtn" class="icon-btn" type="button" title="Objektbrowser öffnen">🔎</button>
+            </span>
+          </label>
+          <label id="quickAlarmOnWrap">On-Value<input id="quickAlarmOnValue" type="text" placeholder="true / 1 / on" /></label>
+          <label id="quickAlarmOffWrap">Off-Value (optional)<input id="quickAlarmOffValue" type="text" placeholder="false / 0 / off" /></label>
+          <label id="quickAlarmDurationWrap">Timer ms (optional)<input id="quickAlarmDurationMs" type="number" min="0" placeholder="z.B. 10000" /></label>
+          <label id="quickAlarmTelegramWrap">Telegram Nachricht<input id="quickAlarmTelegramText" type="text" placeholder="Alarm: {trigger} in {zone}" /></label>
+          <label id="quickAlarmAlexaWrap">Alexa Speak Text<input id="quickAlarmAlexaText" type="text" placeholder="Achtung, Alarm ausgelöst." /></label>
+          <label id="quickAlarmSnapshotWrap">
+            Snapshot Aktion
+            <select id="quickAlarmSnapshotTarget"></select>
+          </label>
+          <label id="quickAlarmCameraLedWrap">
+            Kamera LED Ziel
+            <select id="quickAlarmCameraTarget"></select>
+          </label>
+          <label id="quickAlarmRepeatCountWrap">Wiederholungen<input id="quickAlarmRepeatCount" type="number" min="1" value="1" /></label>
+          <label id="quickAlarmRepeatIntervalWrap">Intervall ms<input id="quickAlarmRepeatIntervalMs" type="number" min="0" value="1000" /></label>
+          <label title="Optionaler Name für die erzeugten Regeln.">
+            Regelname (optional)
+            <input id="quickAlarmLabel" type="text" placeholder="z.B. Eingang: Telegram + Snapshot" />
+          </label>
+        </div>
+        <div class="row">
+          <button id="addQuickAlarmActionBtn" class="btn primary">Assistent-Regel hinzufügen</button>
+          <span id="quickAlarmActionResult" class="muted"></span>
+        </div>
+        <div id="quickAlarmActionsList" class="sensor-list" style="margin-top:10px"></div>
+      </section>
       <section class="card">
         <h2>Alarm Actions</h2>
         <p class="muted">Zonen → Sensoren/Kameras → Trigger → Aktoren (Datapoint, Telegram, Alexa, Snapshot). Hinweise zeigen mögliche Überschneidungen mit Element-Regeln.</p>
