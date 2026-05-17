@@ -61,6 +61,10 @@
     alarmActionConflictHint: $('alarmActionConflictHint'),
     alarmActionConflictDetails: $('alarmActionConflictDetails'),
     alarmActionGlobalTiming: $('alarmActionGlobalTiming'),
+    alarmCountdownAbortMode: $('alarmCountdownAbortMode'),
+    alarmRepeatTelegramEnabled: $('alarmRepeatTelegramEnabled'),
+    alarmRepeatTelegramIntervalSec: $('alarmRepeatTelegramIntervalSec'),
+    alarmRepeatTelegramText: $('alarmRepeatTelegramText'),
     alarmActionsList: $('alarmActionsList'),
     alarmActionResult: $('alarmActionResult'),
     snapshotActionKey: $('snapshotActionKey'),
@@ -82,6 +86,7 @@
     alarmActionKindTelegram: $('alarmActionKindTelegram'),
     alarmActionKindAlexa: $('alarmActionKindAlexa'),
     alarmActionKindSnapshot: $('alarmActionKindSnapshot'),
+    alarmActionKindCameraLed: $('alarmActionKindCameraLed'),
     alarmActionTiming: $('alarmActionTiming'),
     alarmActionDatapointId: $('alarmActionDatapointId'),
     alarmActionOnValue: $('alarmActionOnValue'),
@@ -92,6 +97,7 @@
     alarmActionTelegramText: $('alarmActionTelegramText'),
     alarmActionAlexaText: $('alarmActionAlexaText'),
     alarmActionSnapshotTarget: $('alarmActionSnapshotTarget'),
+    alarmActionCameraTarget: $('alarmActionCameraTarget'),
     alarmActionDpWrap: $('alarmActionDpWrap'),
     alarmActionOnWrap: $('alarmActionOnWrap'),
     alarmActionOffWrap: $('alarmActionOffWrap'),
@@ -101,6 +107,7 @@
     alarmActionTelegramWrap: $('alarmActionTelegramWrap'),
     alarmActionAlexaWrap: $('alarmActionAlexaWrap'),
     alarmActionSnapshotWrap: $('alarmActionSnapshotWrap'),
+    alarmActionCameraLedWrap: $('alarmActionCameraLedWrap'),
     alarmActionTimingWrap: $('alarmActionTimingWrap'),
     browseAlarmActionDatapointBtn: $('browseAlarmActionDatapointBtn'),
     addAlarmActionBtn: $('addAlarmActionBtn'),
@@ -173,6 +180,7 @@
     ruleHealthHeartbeatId: $('ruleHealthHeartbeatId'),
     ruleHealthHeartbeatMaxSec: $('ruleHealthHeartbeatMaxSec'),
     ruleHealthOnlineId: $('ruleHealthOnlineId'),
+    ruleLed: $('ruleLed'),
     ruleSnapshotDatapointId: $('ruleSnapshotDatapointId'),
     ruleSnapshotZoneMode: $('ruleSnapshotZoneMode'),
     ruleSnapshotZones: $('ruleSnapshotZones'),
@@ -301,7 +309,75 @@
     cameraNightModeArmsCameras: 'Wenn aktiv, werden Kameras im Nachtmodus automatisch scharf geschaltet.',
     alarmActionZoneTriggerTiming: 'Standard für Alarm Actions bei Zone-Triggern: sofort beim Trigger oder erst nach Alarmaktivierung (Countdown fertig).'
   };
-  const dpSpec = ['armStateId','hullProtectionStateId','perimeterStateId','triggerStateId','sirenStateId','displayId','clearDisplayId','buzzerId','ledRedId','ledYellowId','standbyId','motionSensorId','panicStateId','fingerprintStateId','pinStateId','statusId'];
+  const dpSpec = [
+    { key: 'armStateId', type: 'state' },
+    { key: 'hullProtectionStateId', type: 'state' },
+    { key: 'perimeterStateId', type: 'state' },
+    { key: 'countdownStateId', type: 'state' },
+    { key: 'triggerStateId', type: 'state' },
+    { key: 'sirenStateId', type: 'state' },
+    { key: 'displayId', type: 'state' },
+    { key: 'clearDisplayId', type: 'state' },
+    { key: 'buzzerId', type: 'state' },
+    { key: 'ledRedId', type: 'state' },
+    { key: 'ledYellowId', type: 'state' },
+    { key: 'standbyId', type: 'state' },
+    { key: 'motionSensorId', type: 'state' },
+    { key: 'panicStateId', type: 'state' },
+    { key: 'fingerprintStateId', type: 'state' },
+    { key: 'pinStateId', type: 'state' },
+    { key: 'statusId', type: 'state' },
+    { key: 'checkRedId', type: 'state' },
+    { key: 'checkYellowId', type: 'state' },
+    { key: 'drivewayFlashlightTriggerId', type: 'state' },
+    { key: 'standbyNoMotionValue', type: 'text' },
+    { key: 'standbyTimeoutMs', type: 'number' },
+    { key: 'standbySafetyIntervalMs', type: 'number' },
+    { key: 'ledRedOpenIdsCsv', type: 'text' },
+    { key: 'ledYellowOpenIdsCsv', type: 'text' },
+    { key: 'ledOnlyInStandby', type: 'boolean' },
+    { key: 'ledSafetyIntervalMs', type: 'number' },
+    { key: 'checkRedOpenIdsCsv', type: 'text' },
+    { key: 'checkYellowOpenIdsCsv', type: 'text' },
+    { key: 'statusOpenIdsCsv', type: 'text' },
+    { key: 'statusNoProtectionText', type: 'text' },
+    { key: 'statusAllClosedText', type: 'text' },
+    { key: 'displayDoorCycleEnabled', type: 'boolean' },
+    { key: 'displayDoorCycleIntervalMs', type: 'number' },
+    { key: 'displayDoorTemplate', type: 'text' },
+    { key: 'displayFallbackSourceIdsCsv', type: 'text' },
+    { key: 'displayFallbackSuffix', type: 'text' },
+    { key: 'alarmTriggerAutoResetMs', type: 'number' },
+    { key: 'fingerprintCooldownMs', type: 'number' },
+    { key: 'pinSequenceWindowMs', type: 'number' },
+    { key: 'pinTriggerCooldownMs', type: 'number' },
+    { key: 'panicStartupSyncEnabled', type: 'boolean' }
+  ];
+  const dpHelp = {
+    countdownStateId: 'Legacy-Kompatibilität: wird während Entry-Countdown auf true gesetzt und danach wieder auf false.',
+    standbyNoMotionValue: 'Wert, der am Motion-Datapoint als "keine Bewegung" interpretiert wird (Legacy: "no motion").',
+    standbyTimeoutMs: 'Nach dieser Zeit ohne Bewegung wird StandBy=true gesetzt (Legacy: 20000 ms).',
+    standbySafetyIntervalMs: 'Sicherheits-Intervall für StandBy-Prüfung (Legacy: 10000 ms).',
+    ledRedOpenIdsCsv: 'CSV der Tür-Datapoints für rote LED (mind. ein open => rot).',
+    ledYellowOpenIdsCsv: 'CSV der Fenster-/Zusatz-Datapoints für gelbe LED (mind. ein open => gelb).',
+    ledOnlyInStandby: 'Wenn true, werden LED-Ringe nur im StandBy-Modus gesetzt.',
+    ledSafetyIntervalMs: 'Intervall für LED/Status-Refresh.',
+    checkRedOpenIdsCsv: 'CSV der IDs für CheckRed-Logik (open => CheckRed=false).',
+    checkYellowOpenIdsCsv: 'CSV der IDs für CheckYellow-Logik (open => CheckYellow=false).',
+    statusOpenIdsCsv: 'CSV der IDs, die als "offen" im Status-Text aufgelistet werden.',
+    statusNoProtectionText: 'Status-Text bei unscharfem System.',
+    statusAllClosedText: 'Status-Text wenn alle überwachten Öffnungen geschlossen sind.',
+    displayDoorCycleEnabled: 'Rotiert offene Türen auf dem Display wie im Legacy-Skript.',
+    displayDoorCycleIntervalMs: 'Anzeigeintervall der offenen Türen (Legacy: 2000 ms).',
+    displayDoorTemplate: 'Template für Türanzeige, Platzhalter: {door} (Legacy: "{door} offen").',
+    displayFallbackSourceIdsCsv: 'CSV von Datenpunkten für Fallback-Anzeige (Datum/Uhrzeit/Temperatur).',
+    displayFallbackSuffix: 'Suffix für Fallback-Anzeige (Legacy: " \'C").',
+    alarmTriggerAutoResetMs: 'Setzt AlarmTrigger nach X ms automatisch zurück (Legacy: 60000 ms).',
+    fingerprintCooldownMs: 'Entprellzeit für Fingerprint-Matches.',
+    pinSequenceWindowMs: 'Zeitfenster zwischen * und PIN-Aktionsziffer (Legacy: 4000 ms).',
+    pinTriggerCooldownMs: 'Cooldown zwischen zwei PIN-Aktionen (Legacy: 1500 ms).',
+    panicStartupSyncEnabled: 'Beim Start PANIC-Zustand in die Kamera-ON/OFF-Flags spiegeln.'
+  };
 
   const setStatus = (m,e=false) => {
     if (!ui.status) return;
@@ -599,6 +675,12 @@
     if (!['immediate', 'after_alarm'].includes(String(state.config.alarmActionZoneTriggerTiming || ''))) {
       state.config.alarmActionZoneTriggerTiming = 'after_alarm';
     }
+    if (!['zone_disarmed', 'any_disarm', 'off'].includes(String(state.config.countdownAbortMode || ''))) {
+      state.config.countdownAbortMode = 'zone_disarmed';
+    }
+    if (typeof state.config.alarmRepeatTelegramEnabled !== 'boolean') state.config.alarmRepeatTelegramEnabled = false;
+    if (!Number.isFinite(Number(state.config.alarmRepeatTelegramIntervalSec))) state.config.alarmRepeatTelegramIntervalSec = 60;
+    if (typeof state.config.alarmRepeatTelegramText !== 'string') state.config.alarmRepeatTelegramText = 'Alarm !!!';
     if (!Array.isArray(state.config.telegramInstancesTable)) {
       let parsed = [];
       try {
@@ -1058,9 +1140,9 @@
   function getRulesMap(){ try { return JSON.parse(state.config.rulesJson || '{}'); } catch { return {}; } }
   function setRulesMap(m){ state.config.rulesJson = JSON.stringify(m); }
   function ruleId(e){ return `${e.kind}:${e.entityKey}`; }
-  function defaultRule(){ return { enabled:true, onlyArmed:true, onlyNight:false, sirene:false, snapshot:true, telegram:true }; }
-  function readRuleForm(){ return { enabled: $('ruleEnabled').value==='true', onlyArmed: $('ruleOnlyArmed').value==='true', onlyNight: $('ruleOnlyNight').value==='true', sirene: $('ruleSirene').value==='true', snapshot: $('ruleSnapshot').value==='true', telegram: $('ruleTelegram').value==='true' }; }
-  function writeRuleForm(rule){ const r={...defaultRule(), ...(rule||{})}; $('ruleEnabled').value=String(r.enabled); $('ruleOnlyArmed').value=String(r.onlyArmed); $('ruleOnlyNight').value=String(r.onlyNight); $('ruleSirene').value=String(r.sirene); $('ruleSnapshot').value=String(r.snapshot); $('ruleTelegram').value=String(r.telegram); }
+  function defaultRule(){ return { enabled:true, onlyArmed:true, onlyNight:false, sirene:false, snapshot:true, telegram:true, led:false }; }
+  function readRuleForm(){ return { enabled: $('ruleEnabled').value==='true', onlyArmed: $('ruleOnlyArmed').value==='true', onlyNight: $('ruleOnlyNight').value==='true', sirene: $('ruleSirene').value==='true', snapshot: $('ruleSnapshot').value==='true', telegram: $('ruleTelegram').value==='true', led: $('ruleLed')?.value === 'true' }; }
+  function writeRuleForm(rule){ const r={...defaultRule(), ...(rule||{})}; $('ruleEnabled').value=String(r.enabled); $('ruleOnlyArmed').value=String(r.onlyArmed); $('ruleOnlyNight').value=String(r.onlyNight); $('ruleSirene').value=String(r.sirene); $('ruleSnapshot').value=String(r.snapshot); $('ruleTelegram').value=String(r.telegram); if ($('ruleLed')) $('ruleLed').value = String(!!r.led); }
   function readHealthForm() {
     return {
       healthCheckMode: String(ui.ruleHealthMode?.value || 'none'),
@@ -1399,6 +1481,7 @@
         `<span class="cfg-chip cfg-chip-floor" title="Etage">${floorTag}</span>`,
         rule.snapshot ? '<span class="cfg-chip cfg-on" title="Snapshot aktiv">📷</span>' : '',
         rule.telegram ? '<span class="cfg-chip cfg-on" title="Telegram aktiv">💬</span>' : '',
+        rule.led ? '<span class="cfg-chip cfg-on" title="Kamera LED aktiv">💡</span>' : '',
         healthEnabled ? '<span class="cfg-chip cfg-on" title="Health-Check aktiv">❤</span>' : ''
       ].filter(Boolean).join('');
       const pos = e.floor === 'OG'
@@ -1638,25 +1721,42 @@
       ui.global.appendChild(w);
     }
 
-    for (const k of dpSpec) {
+    for (const spec of dpSpec) {
+      const k = spec.key;
       const w = document.createElement('label');
       w.textContent = k;
-      const wrap = document.createElement('span');
-      wrap.className = 'input-wrap';
-      const i = document.createElement('input');
-      i.type = 'text';
-      i.className = 'state-input';
-      i.setAttribute('list', 'stateIds');
-      i.dataset.key = k;
-      i.value = String(state.config[k] || '');
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'icon-btn';
-      b.textContent = '🔎';
-      b.addEventListener('click', () => openObjectBrowser(i));
-      wrap.appendChild(i);
-      wrap.appendChild(b);
-      w.appendChild(wrap);
+      w.title = dpHelp[k] || k;
+      if (spec.type === 'state') {
+        const wrap = document.createElement('span');
+        wrap.className = 'input-wrap';
+        const i = document.createElement('input');
+        i.type = 'text';
+        i.className = 'state-input';
+        i.setAttribute('list', 'stateIds');
+        i.dataset.key = k;
+        i.value = String(state.config[k] || '');
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'icon-btn';
+        b.textContent = '🔎';
+        b.addEventListener('click', () => openObjectBrowser(i));
+        wrap.appendChild(i);
+        wrap.appendChild(b);
+        w.appendChild(wrap);
+      } else if (spec.type === 'boolean') {
+        const i = document.createElement('select');
+        i.dataset.key = k;
+        i.innerHTML = '<option value="true">true</option><option value="false">false</option>';
+        const raw = state.config[k];
+        i.value = (raw === true || String(raw).toLowerCase() === 'true') ? 'true' : 'false';
+        w.appendChild(i);
+      } else {
+        const i = document.createElement('input');
+        i.dataset.key = k;
+        i.type = spec.type === 'number' ? 'number' : 'text';
+        i.value = String(state.config[k] ?? '');
+        w.appendChild(i);
+      }
       ui.dp.appendChild(w);
     }
   }
@@ -3493,7 +3593,26 @@
       else if (spec[1] === 'boolean') state.config[k] = (el.value === 'true');
       else if (k === 'alarmActionZoneTriggerTiming') state.config[k] = (String(el.value || 'after_alarm') === 'immediate' ? 'immediate' : 'after_alarm');
     });
-    ui.dp.querySelectorAll('[data-key]').forEach(el => { state.config[el.dataset.key] = el.value || ''; });
+    ui.dp.querySelectorAll('[data-key]').forEach(el => {
+      const key = String(el.dataset.key || '');
+      if (!key) return;
+      const spec = dpSpec.find(x => x.key === key);
+      const raw = String(el.value ?? '').trim();
+      if (!spec) {
+        state.config[key] = raw;
+        return;
+      }
+      if (spec.type === 'number') {
+        const n = Number(raw);
+        state.config[key] = Number.isFinite(n) ? n : 0;
+        return;
+      }
+      if (spec.type === 'boolean') {
+        state.config[key] = raw === 'true';
+        return;
+      }
+      state.config[key] = raw;
+    });
     if (ui.alarmActionGlobalTiming) state.config.alarmActionZoneTriggerTiming = String(ui.alarmActionGlobalTiming.value || 'after_alarm');
     state.config.floorplanEgImage = String(ui.floorplanEgInput?.value || './assets/EG.jpg').trim();
     state.config.floorplanOgImage = String(ui.floorplanOgInput?.value || state.config.floorplanEgImage || './assets/OG.jpg').trim();
@@ -3509,6 +3628,12 @@
     state.config.geofenceEnterDisarmZonesCsv = String(ui.geofenceEnterDisarmZonesCsv?.value || '').trim();
     state.config.geofenceEnterChatIdsCsv = String(ui.geofenceEnterChatIdsCsv?.value || '').trim();
     state.config.geofenceEnterTelegramText = String(ui.geofenceEnterTelegramText?.value || '').trim();
+    state.config.countdownAbortMode = ['zone_disarmed', 'any_disarm', 'off'].includes(String(ui.alarmCountdownAbortMode?.value || ''))
+      ? String(ui.alarmCountdownAbortMode.value)
+      : 'zone_disarmed';
+    state.config.alarmRepeatTelegramEnabled = String(ui.alarmRepeatTelegramEnabled?.value || 'false') === 'true';
+    state.config.alarmRepeatTelegramIntervalSec = Math.max(5, Number(ui.alarmRepeatTelegramIntervalSec?.value || state.config.alarmRepeatTelegramIntervalSec || 60));
+    state.config.alarmRepeatTelegramText = String(ui.alarmRepeatTelegramText?.value || 'Alarm !!!').trim();
     ensureTables();
     state.config.telegramInstancesTable = (state.config.telegramInstancesTable || [])
       .map(normalizeTelegramInstanceRow)
@@ -3565,7 +3690,7 @@
     const scenario = ['zone_trigger', 'panic_on', 'panic_off'].includes(String(row?.scenario || ''))
       ? String(row.scenario)
       : 'zone_trigger';
-    const actionKind = ['datapoint', 'telegram', 'alexa', 'snapshot'].includes(String(row?.actionKind || ''))
+    const actionKind = ['datapoint', 'telegram', 'alexa', 'snapshot', 'camera_led'].includes(String(row?.actionKind || ''))
       ? String(row.actionKind)
       : 'datapoint';
     const triggerSource = ['any', 'sensor', 'personDetection', 'camera'].includes(String(row?.triggerSource || ''))
@@ -3601,13 +3726,14 @@
       repeatIntervalMs: Number.isFinite(repeatIntervalMs) ? repeatIntervalMs : 1000,
       telegramText: String(row?.telegramText || '').trim(),
       alexaText: String(row?.alexaText || '').trim(),
-      snapshotTargetKey: String(row?.snapshotTargetKey || '').trim()
+      snapshotTargetKey: String(row?.snapshotTargetKey || '').trim(),
+      cameraTargetKey: String(row?.cameraTargetKey || '').trim()
     };
   }
 
   function normalizePanicActionRow(row) {
     const when = ['on', 'off'].includes(String(row?.when || '')) ? String(row.when) : 'on';
-    const actionKind = ['datapoint', 'telegram', 'alexa', 'snapshot'].includes(String(row?.actionKind || ''))
+    const actionKind = ['datapoint', 'telegram', 'alexa', 'snapshot', 'camera_led'].includes(String(row?.actionKind || ''))
       ? String(row.actionKind)
       : 'datapoint';
     const repeatCount = Math.max(1, Number(row?.repeatCount || 1));
@@ -3626,7 +3752,8 @@
       repeatIntervalMs: Number.isFinite(repeatIntervalMs) ? repeatIntervalMs : 1000,
       telegramText: String(row?.telegramText || '').trim(),
       alexaText: String(row?.alexaText || '').trim(),
-      snapshotTargetKey: String(row?.snapshotTargetKey || '').trim()
+      snapshotTargetKey: String(row?.snapshotTargetKey || '').trim(),
+      cameraTargetKey: String(row?.cameraTargetKey || '').trim()
     };
   }
 
@@ -3647,6 +3774,7 @@
     if (v === 'telegram') return 'Telegram';
     if (v === 'alexa') return 'Alexa';
     if (v === 'snapshot') return 'Snapshot';
+    if (v === 'camera_led') return 'Kamera-LED';
     return 'Datapoint';
   }
 
@@ -3656,6 +3784,7 @@
     if (ui.alarmActionKindTelegram?.checked) kinds.push('telegram');
     if (ui.alarmActionKindAlexa?.checked) kinds.push('alexa');
     if (ui.alarmActionKindSnapshot?.checked) kinds.push('snapshot');
+    if (ui.alarmActionKindCameraLed?.checked) kinds.push('camera_led');
     return kinds;
   }
 
@@ -3692,6 +3821,30 @@
       return `<option value="${htmlEsc(r.key)}">${htmlEsc(txt)}</option>`;
     }));
     sel.innerHTML = options.join('');
+    if (current && rows.some(r => r.key === current)) sel.value = current;
+  }
+
+  function getCameraLedTargets() {
+    ensureTables();
+    return (state.config.camerasTable || [])
+      .filter(r => String(r?.ledDatapoint || '').trim())
+      .map(r => {
+        const key = String(r?.key || r?.personDetectionDp || r?.ip || '').trim();
+        const label = String(r?.label || key || r?.ip || '').trim();
+        const ledDp = String(r?.ledDatapoint || '').trim();
+        return { key, label, ledDatapoint: ledDp };
+      })
+      .filter(r => r.key && r.ledDatapoint);
+  }
+
+  function refreshCameraLedTargetOptions(selectEl) {
+    const sel = selectEl || null;
+    if (!sel) return;
+    const current = String(sel.value || '').trim();
+    const rows = getCameraLedTargets();
+    sel.innerHTML = ['<option value="">bitte wählen</option>'].concat(rows.map(r =>
+      `<option value="${htmlEsc(r.key)}">${htmlEsc(`${r.label} (${r.ledDatapoint})`)}</option>`
+    )).join('');
     if (current && rows.some(r => r.key === current)) sel.value = current;
   }
 
@@ -3742,6 +3895,7 @@
     const isTelegram = kinds.has('telegram');
     const isAlexa = kinds.has('alexa');
     const isSnapshot = kinds.has('snapshot');
+    const isCameraLed = kinds.has('camera_led');
 
     setWrapVisible(ui.alarmActionDpWrap, isDatapoint);
     setWrapVisible(ui.alarmActionOnWrap, isDatapoint);
@@ -3752,6 +3906,7 @@
     setWrapVisible(ui.alarmActionTelegramWrap, isTelegram);
     setWrapVisible(ui.alarmActionAlexaWrap, isAlexa);
     setWrapVisible(ui.alarmActionSnapshotWrap, isSnapshot);
+    setWrapVisible(ui.alarmActionCameraLedWrap, isCameraLed);
     setWrapVisible(ui.alarmActionTimingWrap, !isPanicScenario);
 
     if (ui.alarmActionZone?.closest('label')) setWrapVisible(ui.alarmActionZone.closest('label'), !isPanicScenario);
@@ -3822,6 +3977,21 @@
       });
       if (hits.length) out.push(`Snapshot-Redundanz: ${hits.length} Element(e) haben bereits Snapshot-Regel aktiv.`);
     }
+    if (String(row.actionKind || '') === 'camera_led') {
+      const targetKey = String(row.cameraTargetKey || '').trim();
+      if (targetKey) {
+        const camHits = getAllCanvasEntities().filter(e => {
+          if (e.kind !== 'camerasTable') return false;
+          const byRef = String(e.entityKey || '').trim() === targetKey
+            || String(e.id || '').trim() === targetKey
+            || String(e.label || '').trim() === targetKey;
+          if (!byRef) return false;
+          const r = { ...defaultRule(), ...(m[ruleId(e)] || {}) };
+          return r.enabled === true && r.led === true;
+        });
+        if (camHits.length) out.push(`Kamera-LED-Redundanz: ${camHits.length} Kamera-Element(e) haben bereits LED-Regel aktiv.`);
+      }
+    }
     return out;
   }
 
@@ -3832,17 +4002,20 @@
     const withTelegram = [];
     const withSirene = [];
     const withSnapshot = [];
+    const withLed = [];
     const details = [];
     for (const e of all) {
       const r = { ...defaultRule(), ...(m[ruleId(e)] || {}) };
       if (r.enabled && r.telegram) withTelegram.push(e.label);
       if (r.enabled && r.sirene) withSirene.push(e.label);
       if (r.enabled && r.snapshot) withSnapshot.push(e.label);
-      if (r.enabled && (r.telegram || r.sirene || r.snapshot)) {
+      if (r.enabled && r.led) withLed.push(e.label);
+      if (r.enabled && (r.telegram || r.sirene || r.snapshot || r.led)) {
         const tags = [];
         if (r.telegram) tags.push('<span class="conflict-rule-tag on">Telegram</span>');
         if (r.sirene) tags.push('<span class="conflict-rule-tag on">Sirene</span>');
         if (r.snapshot) tags.push('<span class="conflict-rule-tag on">Snapshot</span>');
+        if (r.led) tags.push('<span class="conflict-rule-tag on">LED</span>');
         tags.push(`<span class="conflict-rule-tag meta">onlyArmed=${r.onlyArmed ? 'ja' : 'nein'}</span>`);
         tags.push(`<span class="conflict-rule-tag meta">onlyNight=${r.onlyNight ? 'ja' : 'nein'}</span>`);
         tags.push(`<span class="conflict-rule-tag meta">enabled=${r.enabled ? 'ja' : 'nein'}</span>`);
@@ -3858,7 +4031,7 @@
         );
       }
     }
-    if (!withTelegram.length && !withSirene.length && !withSnapshot.length) {
+    if (!withTelegram.length && !withSirene.length && !withSnapshot.length && !withLed.length) {
       ui.alarmActionConflictHint.classList.remove('err');
       ui.alarmActionConflictHint.textContent = 'Keine parallelen Element-Regeln erkannt. Für Zeilen-spezifische Konflikte auf die Warnhinweise in der Liste achten.';
       if (ui.alarmActionConflictDetails) {
@@ -3872,6 +4045,7 @@
     if (withTelegram.length) lines.push(`Telegram: ${withTelegram.length}`);
     if (withSnapshot.length) lines.push(`Snapshot: ${withSnapshot.length}`);
     if (withSirene.length) lines.push(`Sirene: ${withSirene.length}`);
+    if (withLed.length) lines.push(`LED: ${withLed.length}`);
     ui.alarmActionConflictHint.classList.add('err');
     ui.alarmActionConflictHint.textContent = `Parallele Element-Regeln erkannt (${lines.join(' | ')}). Diese können zusätzlich zu Alarm Actions laufen.`;
     if (ui.alarmActionConflictDetails) {
@@ -3911,10 +4085,27 @@
       if (gf && 'value' in gf) gf.value = gTiming === 'immediate' ? 'immediate' : 'after_alarm';
     }
     renderSnapshotActionTargetsCard();
+    refreshCameraLedTargetOptions(ui.alarmActionCameraTarget);
     refreshAlarmActionTriggerEntityOptions();
     updateAlarmActionUiState();
     updatePanicActionUiState();
     renderAlarmActionConflictHint();
+
+    if (ui.alarmCountdownAbortMode) {
+      const mode = ['zone_disarmed', 'any_disarm', 'off'].includes(String(state.config?.countdownAbortMode || ''))
+        ? String(state.config.countdownAbortMode)
+        : 'zone_disarmed';
+      ui.alarmCountdownAbortMode.value = mode;
+    }
+    if (ui.alarmRepeatTelegramEnabled) {
+      ui.alarmRepeatTelegramEnabled.value = String(state.config?.alarmRepeatTelegramEnabled === true);
+    }
+    if (ui.alarmRepeatTelegramIntervalSec) {
+      ui.alarmRepeatTelegramIntervalSec.value = String(Math.max(5, Number(state.config?.alarmRepeatTelegramIntervalSec || 60)));
+    }
+    if (ui.alarmRepeatTelegramText) {
+      ui.alarmRepeatTelegramText.value = String(state.config?.alarmRepeatTelegramText || 'Alarm !!!');
+    }
 
     if (ui.alarmActionsList) {
       const rows = (state.config.alarmActionsTable || []).map(normalizeAlarmActionRow);
@@ -3935,6 +4126,7 @@
           if (r.actionKind === 'telegram') msg.push(`msg="${r.telegramText || ''}"`);
           if (r.actionKind === 'alexa') msg.push(`speak="${r.alexaText || ''}"`);
           if (r.actionKind === 'snapshot') msg.push(`snapshot=${snapshotTargetLabelByKey(r.snapshotTargetKey) || r.snapshotTargetKey || '-'}`);
+          if (r.actionKind === 'camera_led') msg.push(`camLED=${r.cameraTargetKey || '-'}`);
           msg.push(`repeat=${Number(r.repeatCount || 1)}x / ${Number(r.repeatIntervalMs || 1000)}ms`);
           const warns = getAlarmActionConflictMessages(r);
           const warnHtml = warns.length ? `<br><span class="muted" style="color:#ffb3b3">${warns.map(htmlEsc).join(' | ')}</span>` : '';
@@ -3955,6 +4147,7 @@
           if (r.actionKind === 'telegram') msg.push(`msg="${r.telegramText || ''}"`);
           if (r.actionKind === 'alexa') msg.push(`speak="${r.alexaText || ''}"`);
           if (r.actionKind === 'snapshot') msg.push(`snapshot=${snapshotTargetLabelByKey(r.snapshotTargetKey) || r.snapshotTargetKey || '-'}`);
+          if (r.actionKind === 'camera_led') msg.push(`camLED=${r.cameraTargetKey || '-'}`);
           msg.push(`repeat=${Number(r.repeatCount || 1)}x / ${Number(r.repeatIntervalMs || 1000)}ms`);
           return `<div class="sensor-item"><span>${htmlEsc(r.label)}<br><span class="muted">${htmlEsc(msg.join(' | '))}</span></span><button class="btn danger" data-del-panic-action="${idx}">Löschen</button></div>`;
         }).join('');
@@ -4094,6 +4287,7 @@
     const actionKinds = getSelectedAlarmKinds();
     const datapointId = String(ui.alarmActionDatapointId?.value || '').trim();
     const snapshotTargetKey = String(ui.alarmActionSnapshotTarget?.value || '').trim();
+    const cameraTargetKey = String(ui.alarmActionCameraTarget?.value || '').trim();
     if (!actionKinds.length) {
       setStatus('Alarm Action: Bitte mindestens eine Aktion auswählen', true);
       if (ui.alarmActionResult) ui.alarmActionResult.textContent = 'Mindestens eine Aktion auswählen';
@@ -4107,6 +4301,11 @@
     if (actionKinds.includes('snapshot') && !snapshotTargetKey) {
       setStatus('Alarm Action: Snapshot Aktion auswählen', true);
       if (ui.alarmActionResult) ui.alarmActionResult.textContent = 'Snapshot Aktion fehlt';
+      return;
+    }
+    if (actionKinds.includes('camera_led') && !cameraTargetKey) {
+      setStatus('Alarm Action: Kamera LED Ziel auswählen', true);
+      if (ui.alarmActionResult) ui.alarmActionResult.textContent = 'Kamera LED Ziel fehlt';
       return;
     }
     const base = {
@@ -4123,7 +4322,8 @@
       repeatIntervalMs: Math.max(0, Number(ui.alarmActionRepeatIntervalMs?.value || 1000)),
       telegramText: String(ui.alarmActionTelegramText?.value || '').trim(),
       alexaText: String(ui.alarmActionAlexaText?.value || '').trim(),
-      snapshotTargetKey
+      snapshotTargetKey,
+      cameraTargetKey
     };
     actionKinds.forEach((kind, idx) => {
       const row = normalizeAlarmActionRow({
@@ -4134,7 +4334,8 @@
         datapointId: kind === 'datapoint' ? datapointId : '',
         telegramText: kind === 'telegram' ? base.telegramText : '',
         alexaText: kind === 'alexa' ? base.alexaText : '',
-        snapshotTargetKey: kind === 'snapshot' ? base.snapshotTargetKey : ''
+        snapshotTargetKey: kind === 'snapshot' ? base.snapshotTargetKey : '',
+        cameraTargetKey: kind === 'camera_led' ? base.cameraTargetKey : ''
       });
       state.config.alarmActionsTable.push(row);
     });
@@ -5434,7 +5635,13 @@
       refreshAlarmActionTriggerEntityOptions();
       renderAlarmActionsCard();
     });
-    [ui.alarmActionKindDatapoint, ui.alarmActionKindTelegram, ui.alarmActionKindAlexa, ui.alarmActionKindSnapshot]
+    if (ui.alarmCountdownAbortMode) ui.alarmCountdownAbortMode.addEventListener('change', () => {
+      state.config.countdownAbortMode = String(ui.alarmCountdownAbortMode.value || 'zone_disarmed');
+    });
+    if (ui.alarmRepeatTelegramEnabled) ui.alarmRepeatTelegramEnabled.addEventListener('change', () => {
+      state.config.alarmRepeatTelegramEnabled = String(ui.alarmRepeatTelegramEnabled.value || 'false') === 'true';
+    });
+    [ui.alarmActionKindDatapoint, ui.alarmActionKindTelegram, ui.alarmActionKindAlexa, ui.alarmActionKindSnapshot, ui.alarmActionKindCameraLed]
       .filter(Boolean)
       .forEach(el => el.addEventListener('change', updateAlarmActionUiState));
     [ui.panicActionKindDatapoint, ui.panicActionKindTelegram, ui.panicActionKindAlexa, ui.panicActionKindSnapshot]

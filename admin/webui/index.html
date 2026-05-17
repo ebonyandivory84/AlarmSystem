@@ -292,6 +292,29 @@
               <option value="immediate">sofort beim Trigger</option>
             </select>
           </label>
+          <label title="Legacy-kompatibel: Countdown stoppen, wenn während Countdown unscharf geschaltet wird.">
+            Countdown-Abbruch bei Unscharf
+            <select id="alarmCountdownAbortMode">
+              <option value="zone_disarmed">nur betroffene Zone</option>
+              <option value="any_disarm">bei jeder Unscharfschaltung</option>
+              <option value="off">aus</option>
+            </select>
+          </label>
+          <label title="Wiederholt Telegram-Erinnerungen, solange die Sirene aktiv ist.">
+            Alarm-Reminder Telegram
+            <select id="alarmRepeatTelegramEnabled">
+              <option value="false">aus</option>
+              <option value="true">an</option>
+            </select>
+          </label>
+          <label title="Intervall für Alarm-Reminder in Sekunden.">
+            Reminder Intervall (s)
+            <input id="alarmRepeatTelegramIntervalSec" type="number" min="5" value="60" />
+          </label>
+          <label title="Text für den wiederholten Alarm-Reminder (Legacy: Alarm !!!).">
+            Reminder Text
+            <input id="alarmRepeatTelegramText" type="text" placeholder="Alarm !!!" />
+          </label>
         </div>
         <div id="alarmActionConflictHint" class="status" style="margin-top:10px;white-space:pre-wrap"></div>
         <div id="alarmActionConflictDetails" class="status hidden" style="margin-top:10px"></div>
@@ -342,6 +365,7 @@
             <label class="check-row"><input id="alarmActionKindTelegram" type="checkbox" /> Telegram senden</label>
             <label class="check-row"><input id="alarmActionKindAlexa" type="checkbox" /> Alexa Speak</label>
             <label class="check-row"><input id="alarmActionKindSnapshot" type="checkbox" /> Snapshot senden</label>
+            <label class="check-row"><input id="alarmActionKindCameraLed" type="checkbox" /> Kamera-LED triggern</label>
           </fieldset>
           <label id="alarmActionTimingWrap" title="Steuert den Ausführungszeitpunkt für Zone Trigger: globaler Standard, sofort oder erst nach Alarmaktivierung.">
             Ausführung
@@ -368,6 +392,10 @@
           <label id="alarmActionSnapshotWrap" title="Zentrale Snapshot-Aktion, die ausgelöst wird.">
             Snapshot Aktion
             <select id="alarmActionSnapshotTarget"></select>
+          </label>
+          <label id="alarmActionCameraLedWrap" title="Kamera mit konfiguriertem LED-Datapoint.">
+            Kamera LED Ziel
+            <select id="alarmActionCameraTarget"></select>
           </label>
         </div>
         <div class="row">
@@ -586,6 +614,7 @@
             <label title="Wenn true, darf dieses Element bei Ausloesung die Sirene aktivieren.">Sirene ausloesen<select id="ruleSirene"><option value="false">false</option><option value="true">true</option></select></label>
             <label title="Wenn true, wird bei Ausloesung ein Snapshot-Workflow gestartet (sofern Snapshot-Datapoints konfiguriert sind).">Snapshot senden<select id="ruleSnapshot"><option value="false">false</option><option value="true">true</option></select></label>
             <label title="Wenn true, wird bei Ausloesung eine Telegram-Benachrichtigung gesendet (sofern Telegram-IDs gesetzt sind).">Telegram senden<select id="ruleTelegram"><option value="false">false</option><option value="true">true</option></select></label>
+            <label title="Wenn true, darf bei Auslösung zusätzlich die Kamera-LED aktiviert werden (für Kamera-Elemente).">Kamera LED triggern<select id="ruleLed"><option value="false">false</option><option value="true">true</option></select></label>
           </div>
         </section>
 

@@ -12,8 +12,9 @@ type SnapshotZoneMode = 'none' | 'any' | 'selected';
 type AlarmActionScenario = 'zone_trigger' | 'panic_on' | 'panic_off';
 type AlarmActionSourceType = 'any' | 'sensor' | 'personDetection' | 'camera';
 type AlarmActionArmedMode = 'any' | 'armed' | 'unarmed';
-type AlarmActionKind = 'datapoint' | 'telegram' | 'alexa' | 'snapshot';
+type AlarmActionKind = 'datapoint' | 'telegram' | 'alexa' | 'snapshot' | 'camera_led';
 type AlarmActionTiming = 'global' | 'immediate' | 'after_alarm';
+type CountdownAbortMode = 'off' | 'zone_disarmed' | 'any_disarm';
 
 interface SensorDef {
   key: string;
@@ -87,6 +88,7 @@ interface AlarmActionDef {
   telegramText?: string;
   alexaText?: string;
   snapshotTargetKey?: string;
+  cameraTargetKey?: string;
 }
 
 interface PanicActionDef {
@@ -103,6 +105,7 @@ interface PanicActionDef {
   telegramText?: string;
   alexaText?: string;
   snapshotTargetKey?: string;
+  cameraTargetKey?: string;
 }
 
 interface SnapshotActionTargetDef {
@@ -156,10 +159,19 @@ interface Config {
   cameraNightModeEnabled: boolean;
   cameraNightModeArmsCameras: boolean;
   alarmActionZoneTriggerTiming: 'immediate' | 'after_alarm';
+  countdownAbortMode: CountdownAbortMode;
+  alarmRepeatTelegramEnabled: boolean;
+  alarmRepeatTelegramIntervalSec: number;
+  alarmRepeatTelegramText: string;
+  alarmRepeatTelegramIncludeTrigger: boolean;
+  alarmRepeatTelegramTriggerPrefix: string;
+  alarmTriggerAutoResetMs: number;
+  panicStartupSyncEnabled: boolean;
 
   armStateId: string;
   hullProtectionStateId: string;
   perimeterStateId: string;
+  countdownStateId: string;
   triggerStateId: string;
   sirenStateId: string;
   displayId: string;
@@ -177,6 +189,9 @@ interface Config {
   fingerprintStateId: string;
   knownFingerprints: string[];
   pinStateId: string;
+  pinSequenceWindowMs: number;
+  pinTriggerCooldownMs: number;
+  fingerprintCooldownMs: number;
   pdlcId: string;
   garageDoorCommandId: string;
   autoArmPresenceIds: string[];
@@ -203,6 +218,23 @@ interface Config {
   cameraAlarmOnIds: string[];
   cameraAlarmOffIds: string[];
   reolinkSirenIds: string[];
+  standbyNoMotionValue: string;
+  standbyTimeoutMs: number;
+  standbySafetyIntervalMs: number;
+  ledRedOpenIds: string[];
+  ledYellowOpenIds: string[];
+  ledOnlyInStandby: boolean;
+  ledSafetyIntervalMs: number;
+  checkRedOpenIds: string[];
+  checkYellowOpenIds: string[];
+  statusOpenIds: string[];
+  statusNoProtectionText: string;
+  statusAllClosedText: string;
+  displayDoorCycleEnabled: boolean;
+  displayDoorCycleIntervalMs: number;
+  displayDoorTemplate: string;
+  displayFallbackSourceIds: string[];
+  displayFallbackSuffix: string;
 
   sensors: SensorDef[];
   personDetections: PersonDetectionDef[];
@@ -223,17 +255,29 @@ class AlarmSystemAdapter extends utils.Adapter {
   private zoneExitTimers: Partial<Record<Zone, ioBroker.Timeout>> = {};
   private dedupe = new Map<string, number>();
   private lastSeen = new Map<string, number>();
+  private heartbeatMonitoredIds = new Set<string>();
   private heartbeatTimer: ioBroker.Interval | null = null;
   private autoArmTimer: ioBroker.Timeout | null = null;
   private presenceLastSomeoneHome: boolean | null = null;
   private lastFingerprintHit = '';
   private lastFingerprintTs = 0;
-  private pinBuffer = '';
 
   private activeCaseId = '';
   private eventLog: EventEntry[] = [];
   private countdownTimer: ioBroker.Timeout | null = null;
+  private countdownZone: Zone | null = null;
   private standbySafetyTimer: ioBroker.Interval | null = null;
+  private standbySwitchTimer: ioBroker.Timeout | null = null;
+  private standbyNoMotionSince: number | null = null;
+  private ledSafetyTimer: ioBroker.Interval | null = null;
+  private displayCycleTimer: ioBroker.Interval | null = null;
+  private displayOpenQueue: string[] = [];
+  private displayCycleIndex = 0;
+  private alarmRepeatTimer: ioBroker.Interval | null = null;
+  private triggerResetTimer: ioBroker.Timeout | null = null;
+  private pinArmed = false;
+  private pinArmedAt = 0;
+  private pinLastTriggerAt = 0;
   private openDoorBeepResetTimer: ioBroker.Timeout | null = null;
   private triggerLogDir: string | null = null;
 
@@ -250,6 +294,7 @@ class AlarmSystemAdapter extends utils.Adapter {
     await this.subscribeForeignInputs();
     await this.ensureWebUiCameraStates();
     await this.ensureStates();
+    await this.setOutput(this.cfg.countdownStateId, false);
     this.camerasManualArmed = (await this.getStateAsync('runtime.camerasManualArmed'))?.val === true;
     await this.applyCameraOutputs();
     await this.refreshTriggerLogState(this.dayString(new Date()));
@@ -260,6 +305,10 @@ class AlarmSystemAdapter extends utils.Adapter {
     await this.publishRuleView();
     this.startHeartbeatWatchdog();
     this.startStandbySafetyCheck();
+    this.startLedSafetyCheck();
+    await this.refreshStatusIndicators();
+    await this.refreshDisplayCycle();
+    await this.syncPanicStartupState();
     await this.logEvent('info', 'system_start', 'AlarmSystem gestartet');
   }
 
@@ -307,6 +356,29 @@ class AlarmSystemAdapter extends utils.Adapter {
     const snapshotActionTargets = this.parseSnapshotActionTargetsTable(n.snapshotActionTargetsTable);
     const alarmActions = this.parseAlarmActionsTable(n.alarmActionsTable);
     const panicActions = this.parsePanicActionsTable(n.panicActionsTable);
+    const defaultRedOpenIds = [
+      'mqtt.1.entrance_door_status',
+      'mqtt.1.terrace_door_status',
+      'mqtt.1.side_entrance_door_status',
+      'mqtt.1.Garage.shedDoorStatus',
+      'mqtt.1.Garage.door3Status'
+    ];
+    const defaultYellowOpenIds = ['mqtt.1.WC_children.windowStatus'];
+    const defaultStatusOpenIds = [
+      'mqtt.1.entrance_door_status',
+      'mqtt.1.side_entrance_door_status',
+      'mqtt.1.Garage.shedDoorStatus',
+      'mqtt.1.terrace_door_status',
+      'mqtt.1.WC_children.windowStatus',
+      'mqtt.1.Garage.door3Status'
+    ];
+    const defaultCheckRedOpenIds = ['mqtt.1.terrace_door_status'];
+    const defaultCheckYellowOpenIds = [
+      'mqtt.1.entrance_door_status',
+      'mqtt.1.side_entrance_door_status',
+      'mqtt.1.Garage.shedDoorStatus',
+      'mqtt.1.terrace_door_status'
+    ];
 
     return {
       dedupeMs: this.toNumber(n.eventDedupeMs, 1000),
@@ -316,14 +388,23 @@ class AlarmSystemAdapter extends utils.Adapter {
       snapshotBurstCount: Math.max(1, this.toNumber(n.snapshotBurstCount, 1)),
       snapshotBurstIntervalMs: Math.max(500, this.toNumber(n.snapshotBurstIntervalMs, 5000)),
       heartbeatTimeoutSec: this.toNumber(n.heartbeatTimeoutSec, 180),
-      simulationMode: n.simulationMode === true,
-      cameraNightModeEnabled: n.cameraNightModeEnabled !== false,
-      cameraNightModeArmsCameras: n.cameraNightModeArmsCameras !== false,
+      simulationMode: this.toBool(n.simulationMode, false),
+      cameraNightModeEnabled: this.toBool(n.cameraNightModeEnabled, true),
+      cameraNightModeArmsCameras: this.toBool(n.cameraNightModeArmsCameras, true),
       alarmActionZoneTriggerTiming: String(n.alarmActionZoneTriggerTiming || '').toLowerCase() === 'immediate' ? 'immediate' : 'after_alarm',
+      countdownAbortMode: this.parseCountdownAbortMode(n.countdownAbortMode),
+      alarmRepeatTelegramEnabled: this.toBool(n.alarmRepeatTelegramEnabled, false),
+      alarmRepeatTelegramIntervalSec: Math.max(5, this.toNumber(n.alarmRepeatTelegramIntervalSec, 60)),
+      alarmRepeatTelegramText: String(n.alarmRepeatTelegramText || 'Alarm !!!'),
+      alarmRepeatTelegramIncludeTrigger: this.toBool(n.alarmRepeatTelegramIncludeTrigger, true),
+      alarmRepeatTelegramTriggerPrefix: String(n.alarmRepeatTelegramTriggerPrefix || 'Trigger: '),
+      alarmTriggerAutoResetMs: Math.max(0, this.toNumber(n.alarmTriggerAutoResetMs, 60000)),
+      panicStartupSyncEnabled: this.toBool(n.panicStartupSyncEnabled, true),
 
       armStateId: n.armStateId || 'mqtt.1.AlarmCenter.AlarmSystemArmed',
       hullProtectionStateId: n.hullProtectionStateId || 'mqtt.1.AlarmCenter.HullProtection',
       perimeterStateId: n.perimeterStateId || 'mqtt.1.AlarmCenter.PerimeterProtection',
+      countdownStateId: n.countdownStateId || 'mqtt.1.AlarmCenter.ActivateAlarmCountdown',
       triggerStateId: n.triggerStateId || 'mqtt.1.AlarmCenter.AlarmTrigger',
       sirenStateId: n.sirenStateId || 'mqtt.1.AlarmCenter.ActivateSiren',
       displayId: n.displayId || 'mqtt.1.AlarmCenter.Display',
@@ -341,6 +422,9 @@ class AlarmSystemAdapter extends utils.Adapter {
       fingerprintStateId: n.fingerprintStateId || 'mqtt.1.fingerprintDoorbell.lastLogMessage',
       knownFingerprints: String(n.fingerprintUsersCsv || 'Sebastian R1,Teresa R1,Catharina R1,Rita R1,Lukas R1,Florian R1,Monika R1,Michelle L1,Marie R1,Julia R1').split(',').map((x: string) => x.trim()).filter(Boolean),
       pinStateId: n.pinStateId || 'mqtt.1.AlarmCenter.PIN',
+      pinSequenceWindowMs: Math.max(200, this.toNumber(n.pinSequenceWindowMs, 4000)),
+      pinTriggerCooldownMs: Math.max(0, this.toNumber(n.pinTriggerCooldownMs, 1500)),
+      fingerprintCooldownMs: Math.max(500, this.toNumber(n.fingerprintCooldownMs, 3000)),
       pdlcId: n.pdlcId || 'tuya.0.bf2bb23b342877f2e1maqy.1',
       garageDoorCommandId: n.garageDoorCommandId || 'hmip.0.devices.3014F711A000241F29970E70.channels.1.doorCommand',
       autoArmPresenceIds: this.tryJson<string[]>(n.presenceIdsJson, [
@@ -404,6 +488,23 @@ class AlarmSystemAdapter extends utils.Adapter {
         'reolink.2.settings.playAlarm',
         'reolink.3.settings.playAlarm'
       ]),
+      standbyNoMotionValue: String(n.standbyNoMotionValue || 'no motion'),
+      standbyTimeoutMs: Math.max(1000, this.toNumber(n.standbyTimeoutMs, 20000)),
+      standbySafetyIntervalMs: Math.max(1000, this.toNumber(n.standbySafetyIntervalMs, 10000)),
+      ledRedOpenIds: this.parseCsvWithFallback(n.ledRedOpenIdsCsv, defaultRedOpenIds),
+      ledYellowOpenIds: this.parseCsvWithFallback(n.ledYellowOpenIdsCsv, defaultYellowOpenIds),
+      ledOnlyInStandby: this.toBool(n.ledOnlyInStandby, true),
+      ledSafetyIntervalMs: Math.max(500, this.toNumber(n.ledSafetyIntervalMs, 1000)),
+      checkRedOpenIds: this.parseCsvWithFallback(n.checkRedOpenIdsCsv, defaultCheckRedOpenIds),
+      checkYellowOpenIds: this.parseCsvWithFallback(n.checkYellowOpenIdsCsv, defaultCheckYellowOpenIds),
+      statusOpenIds: this.parseCsvWithFallback(n.statusOpenIdsCsv, defaultStatusOpenIds),
+      statusNoProtectionText: String(n.statusNoProtectionText || 'AlarmSystem inaktiv - Achtung, kein Schutz!'),
+      statusAllClosedText: String(n.statusAllClosedText || 'alle Türen geschlossen'),
+      displayDoorCycleEnabled: this.toBool(n.displayDoorCycleEnabled, true),
+      displayDoorCycleIntervalMs: Math.max(500, this.toNumber(n.displayDoorCycleIntervalMs, 2000)),
+      displayDoorTemplate: String(n.displayDoorTemplate || '{door} offen'),
+      displayFallbackSourceIds: this.parseCsvWithFallback(n.displayFallbackSourceIdsCsv, ['0_userdata.0.currentDateTime', 'sainlogic.0.weather.current.outdoortemp']),
+      displayFallbackSuffix: String(n.displayFallbackSuffix || " 'C"),
 
       sensors,
       personDetections,
@@ -489,6 +590,18 @@ class AlarmSystemAdapter extends utils.Adapter {
     return Array.from(new Set(String(v || '').split(',').map(x => x.trim()).filter(Boolean)));
   }
 
+  private parseCsvWithFallback(v: any, fallback: string[]): string[] {
+    const parsed = this.parseCsv(v);
+    return parsed.length > 0 ? parsed : Array.from(new Set(fallback.map(x => String(x || '').trim()).filter(Boolean)));
+  }
+
+  private parseCountdownAbortMode(v: any): CountdownAbortMode {
+    const s = String(v || '').toLowerCase();
+    if (s === 'off') return 'off';
+    if (s === 'any_disarm') return 'any_disarm';
+    return 'zone_disarmed';
+  }
+
   private parseCamerasTable(rows: any): CameraDef[] {
     if (!Array.isArray(rows)) return [];
     return rows.filter(r => r?.snapshotUrl).map((r: any) => ({
@@ -561,6 +674,7 @@ class AlarmSystemAdapter extends utils.Adapter {
       const triggerEntityId = String(r?.triggerEntityId || '').trim() || undefined;
       const datapointId = String(r?.datapointId || '').trim() || undefined;
       const snapshotTargetKey = String(r?.snapshotTargetKey || '').trim() || undefined;
+      const cameraTargetKey = String(r?.cameraTargetKey || '').trim() || undefined;
       const onValueRaw = String(r?.onValue ?? '').trim();
       const offValueRaw = String(r?.offValue ?? '').trim();
       const repeatCount = Math.max(1, this.toNumber(r?.repeatCount, 1));
@@ -584,10 +698,12 @@ class AlarmSystemAdapter extends utils.Adapter {
         repeatIntervalMs,
         telegramText: String(r?.telegramText || '').trim() || undefined,
         alexaText: String(r?.alexaText || '').trim() || undefined,
-        snapshotTargetKey
+        snapshotTargetKey,
+        cameraTargetKey
       };
       if (actionKind === 'datapoint' && !datapointId) continue;
       if (actionKind === 'snapshot' && !snapshotTargetKey) continue;
+      if (actionKind === 'camera_led' && !cameraTargetKey) continue;
       out.push(row);
     }
     return out;
@@ -601,6 +717,7 @@ class AlarmSystemAdapter extends utils.Adapter {
       const when = String(r?.when || '').toLowerCase() === 'off' ? 'off' : 'on';
       const datapointId = String(r?.datapointId || '').trim() || undefined;
       const snapshotTargetKey = String(r?.snapshotTargetKey || '').trim() || undefined;
+      const cameraTargetKey = String(r?.cameraTargetKey || '').trim() || undefined;
       const onValueRaw = String(r?.onValue ?? '').trim();
       const offValueRaw = String(r?.offValue ?? '').trim();
       const repeatCount = Math.max(1, this.toNumber(r?.repeatCount, 1));
@@ -619,10 +736,12 @@ class AlarmSystemAdapter extends utils.Adapter {
         repeatIntervalMs,
         telegramText: String(r?.telegramText || '').trim() || undefined,
         alexaText: String(r?.alexaText || '').trim() || undefined,
-        snapshotTargetKey
+        snapshotTargetKey,
+        cameraTargetKey
       };
       if (actionKind === 'datapoint' && !datapointId) continue;
       if (actionKind === 'snapshot' && !snapshotTargetKey) continue;
+      if (actionKind === 'camera_led' && !cameraTargetKey) continue;
       out.push(row);
     }
     return out;
@@ -661,6 +780,7 @@ class AlarmSystemAdapter extends utils.Adapter {
     if (s === 'telegram') return 'telegram';
     if (s === 'alexa') return 'alexa';
     if (s === 'snapshot') return 'snapshot';
+    if (s === 'camera_led') return 'camera_led';
     return 'datapoint';
   }
 
@@ -713,6 +833,11 @@ class AlarmSystemAdapter extends utils.Adapter {
     for (const p of this.cfg.autoArmPresenceIds) ids.add(p);
     for (const p of this.cfg.bedtimePresenceHomeIds) ids.add(p);
     for (const p of this.cfg.resetHumanDetectionIds) ids.add(p);
+    for (const p of this.cfg.ledRedOpenIds) ids.add(p);
+    for (const p of this.cfg.ledYellowOpenIds) ids.add(p);
+    for (const p of this.cfg.checkRedOpenIds) ids.add(p);
+    for (const p of this.cfg.checkYellowOpenIds) ids.add(p);
+    for (const p of this.cfg.statusOpenIds) ids.add(p);
     for (const id of ids) await this.subscribeForeignStatesAsync(id);
   }
 
@@ -814,6 +939,7 @@ class AlarmSystemAdapter extends utils.Adapter {
       if (a.actionKind === 'telegram') then = `Telegram: "${String(a.telegramText || '')}"`;
       if (a.actionKind === 'alexa') then = `Alexa Speak: "${String(a.alexaText || '')}"`;
       if (a.actionKind === 'snapshot') then = `Snapshot target: ${String(a.snapshotTargetKey || '-')}`;
+      if (a.actionKind === 'camera_led') then = `Kamera-LED: ${String(a.cameraTargetKey || '-')} ${a.durationMs ? `(auto off ${a.durationMs}ms)` : ''}`;
       rules.push({ if: when, then: `${then} (timing ${timing}, repeat ${a.repeatCount}x / ${a.repeatIntervalMs}ms)` });
     }
 
@@ -823,6 +949,7 @@ class AlarmSystemAdapter extends utils.Adapter {
       if (p.actionKind === 'telegram') then = `Telegram: "${String(p.telegramText || '')}"`;
       if (p.actionKind === 'alexa') then = `Alexa Speak: "${String(p.alexaText || '')}"`;
       if (p.actionKind === 'snapshot') then = `Snapshot target: ${String(p.snapshotTargetKey || '-')}`;
+      if (p.actionKind === 'camera_led') then = `Kamera-LED: ${String(p.cameraTargetKey || '-')}`;
       rules.push({ if: `PANIC ${p.when}`, then: `${then} (repeat ${p.repeatCount}x / ${p.repeatIntervalMs}ms)` });
     }
 
@@ -835,6 +962,13 @@ class AlarmSystemAdapter extends utils.Adapter {
       if: `Heartbeat > ${this.cfg.heartbeatTimeoutSec}s ohne Update`,
       then: 'Sabotage/Offline Warnung in diagnostics.lastSabotage + Eventlog'
     });
+
+    if (this.cfg.alarmRepeatTelegramEnabled) {
+      rules.push({
+        if: `Sirene aktiv`,
+        then: `Telegram Reminder alle ${this.cfg.alarmRepeatTelegramIntervalSec}s`
+      });
+    }
 
     if (this.cfg.simulationMode) {
       rules.push({
@@ -854,8 +988,9 @@ class AlarmSystemAdapter extends utils.Adapter {
     this.cfg.personDetections.forEach(p => ids.add(p.id));
     this.cfg.cameras.forEach(c => c.personDetectionDp && ids.add(c.personDetectionDp));
     this.cfg.resetHumanDetectionIds.forEach(id => ids.add(id));
+    this.heartbeatMonitoredIds = ids;
     const now = Date.now();
-    for (const id of ids) this.lastSeen.set(id, now);
+    for (const id of this.heartbeatMonitoredIds) this.lastSeen.set(id, now);
   }
 
   private startHeartbeatWatchdog(): void {
@@ -867,6 +1002,7 @@ class AlarmSystemAdapter extends utils.Adapter {
     const now = Date.now();
     const timeoutMs = this.cfg.heartbeatTimeoutSec * 1000;
     for (const [id, ts] of this.lastSeen) {
+      if (!this.heartbeatMonitoredIds.has(id)) continue;
       if (now - ts > timeoutMs) {
         const msg = `Sabotage/Offline erkannt: ${id} seit ${Math.round((now - ts) / 1000)}s ohne Heartbeat`;
         await this.setStateAsync('diagnostics.lastSabotage', msg, true);
@@ -956,7 +1092,12 @@ class AlarmSystemAdapter extends utils.Adapter {
       return;
     }
 
-    this.lastSeen.set(id, Date.now());
+    if (this.heartbeatMonitoredIds.has(id)) {
+      this.lastSeen.set(id, Date.now());
+    }
+    if (id === this.cfg.motionSensorId) {
+      await this.handleStandbyMotionInput(state.val);
+    }
 
     await this.handleLegacyDoorBuzzers(id, state.val);
 
@@ -968,6 +1109,7 @@ class AlarmSystemAdapter extends utils.Adapter {
       } else if (state.val === false) {
         await this.disarmAll();
       }
+      await this.abortCountdownIfDisarmed();
       return;
     }
     if (id === this.cfg.perimeterStateId) {
@@ -984,6 +1126,7 @@ class AlarmSystemAdapter extends utils.Adapter {
         }
         await this.applyCameraOutputs();
       }
+      await this.abortCountdownIfDisarmed();
       return;
     }
     if (id === this.cfg.hullProtectionStateId) {
@@ -996,6 +1139,7 @@ class AlarmSystemAdapter extends utils.Adapter {
           await this.disarmZone('aussenhaut');
         }
       }
+      await this.abortCountdownIfDisarmed();
       return;
     }
     if (id === this.cfg.panicStateId) {
@@ -1034,6 +1178,10 @@ class AlarmSystemAdapter extends utils.Adapter {
           await this.tryTriggerConfiguredSnapshot(s.label, s.snapshotDatapointId, s.snapshotZoneMode, s.snapshotZones);
           await this.handleZoneTrigger(s.label, s.zone, 'sensor', s.id, state.val);
         }
+      }
+      if (s.sensorType === 'contact') {
+        await this.refreshStatusIndicators();
+        await this.refreshDisplayCycle();
       }
       return;
     }
@@ -1084,6 +1232,10 @@ class AlarmSystemAdapter extends utils.Adapter {
     if (this.cfg.resetHumanDetectionIds.includes(id)) {
       this.setTimeout(() => void this.setOutput(id, '-'), 5500);
     }
+    if (this.isStatusRelatedInputId(id)) {
+      await this.refreshStatusIndicators();
+      await this.refreshDisplayCycle();
+    }
   }
 
   private async initializeHumanDetectionReset(): Promise<void> {
@@ -1094,12 +1246,42 @@ class AlarmSystemAdapter extends utils.Adapter {
 
   private startStandbySafetyCheck(): void {
     this.standbySafetyTimer && this.clearInterval(this.standbySafetyTimer);
-    this.standbySafetyTimer = this.setInterval(async () => {
-      const ms = await this.getForeignStateAsync(this.cfg.motionSensorId);
-      if (ms?.val === 'no motion') {
-        await this.setOutput(this.cfg.standbyId, true);
+    this.standbySafetyTimer = this.setInterval(() => void this.evaluateStandbyState(), this.cfg.standbySafetyIntervalMs) ?? null;
+  }
+
+  private startLedSafetyCheck(): void {
+    this.ledSafetyTimer && this.clearInterval(this.ledSafetyTimer);
+    this.ledSafetyTimer = this.setInterval(() => void this.refreshStatusIndicators(), this.cfg.ledSafetyIntervalMs) ?? null;
+  }
+
+  private isNoMotionValue(val: ioBroker.StateValue): boolean {
+    return String(val ?? '').trim().toLowerCase() === String(this.cfg.standbyNoMotionValue || 'no motion').trim().toLowerCase();
+  }
+
+  private async handleStandbyMotionInput(val: ioBroker.StateValue): Promise<void> {
+    if (this.isNoMotionValue(val)) {
+      if (this.standbyNoMotionSince === null) {
+        this.standbyNoMotionSince = Date.now();
+        if (this.standbySwitchTimer) this.clearTimeout(this.standbySwitchTimer);
+        this.standbySwitchTimer = this.setTimeout(() => void this.setOutput(this.cfg.standbyId, true), this.cfg.standbyTimeoutMs) ?? null;
+        const st = await this.getForeignStateAsync(this.cfg.standbyId);
+        if (st?.val === true) await this.setOutput(this.cfg.standbyId, false);
       }
-    }, 10000) ?? null;
+      return;
+    }
+    this.standbyNoMotionSince = null;
+    if (this.standbySwitchTimer) this.clearTimeout(this.standbySwitchTimer);
+    this.standbySwitchTimer = null;
+    await this.setOutput(this.cfg.standbyId, false);
+  }
+
+  private async evaluateStandbyState(): Promise<void> {
+    const motion = await this.getForeignStateAsync(this.cfg.motionSensorId);
+    if (!this.isNoMotionValue(motion?.val ?? null)) return;
+    if (this.standbyNoMotionSince === null) this.standbyNoMotionSince = Date.now();
+    if (Date.now() - this.standbyNoMotionSince >= this.cfg.standbyTimeoutMs) {
+      await this.setOutput(this.cfg.standbyId, true);
+    }
   }
 
   private async handleLegacyDoorBuzzers(id: string, val: ioBroker.StateValue): Promise<void> {
@@ -1166,6 +1348,7 @@ class AlarmSystemAdapter extends utils.Adapter {
     await this.disarmZone('innenraum');
     await this.abortCountdown();
     await this.setOutput(this.cfg.sirenStateId, false);
+    this.stopAlarmRepeatTelegram();
     this.camerasManualArmed = false;
     await this.setStateAsync('runtime.camerasManualArmed', false, true);
     await this.applyCameraOutputs();
@@ -1176,29 +1359,37 @@ class AlarmSystemAdapter extends utils.Adapter {
     const camerasEffectiveArmed = anyZoneArmed || this.camerasManualArmed;
     await this.setOutput(this.cfg.cctvArmedId, camerasEffectiveArmed);
     await this.setOutput(this.cfg.cctvDisarmedId, !camerasEffectiveArmed);
+    if (camerasEffectiveArmed && this.isDaytimeActive()) {
+      await this.setOutput(this.cfg.drivewayFlashlightTriggerId, true);
+    }
   }
 
   private async updateModeState(): Promise<void> {
     const any = this.zoneArmed.perimeter || this.zoneArmed.aussenhaut || this.zoneArmed.innenraum;
     await this.setStateAsync('runtime.mode', any ? 'armed' : 'disarmed', true);
     await this.applyCameraOutputs();
-    await this.updateStatusAndChecks();
+    await this.refreshStatusIndicators();
+    await this.refreshDisplayCycle();
   }
 
   private async handleZoneTrigger(label: string, zone: Zone, sourceType: AlarmActionSourceType = 'sensor', sourceId = '', rawVal?: ioBroker.StateValue): Promise<void> {
+    if (this.countdownTimer) return;
     const entrySec = this.cfg.zoneDelays[zone].entryDelaySec;
     const caseId = `CASE-${Date.now()}`;
     this.activeCaseId = caseId;
+    this.countdownZone = zone;
     await this.setStateAsync('runtime.activeCaseId', caseId, true);
     await this.setStateAsync('runtime.lastTrigger', `${label} (${zone})`, true);
     await this.setForeignStateSafe(this.cfg.triggerStateId, `${label} (${zone})`);
+    await this.scheduleTriggerAutoReset();
     await this.logEvent('alarm', 'zone_trigger', `Trigger ${label} in zone ${zone}`, caseId);
 
-    if (this.countdownTimer) return;
-
+    if (this.displayCycleTimer) this.clearInterval(this.displayCycleTimer);
+    this.displayCycleTimer = null;
     await this.setOutput(this.cfg.displayId, '  Finger auflegen!  ');
     await this.setStateAsync('runtime.mode', 'countdown', true);
     await this.setStateAsync('runtime.countdownRemainingSec', entrySec, true);
+    await this.setOutput(this.cfg.countdownStateId, true);
 
     const tick = this.setInterval(async () => {
       const cur = (await this.getStateAsync('runtime.countdownRemainingSec'))?.val as number;
@@ -1210,8 +1401,11 @@ class AlarmSystemAdapter extends utils.Adapter {
 
     this.countdownTimer = this.setTimeout(async () => {
       this.countdownTimer = null;
+      this.countdownZone = null;
+      await this.setOutput(this.cfg.countdownStateId, false);
       await this.setStateAsync('runtime.mode', 'alarm', true);
       await this.setOutput(this.cfg.sirenStateId, true);
+      this.startAlarmRepeatTelegram();
       await this.executeZoneActions(zone, caseId);
       await this.executeAlarmActions('zone_trigger', {
         zone,
@@ -1301,6 +1495,23 @@ class AlarmSystemAdapter extends utils.Adapter {
     return this.cfg.snapshotActionTargets.find(r => String(r.key || '').trim() === k);
   }
 
+  private getCameraByTargetKey(key: string | undefined): CameraDef | undefined {
+    const k = String(key || '').trim();
+    if (!k) return undefined;
+    return this.cfg.cameras.find(c =>
+      String(c.key || '').trim() === k
+      || String(c.personDetectionDp || '').trim() === k
+      || String(c.label || '').trim() === k
+      || String(c.ip || '').trim() === k
+    );
+  }
+
+  private async triggerCameraLed(cam: CameraDef, durationMs: number): Promise<void> {
+    if (!cam.ledDatapoint) return;
+    await this.setOutput(cam.ledDatapoint, true);
+    this.setTimeout(() => void this.setOutput(cam.ledDatapoint, false), Math.max(100, durationMs));
+  }
+
   private async executeAlarmActions(
     scenario: AlarmActionScenario,
     ctx: AlarmActionContext,
@@ -1360,6 +1571,17 @@ class AlarmSystemAdapter extends utils.Adapter {
           interval
         );
         await this.logEvent('info', 'alarm_action_snapshot', `Alarm action ${row.label}: Snapshot ${target.label}`, ctx.caseId);
+      } else if (row.actionKind === 'camera_led') {
+        const cam = this.getCameraByTargetKey(row.cameraTargetKey);
+        if (!cam || !cam.ledDatapoint) {
+          await this.logEvent('warn', 'alarm_action_camera_led_missing', `Alarm action ${row.label}: Kamera/LED fehlt (${String(row.cameraTargetKey || '-')})`, ctx.caseId);
+          continue;
+        }
+        const duration = row.durationMs && row.durationMs > 0 ? row.durationMs : 10000;
+        for (let i = 0; i < repeats; i++) {
+          this.setTimeout(() => void this.triggerCameraLed(cam, duration), i * interval);
+        }
+        await this.logEvent('info', 'alarm_action_camera_led', `Alarm action ${row.label}: Kamera-LED ${cam.label || cam.key || cam.ip}`, ctx.caseId);
       }
     }
   }
@@ -1416,6 +1638,16 @@ class AlarmSystemAdapter extends utils.Adapter {
           repeats,
           interval
         );
+      } else if (row.actionKind === 'camera_led') {
+        const cam = this.getCameraByTargetKey(row.cameraTargetKey);
+        if (!cam || !cam.ledDatapoint) {
+          await this.logEvent('warn', 'panic_action_camera_led_missing', `PANIC action ${row.label}: Kamera/LED fehlt (${String(row.cameraTargetKey || '-')})`, this.activeCaseId || undefined);
+          continue;
+        }
+        const duration = row.durationMs && row.durationMs > 0 ? row.durationMs : 10000;
+        for (let i = 0; i < repeats; i++) {
+          this.setTimeout(() => void this.triggerCameraLed(cam, duration), i * interval);
+        }
       }
       await this.logEvent('info', 'panic_action_custom', `PANIC custom action ${row.label}`, this.activeCaseId || undefined);
     }
@@ -1438,6 +1670,7 @@ class AlarmSystemAdapter extends utils.Adapter {
       for (const id of this.cfg.cameraAlarmOffIds) await this.setOutput(id, true);
       for (const id of this.cfg.reolinkSirenIds) await this.setOutput(id, 0);
       await this.setOutput(this.cfg.cctvDisarmedId, true);
+      this.stopAlarmRepeatTelegram();
       await this.executeAlarmActions('panic_off', {
         sourceType: 'any',
         sourceId: this.cfg.panicStateId,
@@ -1457,7 +1690,7 @@ class AlarmSystemAdapter extends utils.Adapter {
     for (const n of this.cfg.knownFingerprints) {
       if (text.includes(n.toLowerCase())) {
         const now = Date.now();
-        if (this.lastFingerprintHit === n && now - this.lastFingerprintTs < 3000) return;
+        if (this.lastFingerprintHit === n && now - this.lastFingerprintTs < this.cfg.fingerprintCooldownMs) return;
         this.lastFingerprintHit = n;
         this.lastFingerprintTs = now;
         await this.disarmAll();
@@ -1471,22 +1704,46 @@ class AlarmSystemAdapter extends utils.Adapter {
     if (raw === null || raw === undefined) return;
     const s = String(raw).trim().replace(/[^\d*#]/g, '');
     if (!s) return;
+    const now = Date.now();
     for (const ch of s) {
-      this.pinBuffer = (this.pinBuffer + ch).slice(-2);
-      if (this.pinBuffer === '*1') {
+      if (this.pinArmed && now - this.pinArmedAt > this.cfg.pinSequenceWindowMs) {
+        this.pinArmed = false;
+      }
+      if (ch === '*') {
+        this.pinArmed = true;
+        this.pinArmedAt = now;
+        continue;
+      }
+      if (ch === '#') {
+        this.pinArmed = false;
+        continue;
+      }
+      if (!this.pinArmed) continue;
+      if (now - this.pinLastTriggerAt < this.cfg.pinTriggerCooldownMs) {
+        this.pinArmed = false;
+        continue;
+      }
+      if (ch === '1') {
+        this.pinLastTriggerAt = now;
+        this.pinArmed = false;
         await this.setOutput(this.cfg.garageDoorCommandId, 0);
         await this.setOutput(this.cfg.displayId, '   Tor oeffnet...   ');
         this.setTimeout(() => void this.setOutput(this.cfg.clearDisplayId, true), 4000);
-      } else if (this.pinBuffer === '*2') {
+      } else if (ch === '2') {
+        this.pinLastTriggerAt = now;
+        this.pinArmed = false;
         await this.setOutput(this.cfg.garageDoorCommandId, 2);
         await this.setOutput(this.cfg.displayId, '  Tor schliesst...  ');
         this.setTimeout(() => void this.setOutput(this.cfg.clearDisplayId, true), 4000);
-      } else if (this.pinBuffer === '*4') {
+      } else if (ch === '4') {
+        this.pinLastTriggerAt = now;
+        this.pinArmed = false;
         await this.setOutput(this.cfg.pdlcId, true);
-      } else if (this.pinBuffer === '*5') {
+      } else if (ch === '5') {
+        this.pinLastTriggerAt = now;
+        this.pinArmed = false;
         await this.setOutput(this.cfg.pdlcId, false);
       }
-      if (ch === '#') this.pinBuffer = '';
     }
   }
 
@@ -1568,39 +1825,193 @@ class AlarmSystemAdapter extends utils.Adapter {
     }
   }
 
-  private async updateStatusAndChecks(): Promise<void> {
-    const open = (id: string): boolean => {
-      const d = this.cfg.sensors.find(s => s.id === id);
-      if (!d) return false;
-      return this.matchesAny((this.getForeignStateAsync(id) as any)?.val, d.activeValues);
-    };
-    const terrace = (await this.getForeignStateAsync('mqtt.1.terrace_door_status'))?.val === 'open';
-    const entrance = (await this.getForeignStateAsync('mqtt.1.entrance_door_status'))?.val === 'open';
-    const side = (await this.getForeignStateAsync('mqtt.1.side_entrance_door_status'))?.val === 'open';
-    const shed = (await this.getForeignStateAsync('mqtt.1.Garage.shedDoorStatus'))?.val === 'open';
-    await this.setOutput(this.cfg.checkRedId, !terrace);
-    await this.setOutput(this.cfg.checkYellowId, !(terrace || entrance || side || shed));
+  private isStatusRelatedInputId(id: string): boolean {
+    if (this.cfg.ledRedOpenIds.includes(id) || this.cfg.ledYellowOpenIds.includes(id)) return true;
+    if (this.cfg.checkRedOpenIds.includes(id) || this.cfg.checkYellowOpenIds.includes(id)) return true;
+    if (this.cfg.statusOpenIds.includes(id)) return true;
+    return this.cfg.sensors.some(s => s.sensorType === 'contact' && s.id === id);
+  }
+
+  private async isDoorLikeOpen(id: string): Promise<boolean> {
+    const st = await this.getForeignStateAsync(id);
+    const val = st?.val;
+    const sensor = this.cfg.sensors.find(s => s.id === id);
+    if (sensor) return this.matchesAny(val ?? null, sensor.activeValues);
+    if (val === true || val === 1) return true;
+    const raw = String(val ?? '').trim().toLowerCase();
+    return raw === 'open' || raw === 'on' || raw === 'true' || raw === '1';
+  }
+
+  private async refreshStatusIndicators(): Promise<void> {
+    const redOpen = await Promise.all(this.cfg.ledRedOpenIds.map(id => this.isDoorLikeOpen(id)));
+    const yellowOpen = await Promise.all(this.cfg.ledYellowOpenIds.map(id => this.isDoorLikeOpen(id)));
+    const checkRedOpen = await Promise.all(this.cfg.checkRedOpenIds.map(id => this.isDoorLikeOpen(id)));
+    const checkYellowOpen = await Promise.all(this.cfg.checkYellowOpenIds.map(id => this.isDoorLikeOpen(id)));
+    const statusOpen = await Promise.all(this.cfg.statusOpenIds.map(async id => ({
+      id,
+      open: await this.isDoorLikeOpen(id)
+    })));
+
+    await this.setOutput(this.cfg.checkRedId, !checkRedOpen.some(Boolean));
+    await this.setOutput(this.cfg.checkYellowId, !checkYellowOpen.some(Boolean));
+
+    const standby = await this.getForeignStateAsync(this.cfg.standbyId);
+    const allowLed = !this.cfg.ledOnlyInStandby || standby?.val === true;
+    await this.setOutput(this.cfg.ledRedId, allowLed && redOpen.some(Boolean));
+    await this.setOutput(this.cfg.ledYellowId, allowLed && yellowOpen.some(Boolean));
 
     const lines: string[] = [];
     if (this.zoneArmed.perimeter || this.zoneArmed.aussenhaut || this.zoneArmed.innenraum) lines.push('AlarmSystem scharf');
     if (this.zoneArmed.perimeter) lines.push('PerimeterProtection aktiv');
-    const doorSensors = this.cfg.sensors.filter(s => s.sensorType === 'contact');
-    for (const ds of doorSensors) {
-      const v = await this.getForeignStateAsync(ds.id);
-      if (this.matchesAny(v?.val ?? null, ds.activeValues)) lines.push(`${ds.label} offen`);
+    for (const row of statusOpen) {
+      if (!row.open) continue;
+      const sensor = this.cfg.sensors.find(s => s.id === row.id);
+      const label = sensor?.label || row.id;
+      lines.push(`${label} offen`);
     }
-    if (lines.length === 0) lines.push('alle Tueren geschlossen');
+    if (lines.length === 0) lines.push(this.cfg.statusAllClosedText);
     if (!(this.zoneArmed.perimeter || this.zoneArmed.aussenhaut || this.zoneArmed.innenraum)) {
-      lines[0] = 'AlarmSystem inaktiv - Achtung, kein Schutz!';
+      lines[0] = this.cfg.statusNoProtectionText;
     }
     await this.setOutput(this.cfg.statusId, lines.join('\n'));
+  }
+
+  private isDisplayBlockedByAlarmFlow(mode: string): boolean {
+    return mode === 'countdown' || mode === 'alarm';
+  }
+
+  private formatDisplayDoorText(label: string): string {
+    return String(this.cfg.displayDoorTemplate || '{door} offen').split('{door}').join(label);
+  }
+
+  private async renderDisplayFallback(): Promise<void> {
+    if (!this.cfg.displayFallbackSourceIds.length) {
+      await this.setOutput(this.cfg.clearDisplayId, true);
+      return;
+    }
+    const values: string[] = [];
+    for (const id of this.cfg.displayFallbackSourceIds) {
+      const st = await this.getForeignStateAsync(id);
+      if (st && st.val !== null && st.val !== undefined && String(st.val).trim() !== '') values.push(String(st.val));
+    }
+    const text = `${values.join('        ')}${this.cfg.displayFallbackSuffix || ''}`.trim();
+    if (!text) {
+      await this.setOutput(this.cfg.clearDisplayId, true);
+      return;
+    }
+    await this.setOutput(this.cfg.displayId, text);
+  }
+
+  private async refreshDisplayCycle(): Promise<void> {
+    if (!this.cfg.displayDoorCycleEnabled) return;
+    const mode = String((await this.getStateAsync('runtime.mode'))?.val || '');
+    if (this.isDisplayBlockedByAlarmFlow(mode)) {
+      if (this.displayCycleTimer) this.clearInterval(this.displayCycleTimer);
+      this.displayCycleTimer = null;
+      return;
+    }
+
+    const openDoorLabels: string[] = [];
+    for (const s of this.cfg.sensors) {
+      if (s.sensorType !== 'contact') continue;
+      const st = await this.getForeignStateAsync(s.id);
+      if (this.matchesAny(st?.val ?? null, s.activeValues)) openDoorLabels.push(s.label || s.key || s.id);
+    }
+
+    if (openDoorLabels.length === 0) {
+      if (this.displayCycleTimer) this.clearInterval(this.displayCycleTimer);
+      this.displayCycleTimer = null;
+      this.displayOpenQueue = [];
+      this.displayCycleIndex = 0;
+      await this.renderDisplayFallback();
+      return;
+    }
+
+    const prev = JSON.stringify(this.displayOpenQueue);
+    const next = JSON.stringify(openDoorLabels);
+    if (prev !== next) {
+      this.displayOpenQueue = openDoorLabels.slice();
+      this.displayCycleIndex = 0;
+    }
+
+    const writeCycle = async (): Promise<void> => {
+      if (!this.displayOpenQueue.length) return;
+      const label = this.displayOpenQueue[this.displayCycleIndex % this.displayOpenQueue.length];
+      await this.setOutput(this.cfg.displayId, this.formatDisplayDoorText(label));
+      this.displayCycleIndex = (this.displayCycleIndex + 1) % this.displayOpenQueue.length;
+    };
+
+    await writeCycle();
+    if (!this.displayCycleTimer) {
+      this.displayCycleTimer = this.setInterval(() => void writeCycle(), this.cfg.displayDoorCycleIntervalMs) ?? null;
+    }
   }
 
   private async abortCountdown(): Promise<void> {
     if (this.countdownTimer) this.clearTimeout(this.countdownTimer);
     this.countdownTimer = null;
+    this.countdownZone = null;
+    await this.setOutput(this.cfg.countdownStateId, false);
     await this.setStateAsync('runtime.countdownRemainingSec', 0, true);
     await this.updateModeState();
+  }
+
+  private async abortCountdownIfDisarmed(): Promise<void> {
+    if (!this.countdownTimer) return;
+    if (this.cfg.countdownAbortMode === 'off') return;
+    if (this.cfg.countdownAbortMode === 'any_disarm') {
+      if (!this.isAnyZoneArmed()) {
+        await this.abortCountdown();
+        await this.setOutput(this.cfg.sirenStateId, false);
+        await this.logEvent('info', 'countdown_abort', 'Countdown abgebrochen (any_disarm)');
+      }
+      return;
+    }
+    if (this.countdownZone && !this.zoneArmed[this.countdownZone]) {
+      await this.abortCountdown();
+      await this.setOutput(this.cfg.sirenStateId, false);
+      await this.logEvent('info', 'countdown_abort', `Countdown abgebrochen (zone ${this.countdownZone} unscharf)`);
+    }
+  }
+
+  private async scheduleTriggerAutoReset(): Promise<void> {
+    if (this.triggerResetTimer) this.clearTimeout(this.triggerResetTimer);
+    this.triggerResetTimer = null;
+    if (this.cfg.alarmTriggerAutoResetMs <= 0) return;
+    this.triggerResetTimer = this.setTimeout(() => void this.setOutput(this.cfg.triggerStateId, null), this.cfg.alarmTriggerAutoResetMs) ?? null;
+  }
+
+  private startAlarmRepeatTelegram(): void {
+    this.stopAlarmRepeatTelegram();
+    if (!this.cfg.alarmRepeatTelegramEnabled) return;
+    const intervalMs = Math.max(5000, this.cfg.alarmRepeatTelegramIntervalSec * 1000);
+    const send = async (): Promise<void> => {
+      const text = String(this.cfg.alarmRepeatTelegramText || '').trim();
+      if (text) await this.sendTelegramText(text);
+      if (this.cfg.alarmRepeatTelegramIncludeTrigger) {
+        const trigger = await this.getForeignStateAsync(this.cfg.triggerStateId);
+        const val = String(trigger?.val ?? '').trim();
+        if (val) await this.sendTelegramText(`${this.cfg.alarmRepeatTelegramTriggerPrefix || 'Trigger: '}${val}`);
+      }
+    };
+    void send();
+    this.alarmRepeatTimer = this.setInterval(() => void send(), intervalMs) ?? null;
+  }
+
+  private stopAlarmRepeatTelegram(): void {
+    if (this.alarmRepeatTimer) this.clearInterval(this.alarmRepeatTimer);
+    this.alarmRepeatTimer = null;
+  }
+
+  private async syncPanicStartupState(): Promise<void> {
+    if (!this.cfg.panicStartupSyncEnabled) return;
+    const panic = await this.getForeignStateAsync(this.cfg.panicStateId);
+    if (panic?.val === true) {
+      for (const id of this.cfg.cameraAlarmOnIds) await this.setOutput(id, true);
+      return;
+    }
+    for (const id of this.cfg.cameraAlarmOffIds) await this.setOutput(id, true);
+    await this.setOutput(this.cfg.cctvDisarmedId, true);
   }
 
   private async ackActiveCase(): Promise<void> {
@@ -1617,8 +2028,7 @@ class AlarmSystemAdapter extends utils.Adapter {
   private async triggerCamera(cam: CameraDef): Promise<void> {
     await this.setOutput(cam.alarmDatapoint, 1);
     if (cam.ledDatapoint) {
-      await this.setOutput(cam.ledDatapoint, true);
-      this.setTimeout(() => void this.setOutput(cam.ledDatapoint, false), 10000);
+      await this.triggerCameraLed(cam, 10000);
     }
 
     const url = this.applyCredentials(cam.snapshotUrl, cam.username, cam.password);
@@ -1669,6 +2079,19 @@ class AlarmSystemAdapter extends utils.Adapter {
       const now = new Date();
       const times = SunCalc.getTimes(now, lat, lon);
       return now >= times.dusk || now <= times.sunriseEnd;
+    } catch {
+      return false;
+    }
+  }
+
+  private isDaytimeActive(): boolean {
+    const lat = typeof this.latitude === 'number' ? this.latitude : undefined;
+    const lon = typeof this.longitude === 'number' ? this.longitude : undefined;
+    if (lat === undefined || lon === undefined) return false;
+    try {
+      const now = new Date();
+      const times = SunCalc.getTimes(now, lat, lon);
+      return now >= times.sunrise && now <= times.dusk;
     } catch {
       return false;
     }
@@ -1784,6 +2207,17 @@ class AlarmSystemAdapter extends utils.Adapter {
   private toNumber(v: unknown, fallback: number): number {
     const n = Number(v);
     return Number.isFinite(n) ? n : fallback;
+  }
+
+  private toBool(v: unknown, fallback: boolean): boolean {
+    if (typeof v === 'boolean') return v;
+    if (typeof v === 'number') return v !== 0;
+    if (typeof v === 'string') {
+      const s = v.trim().toLowerCase();
+      if (['true', '1', 'yes', 'on'].includes(s)) return true;
+      if (['false', '0', 'no', 'off'].includes(s)) return false;
+    }
+    return fallback;
   }
 
   private async writeDailyTriggerLog(sourceType: 'sensor' | 'personDetection' | 'camera', label: string, sourceId: string, zone: Zone, rawVal: ioBroker.StateValue): Promise<void> {
