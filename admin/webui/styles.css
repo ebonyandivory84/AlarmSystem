@@ -5,6 +5,44 @@ body::after{content:none}
 .app{width:100%;max-width:none;margin:0;padding:14px 22px 94px;display:grid;gap:12px;min-height:100dvh}.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:120;background:rgba(3,4,3,.95);backdrop-filter:blur(8px);padding:8px 0}
 .app{position:relative;z-index:1}
 .page{display:grid;gap:12px}
+#settingsPage{
+  gap:20px;
+  padding-bottom:8px;
+}
+#settingsPage .card{
+  background:linear-gradient(155deg,rgba(46,49,54,.52) 0%,rgba(26,28,31,.68) 48%,rgba(8,8,9,.92) 100%);
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:18px;
+  padding:20px;
+  box-shadow:0 16px 38px rgba(0,0,0,.36);
+}
+#settingsPage .card h2{
+  margin-bottom:12px;
+}
+#settingsPage .row{
+  margin-top:12px;
+}
+#settingsPage .fields{
+  gap:12px;
+}
+#settingsPage .grid2{
+  gap:20px;
+}
+.settings-grid{
+  align-items:start;
+}
+.settings-col{
+  display:grid;
+  gap:20px;
+  align-content:start;
+}
+#settingsPage .palette-col{
+  border:1px solid rgba(255,255,255,.16);
+  background:linear-gradient(180deg,rgba(28,31,35,.58),rgba(14,16,18,.86));
+}
+#settingsPage .sensor-list{
+  scrollbar-color:rgba(168,176,189,.45) rgba(11,11,12,.6);
+}
 #overviewPage{height:calc(100dvh - 150px)}
 .hidden{display:none !important}
 .page-switch{display:flex;gap:8px}
@@ -160,6 +198,30 @@ details summary{cursor:pointer;color:var(--muted);font-weight:600}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50}.modal.hidden{display:none}.modal-inner{position:relative;width:min(1300px,96vw);height:min(860px,92vh);background:#0f0f0f;border:1px solid var(--line-strong);border-radius:16px;padding:16px}
 #entitySettingsModal{z-index:55}
 #objectBrowserModal{z-index:70}
+.entity-settings-layout{
+  margin-top:10px;
+  max-height:calc(100% - 152px);
+  overflow:auto;
+  display:grid;
+  gap:12px;
+  padding-right:4px;
+}
+.entity-settings-group{
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:12px;
+  background:linear-gradient(170deg,rgba(30,33,38,.56),rgba(12,13,15,.86));
+  padding:12px;
+}
+.entity-settings-title{
+  margin:0 0 10px;
+  font-size:.82rem;
+  letter-spacing:.45px;
+  text-transform:uppercase;
+  color:#ced6e0;
+}
+#entitySettingsModal .row{
+  margin-top:12px;
+}
 .modal-close{position:absolute;top:10px;right:10px;width:40px;height:40px;border-radius:999px;border:1px solid #555;background:#1a1a1a;color:#fff;cursor:pointer}.zone-canvas.full{height:calc(100% - 64px)}
 .browser-inner{height:min(720px,88vh)}
 .object-browser-layout{display:grid;grid-template-columns:minmax(280px,1fr) minmax(320px,1fr);gap:10px;height:calc(100% - 92px)}
