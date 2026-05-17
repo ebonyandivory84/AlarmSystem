@@ -243,8 +243,46 @@
         </div>
       </section>
       <section class="card">
+        <h2>Snapshot Aktionen (zentral)</h2>
+        <p class="muted">Hier definierst du zentrale Snapshot-Datapoints, die durch Alarm Actions/PANIC Actions ausgelöst werden können.</p>
+        <div class="fields">
+          <label title="Stabiler Schlüssel für diese Snapshot-Aktion.">
+            Key
+            <input id="snapshotActionKey" type="text" placeholder="z.B. cam_driveway_snapshot" />
+          </label>
+          <label title="Anzeigename in der Liste und in den Action-Selektoren.">
+            Label
+            <input id="snapshotActionLabel" type="text" placeholder="z.B. Snapshot Driveway" />
+          </label>
+          <label title="Datapoint, der gesetzt wird, um Snapshot-Versand auszulösen.">
+            Snapshot Datapoint ID
+            <span class="input-wrap">
+              <input id="snapshotActionDatapointId" class="state-input" list="stateIds" type="text" />
+              <button id="browseSnapshotActionDatapointBtn" class="icon-btn" type="button" title="Objektbrowser öffnen">🔎</button>
+            </span>
+          </label>
+          <label title="Wert beim Triggern (meist true).">
+            On-Value
+            <input id="snapshotActionOnValue" type="text" placeholder="true / 1 / on" />
+          </label>
+          <label title="Optionaler Rücksetz-Wert nach Timer-Ablauf.">
+            Off-Value (optional)
+            <input id="snapshotActionOffValue" type="text" placeholder="false / 0 / off" />
+          </label>
+          <label title="Optionaler Auto-Reset nach X ms.">
+            Timer ms (optional)
+            <input id="snapshotActionDurationMs" type="number" min="0" placeholder="z.B. 10000" />
+          </label>
+        </div>
+        <div class="row">
+          <button id="addSnapshotActionBtn" class="btn">Snapshot Aktion hinzufügen</button>
+          <span id="snapshotActionResult" class="muted"></span>
+        </div>
+        <div id="snapshotActionsList" class="sensor-list" style="margin-top:10px"></div>
+      </section>
+      <section class="card">
         <h2>Alarm Actions</h2>
-        <p class="muted">Zonen → Sensoren/Kameras → Trigger → Aktoren (Datapoint, Telegram, Alexa). Hinweise zeigen mögliche Überschneidungen mit Element-Regeln.</p>
+        <p class="muted">Zonen → Sensoren/Kameras → Trigger → Aktoren (Datapoint, Telegram, Alexa, Snapshot). Hinweise zeigen mögliche Überschneidungen mit Element-Regeln.</p>
         <p class="muted">Unterschied PANIC: "Szenario PANIC an/aus" gehört zur flexiblen Trigger-Matrix. "PANIC Actions" ist die dedizierte PANIC-Schnellkonfiguration. Beide können parallel aktiv sein.</p>
         <div class="row">
           <label title="Globaler Standard für Zone-Trigger-Actions. Gilt für alle Zeilen mit Ausführung=global.">
@@ -256,6 +294,7 @@
           </label>
         </div>
         <div id="alarmActionConflictHint" class="status" style="margin-top:10px;white-space:pre-wrap"></div>
+        <div id="alarmActionConflictDetails" class="status hidden" style="margin-top:10px"></div>
 
         <h3 class="subhead">Trigger-Aktion hinzufügen</h3>
         <div class="fields">
@@ -297,14 +336,13 @@
               <option value="unarmed">unarmed</option>
             </select>
           </label>
-          <label title="Art der auszuführenden Aktion: Datapoint setzen, Telegram senden oder Alexa sprechen lassen.">
-            Aktion
-            <select id="alarmActionKind">
-              <option value="datapoint">Datapoint setzen</option>
-              <option value="telegram">Telegram senden</option>
-              <option value="alexa">Alexa Speak</option>
-            </select>
-          </label>
+          <fieldset id="alarmActionKindsWrap" class="multi-select-group" title="Mehrere Aktoren gleichzeitig auswählbar. Beim Speichern wird je Auswahl eine Action angelegt.">
+            <legend>Aktion (Mehrfachauswahl)</legend>
+            <label class="check-row"><input id="alarmActionKindDatapoint" type="checkbox" checked /> Datapoint setzen</label>
+            <label class="check-row"><input id="alarmActionKindTelegram" type="checkbox" /> Telegram senden</label>
+            <label class="check-row"><input id="alarmActionKindAlexa" type="checkbox" /> Alexa Speak</label>
+            <label class="check-row"><input id="alarmActionKindSnapshot" type="checkbox" /> Snapshot senden</label>
+          </fieldset>
           <label id="alarmActionTimingWrap" title="Steuert den Ausführungszeitpunkt für Zone Trigger: globaler Standard, sofort oder erst nach Alarmaktivierung.">
             Ausführung
             <select id="alarmActionTiming">
@@ -327,6 +365,10 @@
           <label id="alarmActionRepeatIntervalWrap" title="Abstand in Millisekunden zwischen den Wiederholungen.">Intervall ms<input id="alarmActionRepeatIntervalMs" type="number" min="0" value="1000" /></label>
           <label id="alarmActionTelegramWrap" title="Telegram-Text für diese Action. Unterstützt Platzhalter wie {zone}, {trigger}, {sourceId}, {value}, {caseId}.">Telegram Nachricht<input id="alarmActionTelegramText" type="text" placeholder="Alarm: {trigger} in {zone}" /></label>
           <label id="alarmActionAlexaWrap" title="Alexa Speak-Text für diese Action. Unterstützt Platzhalter wie {zone}, {trigger}, {sourceId}, {value}, {caseId}.">Alexa Speak Text<input id="alarmActionAlexaText" type="text" placeholder="Achtung, Alarm ausgelöst." /></label>
+          <label id="alarmActionSnapshotWrap" title="Zentrale Snapshot-Aktion, die ausgelöst wird.">
+            Snapshot Aktion
+            <select id="alarmActionSnapshotTarget"></select>
+          </label>
         </div>
         <div class="row">
           <button id="addAlarmActionBtn" class="btn">Alarm Action hinzufügen</button>
@@ -343,14 +385,13 @@
               <option value="off">aus</option>
             </select>
           </label>
-          <label title="Art der PANIC-Aktion: Datapoint setzen, Telegram senden oder Alexa Speak.">
-            Aktion
-            <select id="panicActionKind">
-              <option value="datapoint">Datapoint setzen</option>
-              <option value="telegram">Telegram senden</option>
-              <option value="alexa">Alexa Speak</option>
-            </select>
-          </label>
+          <fieldset id="panicActionKindsWrap" class="multi-select-group" title="Mehrere PANIC-Aktionen gleichzeitig auswählbar. Beim Speichern wird je Auswahl eine Action angelegt.">
+            <legend>Aktion (Mehrfachauswahl)</legend>
+            <label class="check-row"><input id="panicActionKindDatapoint" type="checkbox" checked /> Datapoint setzen</label>
+            <label class="check-row"><input id="panicActionKindTelegram" type="checkbox" /> Telegram senden</label>
+            <label class="check-row"><input id="panicActionKindAlexa" type="checkbox" /> Alexa Speak</label>
+            <label class="check-row"><input id="panicActionKindSnapshot" type="checkbox" /> Snapshot senden</label>
+          </fieldset>
           <label id="panicActionDpWrap" title="Datapoint, der bei PANIC gesetzt wird (nur Aktion=Datapoint).">
             Datapoint ID
             <span class="input-wrap">
@@ -365,6 +406,10 @@
           <label id="panicActionRepeatIntervalWrap" title="Abstand in Millisekunden zwischen den Wiederholungen.">Intervall ms<input id="panicActionRepeatIntervalMs" type="number" min="0" value="1000" /></label>
           <label id="panicActionTelegramWrap" title="Telegram-Text für PANIC. Unterstützt Platzhalter wie {panic}, {caseId}.">Telegram Nachricht<input id="panicActionTelegramText" type="text" placeholder="PANIC wurde aktiviert." /></label>
           <label id="panicActionAlexaWrap" title="Alexa Speak-Text für PANIC. Unterstützt Platzhalter wie {panic}, {caseId}.">Alexa Speak Text<input id="panicActionAlexaText" type="text" placeholder="Panic Alarm aktiv." /></label>
+          <label id="panicActionSnapshotWrap" title="Zentrale Snapshot-Aktion, die bei PANIC ausgelöst wird.">
+            Snapshot Aktion
+            <select id="panicActionSnapshotTarget"></select>
+          </label>
         </div>
         <div class="row">
           <button id="addPanicActionBtn" class="btn">PANIC Action hinzufügen</button>

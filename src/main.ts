@@ -12,7 +12,7 @@ type SnapshotZoneMode = 'none' | 'any' | 'selected';
 type AlarmActionScenario = 'zone_trigger' | 'panic_on' | 'panic_off';
 type AlarmActionSourceType = 'any' | 'sensor' | 'personDetection' | 'camera';
 type AlarmActionArmedMode = 'any' | 'armed' | 'unarmed';
-type AlarmActionKind = 'datapoint' | 'telegram' | 'alexa';
+type AlarmActionKind = 'datapoint' | 'telegram' | 'alexa' | 'snapshot';
 type AlarmActionTiming = 'global' | 'immediate' | 'after_alarm';
 
 interface SensorDef {
@@ -86,6 +86,7 @@ interface AlarmActionDef {
   repeatIntervalMs: number;
   telegramText?: string;
   alexaText?: string;
+  snapshotTargetKey?: string;
 }
 
 interface PanicActionDef {
@@ -101,6 +102,16 @@ interface PanicActionDef {
   repeatIntervalMs: number;
   telegramText?: string;
   alexaText?: string;
+  snapshotTargetKey?: string;
+}
+
+interface SnapshotActionTargetDef {
+  key: string;
+  label: string;
+  datapointId: string;
+  onValue: string | boolean | number;
+  offValue?: string | boolean | number;
+  durationMs?: number;
 }
 
 interface AlarmActionContext {
@@ -197,6 +208,7 @@ interface Config {
   personDetections: PersonDetectionDef[];
   cameras: CameraDef[];
   zoneActions: ZoneActionDef[];
+  snapshotActionTargets: SnapshotActionTargetDef[];
   alarmActions: AlarmActionDef[];
   panicActions: PanicActionDef[];
   zoneDelays: Record<Zone, { entryDelaySec: number; exitDelaySec: number }>;
@@ -292,6 +304,7 @@ class AlarmSystemAdapter extends utils.Adapter {
     const personDetections = this.parsePersonDetectionTable(n.personDetectionTable);
     const cameras = this.parseCamerasTable(n.camerasTable);
     const zoneActions = this.parseZoneActionsTable(n.zoneActionsTable);
+    const snapshotActionTargets = this.parseSnapshotActionTargetsTable(n.snapshotActionTargetsTable);
     const alarmActions = this.parseAlarmActionsTable(n.alarmActionsTable);
     const panicActions = this.parsePanicActionsTable(n.panicActionsTable);
 
@@ -396,6 +409,7 @@ class AlarmSystemAdapter extends utils.Adapter {
       personDetections,
       cameras,
       zoneActions,
+      snapshotActionTargets,
       alarmActions,
       panicActions,
       zoneDelays: this.parseZoneDelays(n.zoneDelaysTable, this.toNumber(n.defaultEntryDelaySec, 20), this.toNumber(n.defaultExitDelaySec, 10)),
@@ -511,6 +525,29 @@ class AlarmSystemAdapter extends utils.Adapter {
       });
   }
 
+  private parseSnapshotActionTargetsTable(rows: any): SnapshotActionTargetDef[] {
+    if (!Array.isArray(rows)) return [];
+    const out: SnapshotActionTargetDef[] = [];
+    for (const r of rows) {
+      const datapointId = String(r?.datapointId || '').trim();
+      if (!datapointId) continue;
+      const key = String(r?.key || datapointId).trim();
+      if (!key) continue;
+      const onRaw = String(r?.onValue ?? '').trim();
+      const offRaw = String(r?.offValue ?? '').trim();
+      const durationMs = Math.max(0, this.toNumber(r?.durationMs, 0));
+      out.push({
+        key,
+        label: String(r?.label || key || datapointId).trim(),
+        datapointId,
+        onValue: onRaw !== '' ? this.parseScalar(onRaw) : true,
+        offValue: offRaw !== '' ? this.parseScalar(offRaw) : undefined,
+        durationMs: durationMs > 0 ? durationMs : undefined
+      });
+    }
+    return out;
+  }
+
   private parseAlarmActionsTable(rows: any): AlarmActionDef[] {
     if (!Array.isArray(rows)) return [];
     const out: AlarmActionDef[] = [];
@@ -523,6 +560,7 @@ class AlarmSystemAdapter extends utils.Adapter {
       const timing = this.parseAlarmActionTiming(r?.timing);
       const triggerEntityId = String(r?.triggerEntityId || '').trim() || undefined;
       const datapointId = String(r?.datapointId || '').trim() || undefined;
+      const snapshotTargetKey = String(r?.snapshotTargetKey || '').trim() || undefined;
       const onValueRaw = String(r?.onValue ?? '').trim();
       const offValueRaw = String(r?.offValue ?? '').trim();
       const repeatCount = Math.max(1, this.toNumber(r?.repeatCount, 1));
@@ -545,9 +583,11 @@ class AlarmSystemAdapter extends utils.Adapter {
         repeatCount,
         repeatIntervalMs,
         telegramText: String(r?.telegramText || '').trim() || undefined,
-        alexaText: String(r?.alexaText || '').trim() || undefined
+        alexaText: String(r?.alexaText || '').trim() || undefined,
+        snapshotTargetKey
       };
       if (actionKind === 'datapoint' && !datapointId) continue;
+      if (actionKind === 'snapshot' && !snapshotTargetKey) continue;
       out.push(row);
     }
     return out;
@@ -560,6 +600,7 @@ class AlarmSystemAdapter extends utils.Adapter {
       const actionKind = this.parseAlarmActionKind(r?.actionKind);
       const when = String(r?.when || '').toLowerCase() === 'off' ? 'off' : 'on';
       const datapointId = String(r?.datapointId || '').trim() || undefined;
+      const snapshotTargetKey = String(r?.snapshotTargetKey || '').trim() || undefined;
       const onValueRaw = String(r?.onValue ?? '').trim();
       const offValueRaw = String(r?.offValue ?? '').trim();
       const repeatCount = Math.max(1, this.toNumber(r?.repeatCount, 1));
@@ -577,9 +618,11 @@ class AlarmSystemAdapter extends utils.Adapter {
         repeatCount,
         repeatIntervalMs,
         telegramText: String(r?.telegramText || '').trim() || undefined,
-        alexaText: String(r?.alexaText || '').trim() || undefined
+        alexaText: String(r?.alexaText || '').trim() || undefined,
+        snapshotTargetKey
       };
       if (actionKind === 'datapoint' && !datapointId) continue;
+      if (actionKind === 'snapshot' && !snapshotTargetKey) continue;
       out.push(row);
     }
     return out;
@@ -617,6 +660,7 @@ class AlarmSystemAdapter extends utils.Adapter {
     const s = String(v || '').toLowerCase();
     if (s === 'telegram') return 'telegram';
     if (s === 'alexa') return 'alexa';
+    if (s === 'snapshot') return 'snapshot';
     return 'datapoint';
   }
 
@@ -769,6 +813,7 @@ class AlarmSystemAdapter extends utils.Adapter {
       if (a.actionKind === 'datapoint') then = `Setze ${a.datapointId} auf ${String(a.onValue)}${a.durationMs ? `, reset nach ${a.durationMs}ms` : ''}`;
       if (a.actionKind === 'telegram') then = `Telegram: "${String(a.telegramText || '')}"`;
       if (a.actionKind === 'alexa') then = `Alexa Speak: "${String(a.alexaText || '')}"`;
+      if (a.actionKind === 'snapshot') then = `Snapshot target: ${String(a.snapshotTargetKey || '-')}`;
       rules.push({ if: when, then: `${then} (timing ${timing}, repeat ${a.repeatCount}x / ${a.repeatIntervalMs}ms)` });
     }
 
@@ -777,6 +822,7 @@ class AlarmSystemAdapter extends utils.Adapter {
       if (p.actionKind === 'datapoint') then = `Setze ${p.datapointId} auf ${String(p.onValue)}${p.durationMs ? `, reset nach ${p.durationMs}ms` : ''}`;
       if (p.actionKind === 'telegram') then = `Telegram: "${String(p.telegramText || '')}"`;
       if (p.actionKind === 'alexa') then = `Alexa Speak: "${String(p.alexaText || '')}"`;
+      if (p.actionKind === 'snapshot') then = `Snapshot target: ${String(p.snapshotTargetKey || '-')}`;
       rules.push({ if: `PANIC ${p.when}`, then: `${then} (repeat ${p.repeatCount}x / ${p.repeatIntervalMs}ms)` });
     }
 
@@ -1249,6 +1295,12 @@ class AlarmSystemAdapter extends utils.Adapter {
     }
   }
 
+  private getSnapshotActionTarget(key: string | undefined): SnapshotActionTargetDef | undefined {
+    const k = String(key || '').trim();
+    if (!k) return undefined;
+    return this.cfg.snapshotActionTargets.find(r => String(r.key || '').trim() === k);
+  }
+
   private async executeAlarmActions(
     scenario: AlarmActionScenario,
     ctx: AlarmActionContext,
@@ -1293,6 +1345,21 @@ class AlarmSystemAdapter extends utils.Adapter {
           this.setTimeout(() => void this.setOutput(this.cfg.speakId, text), i * interval);
         }
         await this.logEvent('info', 'alarm_action_alexa', `Alarm action ${row.label}: Alexa`, ctx.caseId);
+      } else if (row.actionKind === 'snapshot') {
+        const target = this.getSnapshotActionTarget(row.snapshotTargetKey);
+        if (!target) {
+          await this.logEvent('warn', 'alarm_action_snapshot_missing', `Alarm action ${row.label}: Snapshot target fehlt (${String(row.snapshotTargetKey || '-')})`, ctx.caseId);
+          continue;
+        }
+        await this.runDatapointAction(
+          target.datapointId,
+          target.onValue !== undefined ? target.onValue : true,
+          target.offValue,
+          target.durationMs,
+          repeats,
+          interval
+        );
+        await this.logEvent('info', 'alarm_action_snapshot', `Alarm action ${row.label}: Snapshot ${target.label}`, ctx.caseId);
       }
     }
   }
@@ -1335,6 +1402,20 @@ class AlarmSystemAdapter extends utils.Adapter {
         for (let i = 0; i < repeats; i++) {
           this.setTimeout(() => void this.setOutput(this.cfg.speakId, text), i * interval);
         }
+      } else if (row.actionKind === 'snapshot') {
+        const target = this.getSnapshotActionTarget(row.snapshotTargetKey);
+        if (!target) {
+          await this.logEvent('warn', 'panic_action_snapshot_missing', `PANIC action ${row.label}: Snapshot target fehlt (${String(row.snapshotTargetKey || '-')})`, this.activeCaseId || undefined);
+          continue;
+        }
+        await this.runDatapointAction(
+          target.datapointId,
+          target.onValue !== undefined ? target.onValue : true,
+          target.offValue,
+          target.durationMs,
+          repeats,
+          interval
+        );
       }
       await this.logEvent('info', 'panic_action_custom', `PANIC custom action ${row.label}`, this.activeCaseId || undefined);
     }
