@@ -59,6 +59,7 @@
     zoneActionsList: $('zoneActionsList'),
     zoneActionResult: $('zoneActionResult'),
     alarmActionConflictHint: $('alarmActionConflictHint'),
+    alarmActionGlobalTiming: $('alarmActionGlobalTiming'),
     alarmActionsList: $('alarmActionsList'),
     alarmActionResult: $('alarmActionResult'),
     alarmActionScenario: $('alarmActionScenario'),
@@ -67,6 +68,7 @@
     alarmActionTriggerEntity: $('alarmActionTriggerEntity'),
     alarmActionArmedMode: $('alarmActionArmedMode'),
     alarmActionKind: $('alarmActionKind'),
+    alarmActionTiming: $('alarmActionTiming'),
     alarmActionDatapointId: $('alarmActionDatapointId'),
     alarmActionOnValue: $('alarmActionOnValue'),
     alarmActionOffValue: $('alarmActionOffValue'),
@@ -83,6 +85,7 @@
     alarmActionRepeatIntervalWrap: $('alarmActionRepeatIntervalWrap'),
     alarmActionTelegramWrap: $('alarmActionTelegramWrap'),
     alarmActionAlexaWrap: $('alarmActionAlexaWrap'),
+    alarmActionTimingWrap: $('alarmActionTimingWrap'),
     browseAlarmActionDatapointBtn: $('browseAlarmActionDatapointBtn'),
     addAlarmActionBtn: $('addAlarmActionBtn'),
     panicActionsList: $('panicActionsList'),
@@ -260,7 +263,7 @@
   };
   const DISARM_PIN = '1492';
 
-  const globalSpec = [['defaultEntryDelaySec','number'],['defaultExitDelaySec','number'],['eventDedupeMs','number'],['heartbeatTimeoutSec','number'],['snapshotSendDelayMs','number'],['snapshotBurstCount','number'],['snapshotBurstIntervalMs','number'],['bedtimeHour','number'],['bedtimeLightThreshold','number'],['simulationMode','boolean'],['cameraNightModeEnabled','boolean'],['cameraNightModeArmsCameras','boolean']];
+  const globalSpec = [['defaultEntryDelaySec','number'],['defaultExitDelaySec','number'],['eventDedupeMs','number'],['heartbeatTimeoutSec','number'],['snapshotSendDelayMs','number'],['snapshotBurstCount','number'],['snapshotBurstIntervalMs','number'],['bedtimeHour','number'],['bedtimeLightThreshold','number'],['simulationMode','boolean'],['cameraNightModeEnabled','boolean'],['cameraNightModeArmsCameras','boolean'],['alarmActionZoneTriggerTiming','select']];
   const globalHelp = {
     defaultEntryDelaySec: 'Eingangsverzoegerung in Sekunden: Zeit zwischen Trigger und Alarmstart beim Betreten.',
     defaultExitDelaySec: 'Ausgangsverzoegerung in Sekunden: Zeitfenster zum Verlassen nach dem Scharfschalten.',
@@ -274,7 +277,8 @@
     bedtimeLightThreshold: 'Helligkeitsschwelle fuer Abend/Nacht-Automation (je nach Datenquelle).',
     simulationMode: 'Testmodus: Logik laeuft simuliert, ohne reale Alarmaktionen auszufuehren (falls im Adapter so genutzt).',
     cameraNightModeEnabled: 'Aktiviert die Kamera-Nachtmodus-Logik im Adapter.',
-    cameraNightModeArmsCameras: 'Wenn aktiv, werden Kameras im Nachtmodus automatisch scharf geschaltet.'
+    cameraNightModeArmsCameras: 'Wenn aktiv, werden Kameras im Nachtmodus automatisch scharf geschaltet.',
+    alarmActionZoneTriggerTiming: 'Standard für Alarm Actions bei Zone-Triggern: sofort beim Trigger oder erst nach Alarmaktivierung (Countdown fertig).'
   };
   const dpSpec = ['armStateId','hullProtectionStateId','perimeterStateId','triggerStateId','sirenStateId','displayId','clearDisplayId','buzzerId','ledRedId','ledYellowId','standbyId','motionSensorId','panicStateId','fingerprintStateId','pinStateId','statusId'];
 
@@ -570,6 +574,9 @@
     if (!Array.isArray(state.config.zoneActionsTable)) state.config.zoneActionsTable = [];
     if (!Array.isArray(state.config.alarmActionsTable)) state.config.alarmActionsTable = [];
     if (!Array.isArray(state.config.panicActionsTable)) state.config.panicActionsTable = [];
+    if (!['immediate', 'after_alarm'].includes(String(state.config.alarmActionZoneTriggerTiming || ''))) {
+      state.config.alarmActionZoneTriggerTiming = 'after_alarm';
+    }
     if (!Array.isArray(state.config.telegramInstancesTable)) {
       let parsed = [];
       try {
@@ -1593,10 +1600,18 @@
       const w = document.createElement('label');
       w.textContent = k;
       w.title = globalHelp[k] || k;
-      const i = document.createElement(t === 'boolean' ? 'select' : 'input');
+      const i = document.createElement(t === 'boolean' || t === 'select' ? 'select' : 'input');
       i.dataset.key = k;
-      if (t === 'number') { i.type = 'number'; i.value = String(Number(state.config[k] ?? 0)); }
-      else { i.innerHTML = '<option value="true">true</option><option value="false">false</option>'; i.value = state.config[k] === true ? 'true' : 'false'; }
+      if (t === 'number') {
+        i.type = 'number';
+        i.value = String(Number(state.config[k] ?? 0));
+      } else if (t === 'boolean') {
+        i.innerHTML = '<option value="true">true</option><option value="false">false</option>';
+        i.value = state.config[k] === true ? 'true' : 'false';
+      } else if (k === 'alarmActionZoneTriggerTiming') {
+        i.innerHTML = '<option value="after_alarm">after_alarm</option><option value="immediate">immediate</option>';
+        i.value = String(state.config[k] || 'after_alarm') === 'immediate' ? 'immediate' : 'after_alarm';
+      }
       w.appendChild(i);
       ui.global.appendChild(w);
     }
@@ -3452,9 +3467,12 @@
       const k = el.dataset.key;
       const spec = globalSpec.find(x => x[0] === k);
       if (!spec) return;
-      state.config[k] = spec[1] === 'number' ? Number(el.value || 0) : (el.value === 'true');
+      if (spec[1] === 'number') state.config[k] = Number(el.value || 0);
+      else if (spec[1] === 'boolean') state.config[k] = (el.value === 'true');
+      else if (k === 'alarmActionZoneTriggerTiming') state.config[k] = (String(el.value || 'after_alarm') === 'immediate' ? 'immediate' : 'after_alarm');
     });
     ui.dp.querySelectorAll('[data-key]').forEach(el => { state.config[el.dataset.key] = el.value || ''; });
+    if (ui.alarmActionGlobalTiming) state.config.alarmActionZoneTriggerTiming = String(ui.alarmActionGlobalTiming.value || 'after_alarm');
     state.config.floorplanEgImage = String(ui.floorplanEgInput?.value || './assets/EG.jpg').trim();
     state.config.floorplanOgImage = String(ui.floorplanOgInput?.value || state.config.floorplanEgImage || './assets/OG.jpg').trim();
     state.config.autoArmDelaySec = Math.max(0, Number(ui.autoAwayDelaySec?.value || state.config.autoArmDelaySec || 60));
@@ -3519,6 +3537,9 @@
     const armedMode = ['any', 'armed', 'unarmed'].includes(String(row?.armedMode || ''))
       ? String(row.armedMode)
       : 'any';
+    const timing = ['global', 'immediate', 'after_alarm'].includes(String(row?.timing || ''))
+      ? String(row.timing)
+      : 'global';
     const repeatCount = Math.max(1, Number(row?.repeatCount || 1));
     const repeatIntervalMs = Math.max(0, Number(row?.repeatIntervalMs || 1000));
     const durationMs = Math.max(0, Number(row?.durationMs || 0));
@@ -3530,6 +3551,7 @@
       triggerSource,
       triggerEntityId: String(row?.triggerEntityId || '').trim(),
       armedMode,
+      timing,
       actionKind,
       datapointId: String(row?.datapointId || '').trim(),
       onValue: String(row?.onValue ?? (actionKind === 'datapoint' ? 'true' : '')).trim(),
@@ -3640,6 +3662,7 @@
     setWrapVisible(ui.alarmActionRepeatIntervalWrap, true);
     setWrapVisible(ui.alarmActionTelegramWrap, isTelegram);
     setWrapVisible(ui.alarmActionAlexaWrap, isAlexa);
+    setWrapVisible(ui.alarmActionTimingWrap, !isPanicScenario);
 
     if (ui.alarmActionZone?.closest('label')) setWrapVisible(ui.alarmActionZone.closest('label'), !isPanicScenario);
     if (ui.alarmActionTriggerType?.closest('label')) setWrapVisible(ui.alarmActionTriggerType.closest('label'), !isPanicScenario);
@@ -3728,6 +3751,14 @@
 
   function renderAlarmActionsCard() {
     ensureTables();
+    const gTiming = String(state.config?.alarmActionZoneTriggerTiming || 'after_alarm');
+    if (ui.alarmActionGlobalTiming) {
+      ui.alarmActionGlobalTiming.value = gTiming === 'immediate' ? 'immediate' : 'after_alarm';
+    }
+    if (ui.global) {
+      const gf = ui.global.querySelector('[data-key="alarmActionZoneTriggerTiming"]');
+      if (gf && 'value' in gf) gf.value = gTiming === 'immediate' ? 'immediate' : 'after_alarm';
+    }
     refreshAlarmActionTriggerEntityOptions();
     updateAlarmActionUiState();
     updatePanicActionUiState();
@@ -3741,7 +3772,12 @@
         ui.alarmActionsList.innerHTML = rows.map((r, idx) => {
           const msg = [];
           msg.push(`${alarmScenarioLabel(r.scenario)} | ${alarmActionKindLabel(r.actionKind)}`);
-          if (r.scenario === 'zone_trigger') msg.push(`zone=${r.zone} | trigger=${alarmTriggerTypeLabel(r.triggerSource)} | armed=${r.armedMode}`);
+          if (r.scenario === 'zone_trigger') {
+            const effTiming = r.timing === 'global'
+              ? `global:${String(state.config?.alarmActionZoneTriggerTiming || 'after_alarm')}`
+              : r.timing;
+            msg.push(`zone=${r.zone} | trigger=${alarmTriggerTypeLabel(r.triggerSource)} | armed=${r.armedMode} | timing=${effTiming}`);
+          }
           if (r.triggerEntityId) msg.push(`entity=${r.triggerEntityId}`);
           if (r.actionKind === 'datapoint') msg.push(`${r.datapointId} | on=${r.onValue || 'true'} | off=${r.offValue || '-'} | timer=${Number(r.durationMs || 0)}ms`);
           if (r.actionKind === 'telegram') msg.push(`msg="${r.telegramText || ''}"`);
@@ -3885,6 +3921,7 @@
       triggerSource,
       triggerEntityId: String(ui.alarmActionTriggerEntity?.value || '').trim(),
       armedMode: String(ui.alarmActionArmedMode?.value || 'any'),
+      timing: String(ui.alarmActionTiming?.value || 'global'),
       actionKind,
       datapointId,
       onValue: String(ui.alarmActionOnValue?.value || '').trim() || 'true',
@@ -5159,12 +5196,28 @@
       updateAlarmActionUiState();
       renderAlarmActionsCard();
     });
+    if (ui.alarmActionGlobalTiming) ui.alarmActionGlobalTiming.addEventListener('change', () => {
+      state.config.alarmActionZoneTriggerTiming = String(ui.alarmActionGlobalTiming.value || 'after_alarm') === 'immediate' ? 'immediate' : 'after_alarm';
+      const gf = ui.global?.querySelector('[data-key="alarmActionZoneTriggerTiming"]');
+      if (gf && 'value' in gf) gf.value = state.config.alarmActionZoneTriggerTiming;
+      renderAlarmActionsCard();
+    });
     if (ui.alarmActionTriggerType) ui.alarmActionTriggerType.addEventListener('change', () => {
       refreshAlarmActionTriggerEntityOptions();
       renderAlarmActionsCard();
     });
     if (ui.alarmActionKind) ui.alarmActionKind.addEventListener('change', updateAlarmActionUiState);
     if (ui.panicActionKind) ui.panicActionKind.addEventListener('change', updatePanicActionUiState);
+    if (ui.global) {
+      ui.global.addEventListener('change', ev => {
+        const el = ev.target;
+        if (!el || String(el.dataset?.key || '') !== 'alarmActionZoneTriggerTiming') return;
+        const v = String(el.value || 'after_alarm') === 'immediate' ? 'immediate' : 'after_alarm';
+        state.config.alarmActionZoneTriggerTiming = v;
+        if (ui.alarmActionGlobalTiming) ui.alarmActionGlobalTiming.value = v;
+        renderAlarmActionsCard();
+      });
+    }
     if (ui.alarmActionsList) {
       ui.alarmActionsList.addEventListener('click', ev => {
         const btn = ev.target.closest('[data-del-alarm-action]');

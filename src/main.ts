@@ -13,6 +13,7 @@ type AlarmActionScenario = 'zone_trigger' | 'panic_on' | 'panic_off';
 type AlarmActionSourceType = 'any' | 'sensor' | 'personDetection' | 'camera';
 type AlarmActionArmedMode = 'any' | 'armed' | 'unarmed';
 type AlarmActionKind = 'datapoint' | 'telegram' | 'alexa';
+type AlarmActionTiming = 'global' | 'immediate' | 'after_alarm';
 
 interface SensorDef {
   key: string;
@@ -75,6 +76,7 @@ interface AlarmActionDef {
   triggerSource: AlarmActionSourceType;
   triggerEntityId?: string;
   armedMode: AlarmActionArmedMode;
+  timing: AlarmActionTiming;
   actionKind: AlarmActionKind;
   datapointId?: string;
   onValue?: string | boolean | number;
@@ -142,6 +144,7 @@ interface Config {
   simulationMode: boolean;
   cameraNightModeEnabled: boolean;
   cameraNightModeArmsCameras: boolean;
+  alarmActionZoneTriggerTiming: 'immediate' | 'after_alarm';
 
   armStateId: string;
   hullProtectionStateId: string;
@@ -303,6 +306,7 @@ class AlarmSystemAdapter extends utils.Adapter {
       simulationMode: n.simulationMode === true,
       cameraNightModeEnabled: n.cameraNightModeEnabled !== false,
       cameraNightModeArmsCameras: n.cameraNightModeArmsCameras !== false,
+      alarmActionZoneTriggerTiming: String(n.alarmActionZoneTriggerTiming || '').toLowerCase() === 'immediate' ? 'immediate' : 'after_alarm',
 
       armStateId: n.armStateId || 'mqtt.1.AlarmCenter.AlarmSystemArmed',
       hullProtectionStateId: n.hullProtectionStateId || 'mqtt.1.AlarmCenter.HullProtection',
@@ -516,6 +520,7 @@ class AlarmSystemAdapter extends utils.Adapter {
       const zone = this.parseAlarmActionZone(r?.zone);
       const triggerSource = this.parseAlarmActionSourceType(r?.triggerSource);
       const armedMode = this.parseAlarmActionArmedMode(r?.armedMode);
+      const timing = this.parseAlarmActionTiming(r?.timing);
       const triggerEntityId = String(r?.triggerEntityId || '').trim() || undefined;
       const datapointId = String(r?.datapointId || '').trim() || undefined;
       const onValueRaw = String(r?.onValue ?? '').trim();
@@ -531,6 +536,7 @@ class AlarmSystemAdapter extends utils.Adapter {
         triggerSource,
         triggerEntityId,
         armedMode,
+        timing,
         actionKind,
         datapointId,
         onValue: onValueRaw !== '' ? this.parseScalar(onValueRaw) : true,
@@ -612,6 +618,13 @@ class AlarmSystemAdapter extends utils.Adapter {
     if (s === 'telegram') return 'telegram';
     if (s === 'alexa') return 'alexa';
     return 'datapoint';
+  }
+
+  private parseAlarmActionTiming(v: any): AlarmActionTiming {
+    const s = String(v || '').toLowerCase();
+    if (s === 'immediate') return 'immediate';
+    if (s === 'after_alarm') return 'after_alarm';
+    return 'global';
   }
 
   private parseTelegramInstances(rows: any): TelegramInstanceDef[] {
@@ -749,11 +762,14 @@ class AlarmSystemAdapter extends utils.Adapter {
 
     for (const a of this.cfg.alarmActions) {
       const when = a.scenario === 'zone_trigger' ? `Zone-Trigger (${a.zone}, ${a.triggerSource}, armed=${a.armedMode})` : (a.scenario === 'panic_on' ? 'PANIC an' : 'PANIC aus');
+      const timing = a.scenario === 'zone_trigger'
+        ? (a.timing === 'global' ? `global:${this.cfg.alarmActionZoneTriggerTiming}` : a.timing)
+        : '-';
       let then = '';
       if (a.actionKind === 'datapoint') then = `Setze ${a.datapointId} auf ${String(a.onValue)}${a.durationMs ? `, reset nach ${a.durationMs}ms` : ''}`;
       if (a.actionKind === 'telegram') then = `Telegram: "${String(a.telegramText || '')}"`;
       if (a.actionKind === 'alexa') then = `Alexa Speak: "${String(a.alexaText || '')}"`;
-      rules.push({ if: when, then: `${then} (repeat ${a.repeatCount}x / ${a.repeatIntervalMs}ms)` });
+      rules.push({ if: when, then: `${then} (timing ${timing}, repeat ${a.repeatCount}x / ${a.repeatIntervalMs}ms)` });
     }
 
     for (const p of this.cfg.panicActions) {
@@ -966,7 +982,7 @@ class AlarmSystemAdapter extends utils.Adapter {
           sourceLabel: s.label,
           armed: this.isAnyZoneArmed(),
           rawVal: state.val
-        });
+        }, 'immediate');
         if (this.zoneArmed[s.zone]) {
           await this.writeDailyTriggerLog('sensor', s.label, s.id, s.zone, state.val);
           await this.tryTriggerConfiguredSnapshot(s.label, s.snapshotDatapointId, s.snapshotZoneMode, s.snapshotZones);
@@ -987,7 +1003,7 @@ class AlarmSystemAdapter extends utils.Adapter {
           sourceLabel: p.label,
           armed: this.isAnyZoneArmed(),
           rawVal: state.val
-        });
+        }, 'immediate');
         if (this.zoneArmed[p.zone]) {
           await this.writeDailyTriggerLog('personDetection', p.label, p.id, p.zone, state.val);
           await this.tryTriggerConfiguredSnapshot(p.label, p.snapshotDatapointId, p.snapshotZoneMode, p.snapshotZones);
@@ -1011,7 +1027,7 @@ class AlarmSystemAdapter extends utils.Adapter {
           sourceLabel: cam.label,
           armed: effectiveArmed,
           rawVal: state.val
-        });
+        }, 'immediate');
         if (effectiveArmed) {
           await this.writeDailyTriggerLog('camera', cam.label, cam.personDetectionDp || id, 'perimeter', state.val);
           await this.triggerCamera(cam);
@@ -1123,7 +1139,7 @@ class AlarmSystemAdapter extends utils.Adapter {
     await this.updateStatusAndChecks();
   }
 
-  private async handleZoneTrigger(label: string, zone: Zone, _sourceType: AlarmActionSourceType = 'sensor', _sourceId = '', _rawVal?: ioBroker.StateValue): Promise<void> {
+  private async handleZoneTrigger(label: string, zone: Zone, sourceType: AlarmActionSourceType = 'sensor', sourceId = '', rawVal?: ioBroker.StateValue): Promise<void> {
     const entrySec = this.cfg.zoneDelays[zone].entryDelaySec;
     const caseId = `CASE-${Date.now()}`;
     this.activeCaseId = caseId;
@@ -1151,6 +1167,15 @@ class AlarmSystemAdapter extends utils.Adapter {
       await this.setStateAsync('runtime.mode', 'alarm', true);
       await this.setOutput(this.cfg.sirenStateId, true);
       await this.executeZoneActions(zone, caseId);
+      await this.executeAlarmActions('zone_trigger', {
+        zone,
+        sourceType,
+        sourceId,
+        sourceLabel: label,
+        armed: true,
+        caseId,
+        rawVal
+      }, 'after_alarm');
       await this.sendTelegramText(`🚨 Alarm ausgelöst: ${label} (${zone}) | ${caseId}`);
       await this.logEvent('alarm', 'alarm_activated', `Alarm activated (${label}/${zone})`, caseId);
     }, entrySec * 1000) ?? null;
@@ -1224,9 +1249,19 @@ class AlarmSystemAdapter extends utils.Adapter {
     }
   }
 
-  private async executeAlarmActions(scenario: AlarmActionScenario, ctx: AlarmActionContext): Promise<void> {
+  private async executeAlarmActions(
+    scenario: AlarmActionScenario,
+    ctx: AlarmActionContext,
+    stage: 'immediate' | 'after_alarm' | null = null
+  ): Promise<void> {
     const rows = this.cfg.alarmActions.filter(r => r.scenario === scenario);
     for (const row of rows) {
+      if (scenario === 'zone_trigger') {
+        const timing: 'immediate' | 'after_alarm' = row.timing === 'global'
+          ? this.cfg.alarmActionZoneTriggerTiming
+          : (row.timing === 'immediate' ? 'immediate' : 'after_alarm');
+        if (stage && timing !== stage) continue;
+      }
       if (!this.actionArmedModeMatches(row.armedMode, !!ctx.armed)) continue;
       if (!this.actionZoneMatches(row, ctx)) continue;
       if (!this.actionSourceMatches(row, ctx)) continue;

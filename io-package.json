@@ -55,6 +55,7 @@
     "eventDedupeMs": 1000,
     "cameraNightModeEnabled": true,
     "cameraNightModeArmsCameras": true,
+    "alarmActionZoneTriggerTiming": "after_alarm",
     "armStateId": "mqtt.1.AlarmCenter.AlarmSystemArmed",
     "hullProtectionStateId": "mqtt.1.AlarmCenter.HullProtection",
     "perimeterStateId": "mqtt.1.AlarmCenter.PerimeterProtection",

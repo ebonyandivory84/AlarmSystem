@@ -245,6 +245,14 @@
       <section class="card">
         <h2>Alarm Actions</h2>
         <p class="muted">Zonen → Sensoren/Kameras → Trigger → Aktoren (Datapoint, Telegram, Alexa). Hinweise zeigen mögliche Überschneidungen mit Element-Regeln.</p>
+        <div class="row">
+          <label>Globale Trigger-Ausführung
+            <select id="alarmActionGlobalTiming">
+              <option value="after_alarm">nach Alarmaktivierung</option>
+              <option value="immediate">sofort beim Trigger</option>
+            </select>
+          </label>
+        </div>
         <div id="alarmActionConflictHint" class="status" style="margin-top:10px;white-space:pre-wrap"></div>
 
         <h3 class="subhead">Trigger-Aktion hinzufügen</h3>
@@ -287,6 +295,13 @@
               <option value="datapoint">Datapoint setzen</option>
               <option value="telegram">Telegram senden</option>
               <option value="alexa">Alexa Speak</option>
+            </select>
+          </label>
+          <label id="alarmActionTimingWrap">Ausführung
+            <select id="alarmActionTiming">
+              <option value="global">global</option>
+              <option value="after_alarm">nach Alarmaktivierung</option>
+              <option value="immediate">sofort beim Trigger</option>
             </select>
           </label>
           <label id="alarmActionDpWrap">
