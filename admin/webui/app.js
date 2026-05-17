@@ -85,6 +85,8 @@
     floorplanOgUpload: $('floorplanOgUpload'),
     uploadFloorplansBtn: $('uploadFloorplansBtn'),
     healthOverviewText: $('healthOverviewText'),
+    healthDetailsPanel: $('healthDetailsPanel'),
+    healthCard: $('healthCard'),
     avatarPersonSelect: $('avatarPersonSelect'),
     avatarUploadInput: $('avatarUploadInput'),
     avatarPreviewCircle: $('avatarPreviewCircle'),
@@ -153,7 +155,8 @@
     overviewShowSensors: false,
     avatarProfiles: {},
     avatarDesigner: { person: 'sebastian', dragging: false, startX: 0, startY: 0, startPanX: 0, startPanY: 0 },
-    health: { ok: true, reasons: [] },
+    health: { ok: true, reasons: [], checks: [] },
+    healthDetailsOpen: false,
     presenceByPerson: { sebastian: false, teresa: false },
     pinInput: '',
     pinTargetAction: null,
@@ -2370,6 +2373,11 @@
       const hy = hs;
       inner += `<line x1="${hx}" y1="${hy}" x2="${hx + side}" y2="${hy}" class="arch-stroke"></line>`;
       inner += `<path d="M ${hx + side} ${hy} A ${side} ${side} 0 0 0 ${hx} ${hy - side}" class="arch-soft"></path>`;
+      if (it.alarmActive) {
+        inner += `<line x1="${hx}" y1="${hy}" x2="${hx + side}" y2="${hy}" class="alarm-door-edge"></line>`;
+        inner += `<line x1="${hx}" y1="${hy}" x2="${hx}" y2="${hy - side}" class="alarm-door-edge"></line>`;
+        inner += `<path d="M ${hx + side} ${hy} A ${side} ${side} 0 0 0 ${hx} ${hy - side}" class="alarm-door-arc"></path>`;
+      }
     } else if (type === 'window') {
       inner += `<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="3"></rect>`;
       inner += `<line x1="0" y1="${-hh}" x2="0" y2="${hh}" class="arch-stroke"></line>`;
@@ -3672,29 +3680,60 @@
     if (!el) return;
     el.classList.toggle('ok', !!ok);
     el.classList.toggle('err', !ok);
-    el.textContent = ok ? 'O.K.' : 'Fehler gefunden';
+    el.classList.add('clickable');
+    el.setAttribute('aria-expanded', state.healthDetailsOpen ? 'true' : 'false');
+    el.textContent = ok ? 'O.K.' : 'Fehler';
     el.title = reasons.length ? reasons.join(' | ') : '';
+    renderHealthDetails();
   }
 
-  async function checkHeartbeatId(id, timeoutSec, label) {
-    const reasons = [];
+  function renderHealthDetails() {
+    const panel = ui.healthDetailsPanel;
+    if (!panel) return;
+    panel.classList.toggle('hidden', !state.healthDetailsOpen);
+    if (!state.healthDetailsOpen) return;
+    const checks = Array.isArray(state.health?.checks) ? state.health.checks : [];
+    if (checks.length === 0) {
+      panel.innerHTML = '<div class="muted">Keine aktiven Health-Checks konfiguriert.</div>';
+      return;
+    }
+    panel.innerHTML = checks.map(c => {
+      const icon = c.ok ? '✅' : '❌';
+      const cls = c.ok ? 'ok' : 'err';
+      const label = String(c.label || 'Sensor');
+      const datapoint = String(c.datapoint || '-');
+      const reason = String(c.reason || '');
+      const title = reason ? `${label}: ${reason}` : `${label}: OK`;
+      return `<div class="health-detail-row ${cls}" title="${title}"><span class="health-detail-label">${label}<br><span class="muted">${datapoint}</span></span><span class="health-detail-icon">${icon}</span></div>`;
+    }).join('');
+  }
+
+  async function checkHeartbeatStatus(id, timeoutSec, label) {
     const now = Date.now();
     const hid = String(id || '').trim();
     if (!hid) {
-      reasons.push(`${label} Heartbeat-Datapoint fehlt`);
-      return reasons;
+      return { ok: false, datapoint: '-', reason: `${label} Heartbeat-Datapoint fehlt` };
     }
     const timeoutMs = Math.max(1000, Number(timeoutSec || 2) * 1000);
     const st = await getState(hid);
     const ts = Number(st?.ts || st?.lc || 0);
-    if (!Number.isFinite(ts) || ts <= 0) reasons.push(`${label} kein Heartbeat: ${hid}`);
-    else if ((now - ts) > timeoutMs) reasons.push(`${label} Heartbeat Timeout: ${hid}`);
-    return reasons;
+    if (!Number.isFinite(ts) || ts <= 0) return { ok: false, datapoint: hid, reason: `${label} kein Heartbeat: ${hid}` };
+    if ((now - ts) > timeoutMs) return { ok: false, datapoint: hid, reason: `${label} Heartbeat Timeout: ${hid}` };
+    return { ok: true, datapoint: hid, reason: '' };
+  }
+
+  async function checkOnlineStatus(id, label) {
+    const oid = String(id || '').trim();
+    if (!oid) return { ok: false, datapoint: '-', reason: `${label} Online-Datapoint fehlt` };
+    const st = await getState(oid);
+    if (!isTruthyOnline(st?.val)) return { ok: false, datapoint: oid, reason: `${label} offline: ${oid}` };
+    return { ok: true, datapoint: oid, reason: '' };
   }
 
   async function evaluateSystemHealth() {
     ensureTables();
     const reasons = [];
+    const checks = [];
     const groups = [
       { key: 'contactSensorsTable', label: 'Türkontakt' },
       { key: 'pirSensorsTable', label: 'PIR' },
@@ -3708,19 +3747,20 @@
         const name = String(row.label || row.key || row.id || `${g.label}`);
         const mode = String(row.healthCheckMode || 'none');
         if (mode === 'heartbeat') {
-          reasons.push(...(await checkHeartbeatId(row.healthHeartbeatId, row.healthHeartbeatMaxSec, `${g.label} ${name}`)));
+          const label = `${g.label} ${name}`;
+          const res = await checkHeartbeatStatus(row.healthHeartbeatId, row.healthHeartbeatMaxSec, label);
+          checks.push({ label, mode, datapoint: res.datapoint, ok: res.ok, reason: res.reason });
+          if (!res.ok) reasons.push(res.reason);
         } else if (mode === 'online') {
-          const oid = String(row.healthOnlineId || '').trim();
-          if (!oid) reasons.push(`${g.label} ${name} Online-Datapoint fehlt`);
-          else {
-            const st = await getState(oid);
-            if (!isTruthyOnline(st?.val)) reasons.push(`${g.label} ${name} offline: ${oid}`);
-          }
+          const label = `${g.label} ${name}`;
+          const res = await checkOnlineStatus(row.healthOnlineId, label);
+          checks.push({ label, mode, datapoint: res.datapoint, ok: res.ok, reason: res.reason });
+          if (!res.ok) reasons.push(res.reason);
         }
       }
     }
     const ok = reasons.length === 0;
-    state.health = { ok, reasons };
+    state.health = { ok, reasons, checks };
     paintOverviewHealth(ok, reasons);
     return state.health;
   }
@@ -4474,6 +4514,13 @@
         updateOverviewShowSensorsButton();
         await refreshLiveStatus();
         renderAllCanvases();
+      });
+    }
+    if (ui.healthOverviewText) {
+      ui.healthOverviewText.addEventListener('click', () => {
+        state.healthDetailsOpen = !state.healthDetailsOpen;
+        renderHealthDetails();
+        paintOverviewHealth(!!state.health?.ok, state.health?.reasons || []);
       });
     }
 
