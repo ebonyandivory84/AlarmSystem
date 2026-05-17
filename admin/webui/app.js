@@ -108,6 +108,33 @@
     quickAlarmActionResult: $('quickAlarmActionResult'),
     quickAlarmActionsList: $('quickAlarmActionsList'),
     browseQuickAlarmDatapointBtn: $('browseQuickAlarmDatapointBtn'),
+    modeFlowModeSelect: $('modeFlowModeSelect'),
+    modeFlowRuleLabel: $('modeFlowRuleLabel'),
+    modeFlowSourceSearch: $('modeFlowSourceSearch'),
+    modeFlowSourceList: $('modeFlowSourceList'),
+    modeFlowAlarmLevel: $('modeFlowAlarmLevel'),
+    modeFlowAnnounceBefore: $('modeFlowAnnounceBefore'),
+    modeFlowAnnounceDelaySec: $('modeFlowAnnounceDelaySec'),
+    modeFlowActionSnapshotTriggerCamera: $('modeFlowActionSnapshotTriggerCamera'),
+    modeFlowActionCameraAlarmTriggerCamera: $('modeFlowActionCameraAlarmTriggerCamera'),
+    modeFlowActionCameraLedTriggerCamera: $('modeFlowActionCameraLedTriggerCamera'),
+    modeFlowActionCameraAlarmAll: $('modeFlowActionCameraAlarmAll'),
+    modeFlowActionCameraLedAll: $('modeFlowActionCameraLedAll'),
+    modeFlowActionAlexaSpeak: $('modeFlowActionAlexaSpeak'),
+    modeFlowActionAlexaText: $('modeFlowActionAlexaText'),
+    addModeFlowRuleBtn: $('addModeFlowRuleBtn'),
+    modeFlowRuleResult: $('modeFlowRuleResult'),
+    modeFlowRulesList: $('modeFlowRulesList'),
+    modeFlowAnnounceCommandId: $('modeFlowAnnounceCommandId'),
+    modeFlowPerimeterCommandId: $('modeFlowPerimeterCommandId'),
+    modeFlowInteriorCommandId: $('modeFlowInteriorCommandId'),
+    modeFlowFullCommandId: $('modeFlowFullCommandId'),
+    modeFlowTelegramPerimeterText: $('modeFlowTelegramPerimeterText'),
+    modeFlowTelegramInteriorText: $('modeFlowTelegramInteriorText'),
+    modeFlowTelegramFullText: $('modeFlowTelegramFullText'),
+    modeFlowAutoPerimeterAfterSunsetEnabled: $('modeFlowAutoPerimeterAfterSunsetEnabled'),
+    modeFlowAutoAwayMode: $('modeFlowAutoAwayMode'),
+    modeFlowAutoAwayDelaySec: $('modeFlowAutoAwayDelaySec'),
     snapshotActionKey: $('snapshotActionKey'),
     snapshotActionLabel: $('snapshotActionLabel'),
     snapshotActionDatapointId: $('snapshotActionDatapointId'),
@@ -298,7 +325,9 @@
     suppressZoneClickOnce: false,
     toastTimer: null,
     canvasHistory: [],
-    floorRatios: { EG: 0.907, OG: 0.906 }
+    floorRatios: { EG: 0.907, OG: 0.906 },
+    modeFlowSourceItems: [],
+    modeFlowSelectedSources: new Set()
     ,designer: {
       EG: null,
       OG: null,
@@ -713,6 +742,7 @@
     if (!Array.isArray(state.config.snapshotActionTargetsTable)) state.config.snapshotActionTargetsTable = [];
     if (!Array.isArray(state.config.alarmActionsTable)) state.config.alarmActionsTable = [];
     if (!Array.isArray(state.config.panicActionsTable)) state.config.panicActionsTable = [];
+    if (!Array.isArray(state.config.modeFlowRulesTable)) state.config.modeFlowRulesTable = [];
     if (!['immediate', 'after_alarm'].includes(String(state.config.alarmActionZoneTriggerTiming || ''))) {
       state.config.alarmActionZoneTriggerTiming = 'after_alarm';
     }
@@ -722,6 +752,16 @@
     if (typeof state.config.alarmRepeatTelegramEnabled !== 'boolean') state.config.alarmRepeatTelegramEnabled = false;
     if (!Number.isFinite(Number(state.config.alarmRepeatTelegramIntervalSec))) state.config.alarmRepeatTelegramIntervalSec = 60;
     if (typeof state.config.alarmRepeatTelegramText !== 'string') state.config.alarmRepeatTelegramText = 'Alarm !!!';
+    if (typeof state.config.modeFlowAnnounceCommandId !== 'string' || !state.config.modeFlowAnnounceCommandId.trim()) state.config.modeFlowAnnounceCommandId = `${state.instanceId}.commands.announceAlarm`;
+    if (typeof state.config.modeFlowPerimeterAlarmCommandId !== 'string' || !state.config.modeFlowPerimeterAlarmCommandId.trim()) state.config.modeFlowPerimeterAlarmCommandId = `${state.instanceId}.commands.activatePerimeterAlarm`;
+    if (typeof state.config.modeFlowInteriorAlarmCommandId !== 'string' || !state.config.modeFlowInteriorAlarmCommandId.trim()) state.config.modeFlowInteriorAlarmCommandId = `${state.instanceId}.commands.activateInteriorAlarm`;
+    if (typeof state.config.modeFlowFullAlarmCommandId !== 'string' || !state.config.modeFlowFullAlarmCommandId.trim()) state.config.modeFlowFullAlarmCommandId = `${state.instanceId}.commands.activateFullAlarm`;
+    if (typeof state.config.modeFlowTelegramPerimeterText !== 'string') state.config.modeFlowTelegramPerimeterText = '';
+    if (typeof state.config.modeFlowTelegramInteriorText !== 'string') state.config.modeFlowTelegramInteriorText = '';
+    if (typeof state.config.modeFlowTelegramFullText !== 'string') state.config.modeFlowTelegramFullText = '';
+    if (typeof state.config.modeFlowAutoPerimeterAfterSunsetEnabled !== 'boolean') state.config.modeFlowAutoPerimeterAfterSunsetEnabled = false;
+    if (!['legacy', 'off', 'perimeter', 'vollschutz'].includes(String(state.config.modeFlowAutoAwayMode || ''))) state.config.modeFlowAutoAwayMode = 'legacy';
+    if (!Number.isFinite(Number(state.config.modeFlowAutoAwayDelaySec))) state.config.modeFlowAutoAwayDelaySec = Number(state.config.autoArmDelaySec || 60);
     if (!Array.isArray(state.config.telegramInstancesTable)) {
       let parsed = [];
       try {
@@ -3675,6 +3715,22 @@
     state.config.alarmRepeatTelegramEnabled = String(ui.alarmRepeatTelegramEnabled?.value || 'false') === 'true';
     state.config.alarmRepeatTelegramIntervalSec = Math.max(5, Number(ui.alarmRepeatTelegramIntervalSec?.value || state.config.alarmRepeatTelegramIntervalSec || 60));
     state.config.alarmRepeatTelegramText = String(ui.alarmRepeatTelegramText?.value || 'Alarm !!!').trim();
+    state.config.modeFlowAnnounceCommandId = String(ui.modeFlowAnnounceCommandId?.value || `${state.instanceId}.commands.announceAlarm`).trim();
+    state.config.modeFlowPerimeterAlarmCommandId = String(ui.modeFlowPerimeterCommandId?.value || `${state.instanceId}.commands.activatePerimeterAlarm`).trim();
+    state.config.modeFlowInteriorAlarmCommandId = String(ui.modeFlowInteriorCommandId?.value || `${state.instanceId}.commands.activateInteriorAlarm`).trim();
+    state.config.modeFlowFullAlarmCommandId = String(ui.modeFlowFullCommandId?.value || `${state.instanceId}.commands.activateFullAlarm`).trim();
+    state.config.modeFlowTelegramPerimeterText = String(ui.modeFlowTelegramPerimeterText?.value || '').trim();
+    state.config.modeFlowTelegramInteriorText = String(ui.modeFlowTelegramInteriorText?.value || '').trim();
+    state.config.modeFlowTelegramFullText = String(ui.modeFlowTelegramFullText?.value || '').trim();
+    state.config.modeFlowAutoPerimeterAfterSunsetEnabled = String(ui.modeFlowAutoPerimeterAfterSunsetEnabled?.value || 'false') === 'true';
+    state.config.modeFlowAutoAwayMode = ['legacy', 'off', 'perimeter', 'vollschutz'].includes(String(ui.modeFlowAutoAwayMode?.value || ''))
+      ? String(ui.modeFlowAutoAwayMode.value)
+      : 'legacy';
+    state.config.modeFlowAutoAwayDelaySec = Math.max(0, Number(ui.modeFlowAutoAwayDelaySec?.value || state.config.autoArmDelaySec || 60));
+    if (state.config.modeFlowAutoAwayMode === 'perimeter') state.config.autoAwayArmZonesCsv = 'perimeter';
+    else if (state.config.modeFlowAutoAwayMode === 'vollschutz') state.config.autoAwayArmZonesCsv = 'perimeter,aussenhaut,innenraum';
+    else if (state.config.modeFlowAutoAwayMode === 'off') state.config.autoAwayArmZonesCsv = '';
+    state.config.autoArmDelaySec = Math.max(0, Number(state.config.modeFlowAutoAwayDelaySec || state.config.autoArmDelaySec || 60));
     ensureTables();
     state.config.telegramInstancesTable = (state.config.telegramInstancesTable || [])
       .map(normalizeTelegramInstanceRow)
@@ -3691,6 +3747,9 @@
     state.config.panicActionsTable = (state.config.panicActionsTable || [])
       .map(normalizePanicActionRow)
       .filter(r => r.actionKind && r.when);
+    state.config.modeFlowRulesTable = (state.config.modeFlowRulesTable || [])
+      .map(normalizeModeFlowRuleRow)
+      .filter(r => r.sourceId);
   }
 
   function renderZoneActions() {
@@ -3796,6 +3855,61 @@
       snapshotTargetKey: String(row?.snapshotTargetKey || '').trim(),
       cameraTargetKey: String(row?.cameraTargetKey || '').trim()
     };
+  }
+
+  function normalizeModeFlowRuleRow(row) {
+    const mode = ['vollschutz', 'aussenhaut', 'perimeter', 'kamera'].includes(String(row?.mode || ''))
+      ? String(row.mode)
+      : 'perimeter';
+    const sourceKind = ['sensor', 'personDetection', 'camera'].includes(String(row?.sourceKind || ''))
+      ? String(row.sourceKind)
+      : 'sensor';
+    const sourceZone = ['any', 'perimeter', 'aussenhaut', 'innenraum'].includes(String(row?.sourceZone || ''))
+      ? String(row.sourceZone)
+      : 'any';
+    const alarmLevel = ['perimeter_alarm', 'interior_alarm', 'full_alarm'].includes(String(row?.alarmLevel || ''))
+      ? String(row.alarmLevel)
+      : 'perimeter_alarm';
+    const announceDelaySec = Math.max(0, Number(row?.announceDelaySec || 0));
+    return {
+      key: String(row?.key || `${mode}_${sourceKind}_${String(row?.sourceId || '').trim()}_${Date.now()}`),
+      label: String(row?.label || row?.sourceLabel || row?.sourceId || 'ModeFlow Rule').trim(),
+      enabled: row?.enabled !== false,
+      mode,
+      sourceKind,
+      sourceId: String(row?.sourceId || '').trim(),
+      sourceLabel: String(row?.sourceLabel || row?.sourceId || '').trim(),
+      sourceZone,
+      alarmLevel,
+      announceBefore: row?.announceBefore === true || String(row?.announceBefore || '').toLowerCase() === 'true',
+      announceDelaySec: Number.isFinite(announceDelaySec) ? announceDelaySec : 0,
+      actionSnapshotTriggerCamera: row?.actionSnapshotTriggerCamera === true || String(row?.actionSnapshotTriggerCamera || '').toLowerCase() === 'true',
+      actionCameraAlarmTriggerCamera: row?.actionCameraAlarmTriggerCamera === true || String(row?.actionCameraAlarmTriggerCamera || '').toLowerCase() === 'true',
+      actionCameraLedTriggerCamera: row?.actionCameraLedTriggerCamera === true || String(row?.actionCameraLedTriggerCamera || '').toLowerCase() === 'true',
+      actionCameraAlarmAll: row?.actionCameraAlarmAll === true || String(row?.actionCameraAlarmAll || '').toLowerCase() === 'true',
+      actionCameraLedAll: row?.actionCameraLedAll === true || String(row?.actionCameraLedAll || '').toLowerCase() === 'true',
+      actionAlexaSpeak: row?.actionAlexaSpeak === true || String(row?.actionAlexaSpeak || '').toLowerCase() === 'true',
+      actionAlexaText: String(row?.actionAlexaText || '').trim()
+    };
+  }
+
+  function modeFlowModeLabel(mode) {
+    if (mode === 'vollschutz') return 'Vollschutz';
+    if (mode === 'aussenhaut') return 'Außenhaut';
+    if (mode === 'kamera') return 'Kamera';
+    return 'Perimeter';
+  }
+
+  function modeFlowSourceKindLabel(kind) {
+    if (kind === 'personDetection') return 'PersonDetection';
+    if (kind === 'camera') return 'Camera';
+    return 'Sensor';
+  }
+
+  function modeFlowLevelLabel(level) {
+    if (level === 'interior_alarm') return 'InteriorAlarm';
+    if (level === 'full_alarm') return 'FullAlarm';
+    return 'PerimeterAlarm';
   }
 
   function alarmTriggerTypeLabel(v) {
@@ -4243,6 +4357,7 @@
     }
 
     renderQuickAlarmActionsCard();
+    renderModeFlowCard();
   }
 
   function renderQuickAlarmActionsCard() {
@@ -4277,6 +4392,147 @@
       const tag = createdByAssistant ? '<span class="status-chip disarmed">Assistent</span>' : '';
       return `<div class="sensor-item"><span>${htmlEsc(r.label)} ${tag}<br><span class="muted">${htmlEsc(header)} | ${htmlEsc(info.join(' | '))}</span></span><button class="btn danger" data-del-quick-alarm-action="${idx}">Löschen</button></div>`;
     }).join('');
+  }
+
+  function getModeFlowSourceItems() {
+    ensureTables();
+    const rows = [];
+    const push = (kind, sourceId, label, zone) => {
+      const id = String(sourceId || '').trim();
+      if (!id) return;
+      const z = ['perimeter', 'aussenhaut', 'innenraum'].includes(String(zone || '')) ? String(zone) : 'perimeter';
+      rows.push({
+        token: `${kind}:${id}`,
+        kind,
+        sourceId: id,
+        label: String(label || id).trim(),
+        zone: z
+      });
+    };
+    (state.config.pirSensorsTable || []).forEach(r => push('sensor', r.id, r.label || r.key || r.id, r.zone));
+    (state.config.contactSensorsTable || []).forEach(r => push('sensor', r.id, r.label || r.key || r.id, r.zone));
+    (state.config.personDetectionTable || []).forEach(r => push('personDetection', r.id, r.label || r.key || r.id, r.zone));
+    (state.config.camerasTable || []).forEach(r => push('camera', r.personDetectionDp, r.label || r.key || r.personDetectionDp, r.zone));
+    const zoneOrder = { perimeter: 0, aussenhaut: 1, innenraum: 2 };
+    rows.sort((a, b) => {
+      const za = zoneOrder[a.zone] ?? 9;
+      const zb = zoneOrder[b.zone] ?? 9;
+      if (za !== zb) return za - zb;
+      const ka = modeFlowSourceKindLabel(a.kind);
+      const kb = modeFlowSourceKindLabel(b.kind);
+      if (ka !== kb) return ka.localeCompare(kb, 'de');
+      return String(a.label || '').localeCompare(String(b.label || ''), 'de');
+    });
+    return rows;
+  }
+
+  function renderModeFlowSourceList() {
+    if (!ui.modeFlowSourceList) return;
+    const q = String(ui.modeFlowSourceSearch?.value || '').trim().toLowerCase();
+    const rows = state.modeFlowSourceItems || [];
+    const filtered = q.length < 2
+      ? rows
+      : rows.filter(r => `${r.label} ${r.sourceId} ${r.zone} ${r.kind}`.toLowerCase().includes(q));
+    if (!filtered.length) {
+      ui.modeFlowSourceList.innerHTML = '<div class="muted">Keine passenden Trigger-Elemente.</div>';
+      return;
+    }
+    ui.modeFlowSourceList.innerHTML = filtered.map(r => {
+      const checked = state.modeFlowSelectedSources.has(r.token) ? 'checked' : '';
+      return `<label class="mode-flow-source-item"><input type="checkbox" data-mode-flow-source="${htmlEsc(r.token)}" ${checked} /><span>${htmlEsc(r.label)}<span class="meta">${htmlEsc(`${modeFlowSourceKindLabel(r.kind)} | ${r.zone} | ${r.sourceId}`)}</span></span></label>`;
+    }).join('');
+  }
+
+  function modeFlowActionSummary(row) {
+    const tags = [];
+    if (row.announceBefore) tags.push(`announce ${Number(row.announceDelaySec || 0)}s`);
+    tags.push(modeFlowLevelLabel(row.alarmLevel));
+    if (row.actionSnapshotTriggerCamera) tags.push('Snapshot(trigger-cam)');
+    if (row.actionCameraAlarmTriggerCamera) tags.push('CamAlarm(trigger-cam)');
+    if (row.actionCameraLedTriggerCamera) tags.push('CamLED(trigger-cam)');
+    if (row.actionCameraAlarmAll) tags.push('CamAlarm(all)');
+    if (row.actionCameraLedAll) tags.push('CamLED(all)');
+    if (row.actionAlexaSpeak) tags.push(`Alexa="${row.actionAlexaText || ''}"`);
+    return tags.join(' | ');
+  }
+
+  function renderModeFlowCard() {
+    ensureTables();
+    state.modeFlowSourceItems = getModeFlowSourceItems();
+    const validTokens = new Set(state.modeFlowSourceItems.map(x => x.token));
+    state.modeFlowSelectedSources = new Set(Array.from(state.modeFlowSelectedSources || []).filter(x => validTokens.has(x)));
+
+    if (ui.modeFlowAnnounceCommandId) ui.modeFlowAnnounceCommandId.value = String(state.config.modeFlowAnnounceCommandId || `${state.instanceId}.commands.announceAlarm`);
+    if (ui.modeFlowPerimeterCommandId) ui.modeFlowPerimeterCommandId.value = String(state.config.modeFlowPerimeterAlarmCommandId || `${state.instanceId}.commands.activatePerimeterAlarm`);
+    if (ui.modeFlowInteriorCommandId) ui.modeFlowInteriorCommandId.value = String(state.config.modeFlowInteriorAlarmCommandId || `${state.instanceId}.commands.activateInteriorAlarm`);
+    if (ui.modeFlowFullCommandId) ui.modeFlowFullCommandId.value = String(state.config.modeFlowFullAlarmCommandId || `${state.instanceId}.commands.activateFullAlarm`);
+    if (ui.modeFlowTelegramPerimeterText) ui.modeFlowTelegramPerimeterText.value = String(state.config.modeFlowTelegramPerimeterText || '');
+    if (ui.modeFlowTelegramInteriorText) ui.modeFlowTelegramInteriorText.value = String(state.config.modeFlowTelegramInteriorText || '');
+    if (ui.modeFlowTelegramFullText) ui.modeFlowTelegramFullText.value = String(state.config.modeFlowTelegramFullText || '');
+    if (ui.modeFlowAutoPerimeterAfterSunsetEnabled) ui.modeFlowAutoPerimeterAfterSunsetEnabled.value = String(state.config.modeFlowAutoPerimeterAfterSunsetEnabled === true);
+    if (ui.modeFlowAutoAwayMode) ui.modeFlowAutoAwayMode.value = ['legacy', 'off', 'perimeter', 'vollschutz'].includes(String(state.config.modeFlowAutoAwayMode || '')) ? String(state.config.modeFlowAutoAwayMode) : 'legacy';
+    if (ui.modeFlowAutoAwayDelaySec) ui.modeFlowAutoAwayDelaySec.value = String(Math.max(0, Number(state.config.modeFlowAutoAwayDelaySec || state.config.autoArmDelaySec || 60)));
+
+    renderModeFlowSourceList();
+    if (!ui.modeFlowRulesList) return;
+    const rows = (state.config.modeFlowRulesTable || []).map(normalizeModeFlowRuleRow).filter(r => r.sourceId);
+    state.config.modeFlowRulesTable = rows;
+    if (!rows.length) {
+      ui.modeFlowRulesList.innerHTML = '<div class="muted">Keine Modus-Flow-Regeln konfiguriert.</div>';
+      return;
+    }
+    ui.modeFlowRulesList.innerHTML = rows.map((r, idx) => {
+      return `<div class="sensor-item"><span>${htmlEsc(r.label)}<br><span class="muted">${htmlEsc(`${modeFlowModeLabel(r.mode)} | ${modeFlowSourceKindLabel(r.sourceKind)} | ${r.sourceLabel} | ${r.sourceZone} | ${modeFlowActionSummary(r)}`)}</span></span><button class="btn danger" data-del-mode-flow-rule="${idx}">Löschen</button></div>`;
+    }).join('');
+  }
+
+  function addModeFlowRulesFromSelection() {
+    ensureTables();
+    const selected = Array.from(state.modeFlowSelectedSources || []);
+    if (!selected.length) {
+      setStatus('ModeFlow: Bitte mindestens ein Trigger-Element auswählen', true);
+      if (ui.modeFlowRuleResult) ui.modeFlowRuleResult.textContent = 'Keine Trigger ausgewählt';
+      return;
+    }
+    const byToken = new Map((state.modeFlowSourceItems || []).map(x => [x.token, x]));
+    const mode = String(ui.modeFlowModeSelect?.value || 'perimeter');
+    const alarmLevel = String(ui.modeFlowAlarmLevel?.value || 'perimeter_alarm');
+    const announceBefore = String(ui.modeFlowAnnounceBefore?.value || 'false') === 'true';
+    const announceDelaySec = Math.max(0, Number(ui.modeFlowAnnounceDelaySec?.value || 0));
+    const baseLabel = String(ui.modeFlowRuleLabel?.value || '').trim();
+    const actions = {
+      actionSnapshotTriggerCamera: !!ui.modeFlowActionSnapshotTriggerCamera?.checked,
+      actionCameraAlarmTriggerCamera: !!ui.modeFlowActionCameraAlarmTriggerCamera?.checked,
+      actionCameraLedTriggerCamera: !!ui.modeFlowActionCameraLedTriggerCamera?.checked,
+      actionCameraAlarmAll: !!ui.modeFlowActionCameraAlarmAll?.checked,
+      actionCameraLedAll: !!ui.modeFlowActionCameraLedAll?.checked,
+      actionAlexaSpeak: !!ui.modeFlowActionAlexaSpeak?.checked,
+      actionAlexaText: String(ui.modeFlowActionAlexaText?.value || '').trim()
+    };
+    let added = 0;
+    for (const token of selected) {
+      const src = byToken.get(token);
+      if (!src) continue;
+      const label = baseLabel || `${modeFlowModeLabel(mode)} -> ${src.label}`;
+      const row = normalizeModeFlowRuleRow({
+        key: `modeflow_${Date.now()}_${src.kind}_${added + 1}`,
+        label,
+        enabled: true,
+        mode,
+        sourceKind: src.kind,
+        sourceId: src.sourceId,
+        sourceLabel: src.label,
+        sourceZone: src.zone,
+        alarmLevel,
+        announceBefore,
+        announceDelaySec,
+        ...actions
+      });
+      state.config.modeFlowRulesTable.push(row);
+      added += 1;
+    }
+    renderModeFlowCard();
+    if (ui.modeFlowRuleResult) ui.modeFlowRuleResult.textContent = `Hinzugefügt: ${added} Regel(n)`;
   }
 
   function normalizeTelegramInstanceRow(row) {
@@ -5809,6 +6065,7 @@
     ui.panicBtn.addEventListener('click', () => togglePanic().catch(e => setStatus(String(e), true)));
     if (ui.addSnapshotActionBtn) ui.addSnapshotActionBtn.addEventListener('click', addSnapshotActionTarget);
     if (ui.addQuickAlarmActionBtn) ui.addQuickAlarmActionBtn.addEventListener('click', addQuickAlarmAction);
+    if (ui.addModeFlowRuleBtn) ui.addModeFlowRuleBtn.addEventListener('click', addModeFlowRulesFromSelection);
     if (ui.addAlarmActionBtn) ui.addAlarmActionBtn.addEventListener('click', addAlarmAction);
     if (ui.addPanicActionBtn) ui.addPanicActionBtn.addEventListener('click', addPanicAction);
     if (ui.browseQuickAlarmDatapointBtn && ui.quickAlarmDatapointId) ui.browseQuickAlarmDatapointBtn.addEventListener('click', () => openObjectBrowser(ui.quickAlarmDatapointId));
@@ -5822,6 +6079,19 @@
       refreshQuickAlarmTriggerEntityOptions();
       renderQuickAlarmActionsCard();
     });
+    if (ui.modeFlowSourceSearch) {
+      ui.modeFlowSourceSearch.addEventListener('input', renderModeFlowSourceList);
+    }
+    if (ui.modeFlowSourceList) {
+      ui.modeFlowSourceList.addEventListener('change', ev => {
+        const input = ev.target.closest('[data-mode-flow-source]');
+        if (!input) return;
+        const token = String(input.getAttribute('data-mode-flow-source') || '').trim();
+        if (!token) return;
+        if (input.checked) state.modeFlowSelectedSources.add(token);
+        else state.modeFlowSelectedSources.delete(token);
+      });
+    }
     if (ui.alarmActionScenario) ui.alarmActionScenario.addEventListener('change', () => {
       updateAlarmActionUiState();
       renderAlarmActionsCard();
@@ -5881,6 +6151,17 @@
         ensureTables();
         state.config.alarmActionsTable.splice(idx, 1);
         renderAlarmActionsCard();
+      });
+    }
+    if (ui.modeFlowRulesList) {
+      ui.modeFlowRulesList.addEventListener('click', ev => {
+        const btn = ev.target.closest('[data-del-mode-flow-rule]');
+        if (!btn) return;
+        const idx = Number(btn.getAttribute('data-del-mode-flow-rule'));
+        if (!Number.isInteger(idx) || idx < 0) return;
+        ensureTables();
+        state.config.modeFlowRulesTable.splice(idx, 1);
+        renderModeFlowCard();
       });
     }
     if (ui.panicActionsList) {

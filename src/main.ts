@@ -15,6 +15,10 @@ type AlarmActionArmedMode = 'any' | 'armed' | 'unarmed';
 type AlarmActionKind = 'datapoint' | 'telegram' | 'alexa' | 'snapshot' | 'camera_led';
 type AlarmActionTiming = 'global' | 'immediate' | 'after_alarm';
 type CountdownAbortMode = 'off' | 'zone_disarmed' | 'any_disarm';
+type MonitorMode = 'vollschutz' | 'aussenhaut' | 'perimeter' | 'kamera';
+type ModeFlowSourceKind = 'sensor' | 'personDetection' | 'camera';
+type ModeFlowAlarmLevel = 'perimeter_alarm' | 'interior_alarm' | 'full_alarm';
+type ModeFlowAutoAwayMode = 'legacy' | 'off' | 'perimeter' | 'vollschutz';
 
 interface SensorDef {
   key: string;
@@ -106,6 +110,27 @@ interface PanicActionDef {
   alexaText?: string;
   snapshotTargetKey?: string;
   cameraTargetKey?: string;
+}
+
+interface ModeFlowRuleDef {
+  key: string;
+  label: string;
+  enabled: boolean;
+  mode: MonitorMode;
+  sourceKind: ModeFlowSourceKind;
+  sourceId: string;
+  sourceLabel: string;
+  sourceZone: Zone | 'any';
+  alarmLevel: ModeFlowAlarmLevel;
+  announceBefore: boolean;
+  announceDelaySec: number;
+  actionSnapshotTriggerCamera: boolean;
+  actionCameraAlarmTriggerCamera: boolean;
+  actionCameraLedTriggerCamera: boolean;
+  actionCameraAlarmAll: boolean;
+  actionCameraLedAll: boolean;
+  actionAlexaSpeak: boolean;
+  actionAlexaText?: string;
 }
 
 interface SnapshotActionTargetDef {
@@ -243,6 +268,17 @@ interface Config {
   snapshotActionTargets: SnapshotActionTargetDef[];
   alarmActions: AlarmActionDef[];
   panicActions: PanicActionDef[];
+  modeFlowRules: ModeFlowRuleDef[];
+  modeFlowAnnounceCommandId: string;
+  modeFlowPerimeterAlarmCommandId: string;
+  modeFlowInteriorAlarmCommandId: string;
+  modeFlowFullAlarmCommandId: string;
+  modeFlowTelegramPerimeterText: string;
+  modeFlowTelegramInteriorText: string;
+  modeFlowTelegramFullText: string;
+  modeFlowAutoPerimeterAfterSunsetEnabled: boolean;
+  modeFlowAutoAwayMode: ModeFlowAutoAwayMode;
+  modeFlowAutoAwayDelaySec: number;
   zoneDelays: Record<Zone, { entryDelaySec: number; exitDelaySec: number }>;
   telegramInstances: TelegramInstanceDef[];
   telegramTargets: TelegramTargetDef[];
@@ -280,6 +316,8 @@ class AlarmSystemAdapter extends utils.Adapter {
   private pinLastTriggerAt = 0;
   private openDoorBeepResetTimer: ioBroker.Timeout | null = null;
   private triggerLogDir: string | null = null;
+  private sunsetAutoTimer: ioBroker.Interval | null = null;
+  private lastSunsetAutoArmDay = '';
 
   public constructor(options: Partial<utils.AdapterOptions> = {}) {
     super({ ...options, name: 'alarmsystem' });
@@ -309,6 +347,7 @@ class AlarmSystemAdapter extends utils.Adapter {
     await this.refreshStatusIndicators();
     await this.refreshDisplayCycle();
     await this.syncPanicStartupState();
+    this.startSunsetAutomationCheck();
     await this.logEvent('info', 'system_start', 'AlarmSystem gestartet');
   }
 
@@ -343,6 +382,26 @@ class AlarmSystemAdapter extends utils.Adapter {
       common: { name: 'Telegram test photo with caption', type: 'boolean', role: 'button', read: true, write: true, def: false },
       native: {}
     });
+    await this.setObjectNotExistsAsync('commands.announceAlarm', {
+      type: 'state',
+      common: { name: 'Announce alarm', type: 'boolean', role: 'button', read: true, write: true, def: false },
+      native: {}
+    });
+    await this.setObjectNotExistsAsync('commands.activatePerimeterAlarm', {
+      type: 'state',
+      common: { name: 'Activate perimeter alarm level', type: 'boolean', role: 'button', read: true, write: true, def: false },
+      native: {}
+    });
+    await this.setObjectNotExistsAsync('commands.activateInteriorAlarm', {
+      type: 'state',
+      common: { name: 'Activate interior alarm level', type: 'boolean', role: 'button', read: true, write: true, def: false },
+      native: {}
+    });
+    await this.setObjectNotExistsAsync('commands.activateFullAlarm', {
+      type: 'state',
+      common: { name: 'Activate full alarm level', type: 'boolean', role: 'button', read: true, write: true, def: false },
+      native: {}
+    });
   }
 
   private buildConfig(): Config {
@@ -356,6 +415,13 @@ class AlarmSystemAdapter extends utils.Adapter {
     const snapshotActionTargets = this.parseSnapshotActionTargetsTable(n.snapshotActionTargetsTable);
     const alarmActions = this.parseAlarmActionsTable(n.alarmActionsTable);
     const panicActions = this.parsePanicActionsTable(n.panicActionsTable);
+    const modeFlowRules = this.parseModeFlowRulesTable(n.modeFlowRulesTable);
+    const autoAwayMode = this.parseModeFlowAutoAwayMode(n.modeFlowAutoAwayMode);
+    const autoAwayZonesFromMode = autoAwayMode === 'perimeter'
+      ? (['perimeter'] as Zone[])
+      : (autoAwayMode === 'vollschutz' ? (['perimeter', 'aussenhaut', 'innenraum'] as Zone[]) : []);
+    const fallbackAutoAwayZones = this.parseZonesCsv(n.autoAwayArmZonesCsv || 'perimeter,aussenhaut,innenraum');
+    const effectiveAutoAwayZones = autoAwayMode === 'legacy' ? fallbackAutoAwayZones : autoAwayZonesFromMode;
     const defaultRedOpenIds = [
       'mqtt.1.entrance_door_status',
       'mqtt.1.terrace_door_status',
@@ -434,7 +500,7 @@ class AlarmSystemAdapter extends utils.Adapter {
         '0_userdata.0.presence_at_home.Teresa'
       ]),
       autoArmDelaySec: this.toNumber(n.autoArmDelaySec, 60),
-      autoAwayArmZones: this.parseZonesCsv(n.autoAwayArmZonesCsv || 'perimeter,aussenhaut,innenraum'),
+      autoAwayArmZones: effectiveAutoAwayZones,
       autoAwayPendingTelegramText: String(n.autoAwayPendingTelegramText || 'Niemand ist zu Hause. Alarmanlage wird in {delay}s scharfgeschaltet...'),
       autoAwayArmedTelegramText: String(n.autoAwayArmedTelegramText || 'Alarmanlage ist jetzt scharfgeschaltet!'),
       autoAwayChatIds: this.parseCsv(n.autoAwayChatIdsCsv),
@@ -513,6 +579,17 @@ class AlarmSystemAdapter extends utils.Adapter {
       snapshotActionTargets,
       alarmActions,
       panicActions,
+      modeFlowRules,
+      modeFlowAnnounceCommandId: String(n.modeFlowAnnounceCommandId || `${this.namespace}.commands.announceAlarm`).trim(),
+      modeFlowPerimeterAlarmCommandId: String(n.modeFlowPerimeterAlarmCommandId || `${this.namespace}.commands.activatePerimeterAlarm`).trim(),
+      modeFlowInteriorAlarmCommandId: String(n.modeFlowInteriorAlarmCommandId || `${this.namespace}.commands.activateInteriorAlarm`).trim(),
+      modeFlowFullAlarmCommandId: String(n.modeFlowFullAlarmCommandId || `${this.namespace}.commands.activateFullAlarm`).trim(),
+      modeFlowTelegramPerimeterText: String(n.modeFlowTelegramPerimeterText || '').trim(),
+      modeFlowTelegramInteriorText: String(n.modeFlowTelegramInteriorText || '').trim(),
+      modeFlowTelegramFullText: String(n.modeFlowTelegramFullText || '').trim(),
+      modeFlowAutoPerimeterAfterSunsetEnabled: this.toBool(n.modeFlowAutoPerimeterAfterSunsetEnabled, false),
+      modeFlowAutoAwayMode: autoAwayMode,
+      modeFlowAutoAwayDelaySec: Math.max(0, this.toNumber(n.modeFlowAutoAwayDelaySec, this.toNumber(n.autoArmDelaySec, 60))),
       zoneDelays: this.parseZoneDelays(n.zoneDelaysTable, this.toNumber(n.defaultEntryDelaySec, 20), this.toNumber(n.defaultExitDelaySec, 10)),
       telegramInstances: this.parseTelegramInstances(n.telegramInstancesTable),
       telegramTargets: this.parseTelegramTargets(n.telegramTargetsTable)
@@ -747,6 +824,71 @@ class AlarmSystemAdapter extends utils.Adapter {
     return out;
   }
 
+  private parseModeFlowRulesTable(rows: any): ModeFlowRuleDef[] {
+    if (!Array.isArray(rows)) return [];
+    const out: ModeFlowRuleDef[] = [];
+    for (const r of rows) {
+      const sourceId = String(r?.sourceId || '').trim();
+      if (!sourceId) continue;
+      const mode = this.parseMonitorMode(r?.mode);
+      const sourceKind = this.parseModeFlowSourceKind(r?.sourceKind);
+      const alarmLevel = this.parseModeFlowAlarmLevel(r?.alarmLevel);
+      const sourceZone = String(r?.sourceZone || '').toLowerCase() === 'any' ? 'any' : this.parseZone(r?.sourceZone);
+      const row: ModeFlowRuleDef = {
+        key: String(r?.key || `${mode}_${sourceKind}_${sourceId}_${out.length + 1}`),
+        label: String(r?.label || r?.sourceLabel || sourceId),
+        enabled: this.toBool(r?.enabled, true),
+        mode,
+        sourceKind,
+        sourceId,
+        sourceLabel: String(r?.sourceLabel || sourceId),
+        sourceZone,
+        alarmLevel,
+        announceBefore: this.toBool(r?.announceBefore, false),
+        announceDelaySec: Math.max(0, this.toNumber(r?.announceDelaySec, 0)),
+        actionSnapshotTriggerCamera: this.toBool(r?.actionSnapshotTriggerCamera, false),
+        actionCameraAlarmTriggerCamera: this.toBool(r?.actionCameraAlarmTriggerCamera, false),
+        actionCameraLedTriggerCamera: this.toBool(r?.actionCameraLedTriggerCamera, false),
+        actionCameraAlarmAll: this.toBool(r?.actionCameraAlarmAll, false),
+        actionCameraLedAll: this.toBool(r?.actionCameraLedAll, false),
+        actionAlexaSpeak: this.toBool(r?.actionAlexaSpeak, false),
+        actionAlexaText: String(r?.actionAlexaText || '').trim() || undefined
+      };
+      out.push(row);
+    }
+    return out;
+  }
+
+  private parseMonitorMode(v: any): MonitorMode {
+    const s = String(v || '').toLowerCase();
+    if (s === 'vollschutz') return 'vollschutz';
+    if (s === 'aussenhaut') return 'aussenhaut';
+    if (s === 'kamera') return 'kamera';
+    return 'perimeter';
+  }
+
+  private parseModeFlowSourceKind(v: any): ModeFlowSourceKind {
+    const s = String(v || '').toLowerCase();
+    if (s === 'persondetection') return 'personDetection';
+    if (s === 'camera') return 'camera';
+    return 'sensor';
+  }
+
+  private parseModeFlowAlarmLevel(v: any): ModeFlowAlarmLevel {
+    const s = String(v || '').toLowerCase();
+    if (s === 'interior_alarm') return 'interior_alarm';
+    if (s === 'full_alarm') return 'full_alarm';
+    return 'perimeter_alarm';
+  }
+
+  private parseModeFlowAutoAwayMode(v: any): ModeFlowAutoAwayMode {
+    const s = String(v || '').toLowerCase();
+    if (s === 'off') return 'off';
+    if (s === 'perimeter') return 'perimeter';
+    if (s === 'vollschutz') return 'vollschutz';
+    return 'legacy';
+  }
+
   private parseAlarmActionScenario(v: any): AlarmActionScenario {
     const s = String(v || '').toLowerCase();
     if (s === 'panic_on') return 'panic_on';
@@ -838,6 +980,14 @@ class AlarmSystemAdapter extends utils.Adapter {
     for (const p of this.cfg.checkRedOpenIds) ids.add(p);
     for (const p of this.cfg.checkYellowOpenIds) ids.add(p);
     for (const p of this.cfg.statusOpenIds) ids.add(p);
+    for (const cmdId of [
+      this.cfg.modeFlowAnnounceCommandId,
+      this.cfg.modeFlowPerimeterAlarmCommandId,
+      this.cfg.modeFlowInteriorAlarmCommandId,
+      this.cfg.modeFlowFullAlarmCommandId
+    ]) {
+      if (cmdId && !this.isOwnStateId(cmdId)) ids.add(cmdId);
+    }
     for (const id of ids) await this.subscribeForeignStatesAsync(id);
   }
 
@@ -868,7 +1018,11 @@ class AlarmSystemAdapter extends utils.Adapter {
       ['commands.disarmCameras', false],
       ['commands.telegramTestText', false],
       ['commands.telegramTestPhoto', false],
-      ['commands.telegramTestPhotoCaption', false]
+      ['commands.telegramTestPhotoCaption', false],
+      ['commands.announceAlarm', false],
+      ['commands.activatePerimeterAlarm', false],
+      ['commands.activateInteriorAlarm', false],
+      ['commands.activateFullAlarm', false]
     ];
     for (const [id, val] of defaults) await this.setStateAsync(id, val, true);
   }
@@ -951,6 +1105,22 @@ class AlarmSystemAdapter extends utils.Adapter {
       if (p.actionKind === 'snapshot') then = `Snapshot target: ${String(p.snapshotTargetKey || '-')}`;
       if (p.actionKind === 'camera_led') then = `Kamera-LED: ${String(p.cameraTargetKey || '-')}`;
       rules.push({ if: `PANIC ${p.when}`, then: `${then} (repeat ${p.repeatCount}x / ${p.repeatIntervalMs}ms)` });
+    }
+
+    for (const r of this.cfg.modeFlowRules) {
+      const actions: string[] = [];
+      actions.push(`Level=${r.alarmLevel}`);
+      if (r.announceBefore) actions.push(`announce +${r.announceDelaySec}s`);
+      if (r.actionSnapshotTriggerCamera) actions.push('snapshot(trigger-cam)');
+      if (r.actionCameraAlarmTriggerCamera) actions.push('cam-alarm(trigger-cam)');
+      if (r.actionCameraLedTriggerCamera) actions.push('cam-led(trigger-cam)');
+      if (r.actionCameraAlarmAll) actions.push('cam-alarm(all)');
+      if (r.actionCameraLedAll) actions.push('cam-led(all)');
+      if (r.actionAlexaSpeak) actions.push(`alexa="${String(r.actionAlexaText || '')}"`);
+      rules.push({
+        if: `ModeFlow ${r.mode} + ${r.sourceKind}:${r.sourceLabel} (${r.sourceZone})`,
+        then: actions.join(', ')
+      });
     }
 
     rules.push({
@@ -1079,6 +1249,37 @@ class AlarmSystemAdapter extends utils.Adapter {
         await this.sendTelegramTestPhoto('Test');
         await this.setStateAsync(local, false, true);
       }
+      if (local === 'commands.announceAlarm' && state.val === true) {
+        await this.executeModeFlowAnnounce('manuell');
+        await this.setStateAsync(local, false, true);
+      }
+      if (local === 'commands.activatePerimeterAlarm' && state.val === true) {
+        await this.activateModeFlowAlarmLevel('perimeter_alarm', {
+          sourceType: 'any',
+          sourceId: local,
+          sourceLabel: 'Perimeter Alarm Command',
+          armed: this.isAnyZoneArmed()
+        }, 'manuell');
+        await this.setStateAsync(local, false, true);
+      }
+      if (local === 'commands.activateInteriorAlarm' && state.val === true) {
+        await this.activateModeFlowAlarmLevel('interior_alarm', {
+          sourceType: 'any',
+          sourceId: local,
+          sourceLabel: 'Interior Alarm Command',
+          armed: this.isAnyZoneArmed()
+        }, 'manuell');
+        await this.setStateAsync(local, false, true);
+      }
+      if (local === 'commands.activateFullAlarm' && state.val === true) {
+        await this.activateModeFlowAlarmLevel('full_alarm', {
+          sourceType: 'any',
+          sourceId: local,
+          sourceLabel: 'Full Alarm Command',
+          armed: this.isAnyZoneArmed()
+        }, 'manuell');
+        await this.setStateAsync(local, false, true);
+      }
       if (local === 'runtime.simulationMode') {
         this.cfg.simulationMode = state.val === true;
       }
@@ -1089,6 +1290,42 @@ class AlarmSystemAdapter extends utils.Adapter {
       if (local === 'diagnostics.triggerLogDate' && typeof state.val === 'string') {
         await this.refreshTriggerLogState(state.val);
       }
+      return;
+    }
+
+    if (state.val === true && id === this.cfg.modeFlowAnnounceCommandId && !this.isOwnStateId(id)) {
+      await this.executeModeFlowAnnounce('extern');
+      await this.setOutput(id, false);
+      return;
+    }
+    if (state.val === true && id === this.cfg.modeFlowPerimeterAlarmCommandId && !this.isOwnStateId(id)) {
+      await this.activateModeFlowAlarmLevel('perimeter_alarm', {
+        sourceType: 'any',
+        sourceId: id,
+        sourceLabel: 'External Perimeter Alarm',
+        armed: this.isAnyZoneArmed()
+      }, 'extern');
+      await this.setOutput(id, false);
+      return;
+    }
+    if (state.val === true && id === this.cfg.modeFlowInteriorAlarmCommandId && !this.isOwnStateId(id)) {
+      await this.activateModeFlowAlarmLevel('interior_alarm', {
+        sourceType: 'any',
+        sourceId: id,
+        sourceLabel: 'External Interior Alarm',
+        armed: this.isAnyZoneArmed()
+      }, 'extern');
+      await this.setOutput(id, false);
+      return;
+    }
+    if (state.val === true && id === this.cfg.modeFlowFullAlarmCommandId && !this.isOwnStateId(id)) {
+      await this.activateModeFlowAlarmLevel('full_alarm', {
+        sourceType: 'any',
+        sourceId: id,
+        sourceLabel: 'External Full Alarm',
+        armed: this.isAnyZoneArmed()
+      }, 'extern');
+      await this.setOutput(id, false);
       return;
     }
 
@@ -1173,6 +1410,14 @@ class AlarmSystemAdapter extends utils.Adapter {
           armed: this.isAnyZoneArmed(),
           rawVal: state.val
         }, 'immediate');
+        await this.executeModeFlowRulesForTrigger({
+          sourceType: 'sensor',
+          sourceId: s.id,
+          sourceLabel: s.label,
+          armed: this.isAnyZoneArmed(),
+          zone: s.zone,
+          rawVal: state.val
+        });
         if (this.zoneArmed[s.zone]) {
           await this.writeDailyTriggerLog('sensor', s.label, s.id, s.zone, state.val);
           await this.tryTriggerConfiguredSnapshot(s.label, s.snapshotDatapointId, s.snapshotZoneMode, s.snapshotZones);
@@ -1198,6 +1443,14 @@ class AlarmSystemAdapter extends utils.Adapter {
           armed: this.isAnyZoneArmed(),
           rawVal: state.val
         }, 'immediate');
+        await this.executeModeFlowRulesForTrigger({
+          sourceType: 'personDetection',
+          sourceId: p.id,
+          sourceLabel: p.label,
+          armed: this.isAnyZoneArmed(),
+          zone: p.zone,
+          rawVal: state.val
+        });
         if (this.zoneArmed[p.zone]) {
           await this.writeDailyTriggerLog('personDetection', p.label, p.id, p.zone, state.val);
           await this.tryTriggerConfiguredSnapshot(p.label, p.snapshotDatapointId, p.snapshotZoneMode, p.snapshotZones);
@@ -1222,6 +1475,14 @@ class AlarmSystemAdapter extends utils.Adapter {
           armed: effectiveArmed,
           rawVal: state.val
         }, 'immediate');
+        await this.executeModeFlowRulesForTrigger({
+          sourceType: 'camera',
+          sourceId: cam.personDetectionDp || id,
+          sourceLabel: cam.label,
+          armed: effectiveArmed,
+          zone: 'perimeter',
+          rawVal: state.val
+        }, cam);
         if (effectiveArmed) {
           await this.writeDailyTriggerLog('camera', cam.label, cam.personDetectionDp || id, 'perimeter', state.val);
           await this.triggerCamera(cam);
@@ -1586,6 +1847,156 @@ class AlarmSystemAdapter extends utils.Adapter {
     }
   }
 
+  private isMonitorModeActive(mode: MonitorMode): boolean {
+    if (mode === 'vollschutz') return this.zoneArmed.perimeter && this.zoneArmed.aussenhaut && this.zoneArmed.innenraum;
+    if (mode === 'aussenhaut') return this.zoneArmed.aussenhaut;
+    if (mode === 'kamera') {
+      return this.camerasManualArmed || this.isAnyZoneArmed() || (this.cfg.cameraNightModeArmsCameras && this.isNightModeActive());
+    }
+    return this.zoneArmed.perimeter;
+  }
+
+  private isOwnStateId(id: string): boolean {
+    return String(id || '').startsWith(`${this.namespace}.`);
+  }
+
+  private ownLocalId(id: string): string {
+    const prefix = `${this.namespace}.`;
+    return this.isOwnStateId(id) ? id.slice(prefix.length) : '';
+  }
+
+  private async pulseCommandDatapoint(id: string, durationMs = 800): Promise<void> {
+    const dp = String(id || '').trim();
+    if (!dp) return;
+    const local = this.ownLocalId(dp);
+    if (local) {
+      await this.setStateAsync(local, true, true);
+      this.setTimeout(() => void this.setStateAsync(local, false, true), Math.max(100, durationMs));
+      return;
+    }
+    await this.setOutput(dp, true);
+    this.setTimeout(() => void this.setOutput(dp, false), Math.max(100, durationMs));
+  }
+
+  private getModeFlowLevelCommandId(level: ModeFlowAlarmLevel): string {
+    if (level === 'interior_alarm') return this.cfg.modeFlowInteriorAlarmCommandId;
+    if (level === 'full_alarm') return this.cfg.modeFlowFullAlarmCommandId;
+    return this.cfg.modeFlowPerimeterAlarmCommandId;
+  }
+
+  private getModeFlowLevelTelegramText(level: ModeFlowAlarmLevel): string {
+    if (level === 'interior_alarm') return String(this.cfg.modeFlowTelegramInteriorText || '').trim();
+    if (level === 'full_alarm') return String(this.cfg.modeFlowTelegramFullText || '').trim();
+    return String(this.cfg.modeFlowTelegramPerimeterText || '').trim();
+  }
+
+  private formatModeFlowText(template: string | undefined, ctx: AlarmActionContext, mode: MonitorMode, level: ModeFlowAlarmLevel): string {
+    return this.formatAlarmActionText(template, ctx)
+      .split('{mode}').join(String(mode || ''))
+      .split('{level}').join(String(level || ''));
+  }
+
+  private async triggerCameraSnapshotOnly(cam: CameraDef, labelOverride?: string): Promise<void> {
+    const url = this.applyCredentials(cam.snapshotUrl, cam.username, cam.password);
+    const label = String(labelOverride || cam.label || cam.key || cam.ip || 'Camera');
+    for (let i = 0; i < this.cfg.snapshotBurstCount; i++) {
+      const delay = this.cfg.snapshotDelayMs + i * this.cfg.snapshotBurstIntervalMs;
+      this.setTimeout(() => void this.sendSnapshot(url, label, i + 1), delay);
+    }
+  }
+
+  private async triggerAllCameraAlarmOutputs(): Promise<void> {
+    for (const id of this.cfg.cameraAlarmOnIds) await this.setOutput(id, true);
+    for (const cam of this.cfg.cameras) {
+      if (cam.alarmDatapoint) await this.setOutput(cam.alarmDatapoint, 1);
+    }
+  }
+
+  private async triggerAllCameraLeds(durationMs: number): Promise<void> {
+    for (const cam of this.cfg.cameras) {
+      if (!cam.ledDatapoint) continue;
+      await this.triggerCameraLed(cam, durationMs);
+    }
+  }
+
+  private async executeModeFlowAnnounce(reason: string): Promise<void> {
+    await this.pulseCommandDatapoint(this.cfg.modeFlowAnnounceCommandId, 1200);
+    await this.logEvent('info', 'mode_flow_announce', `ModeFlow announce (${reason})`, this.activeCaseId || undefined);
+  }
+
+  private async activateModeFlowAlarmLevel(level: ModeFlowAlarmLevel, ctx: AlarmActionContext, reason: string, mode: MonitorMode = 'perimeter'): Promise<void> {
+    const cmdId = this.getModeFlowLevelCommandId(level);
+    await this.pulseCommandDatapoint(cmdId, 1200);
+
+    if (level === 'perimeter_alarm') {
+      await this.triggerAllCameraAlarmOutputs();
+    } else if (level === 'interior_alarm') {
+      await this.setOutput(this.cfg.sirenStateId, true);
+    } else {
+      await this.triggerAllCameraAlarmOutputs();
+      await this.setOutput(this.cfg.sirenStateId, true);
+      for (const id of this.cfg.reolinkSirenIds) await this.setOutput(id, 20);
+    }
+
+    const text = this.getModeFlowLevelTelegramText(level);
+    if (text) {
+      await this.sendTelegramText(this.formatModeFlowText(text, ctx, mode, level));
+    }
+    await this.logEvent('alarm', 'mode_flow_level', `ModeFlow ${level} aktiviert (${reason})`, ctx.caseId || this.activeCaseId || undefined);
+  }
+
+  private async executeModeFlowRuleActions(row: ModeFlowRuleDef, ctx: AlarmActionContext, triggerCam?: CameraDef): Promise<void> {
+    if (row.actionSnapshotTriggerCamera) {
+      if (triggerCam) await this.triggerCameraSnapshotOnly(triggerCam, triggerCam.label);
+      else await this.logEvent('warn', 'mode_flow_snapshot_missing_cam', `ModeFlow ${row.label}: triggernde Kamera fehlt`, ctx.caseId);
+    }
+    if (row.actionCameraAlarmTriggerCamera) {
+      if (triggerCam?.alarmDatapoint) await this.setOutput(triggerCam.alarmDatapoint, 1);
+      else await this.logEvent('warn', 'mode_flow_cam_alarm_missing', `ModeFlow ${row.label}: Kamera-Alarm-DP fehlt`, ctx.caseId);
+    }
+    if (row.actionCameraLedTriggerCamera) {
+      if (triggerCam?.ledDatapoint) await this.triggerCameraLed(triggerCam, 10000);
+      else await this.logEvent('warn', 'mode_flow_cam_led_missing', `ModeFlow ${row.label}: Kamera-LED-DP fehlt`, ctx.caseId);
+    }
+    if (row.actionCameraAlarmAll) await this.triggerAllCameraAlarmOutputs();
+    if (row.actionCameraLedAll) await this.triggerAllCameraLeds(10000);
+    if (row.actionAlexaSpeak && this.cfg.speakId) {
+      const speak = this.formatModeFlowText(row.actionAlexaText || '', ctx, row.mode, row.alarmLevel).trim();
+      if (speak) await this.setOutput(this.cfg.speakId, speak);
+    }
+  }
+
+  private async runModeFlowRule(row: ModeFlowRuleDef, ctx: AlarmActionContext, triggerCam?: CameraDef): Promise<void> {
+    const runLevelAndActions = async (): Promise<void> => {
+      await this.activateModeFlowAlarmLevel(row.alarmLevel, ctx, `rule:${row.label}`, row.mode);
+      await this.executeModeFlowRuleActions(row, ctx, triggerCam);
+    };
+    if (row.announceBefore) {
+      await this.executeModeFlowAnnounce(`rule:${row.label}`);
+      const delayMs = Math.max(0, Number(row.announceDelaySec || 0) * 1000);
+      this.setTimeout(() => void runLevelAndActions(), delayMs);
+      return;
+    }
+    await runLevelAndActions();
+  }
+
+  private async executeModeFlowRulesForTrigger(ctx: AlarmActionContext, triggerCam?: CameraDef): Promise<void> {
+    const sourceType: ModeFlowSourceKind = ctx.sourceType === 'camera' ? 'camera' : (ctx.sourceType === 'personDetection' ? 'personDetection' : 'sensor');
+    const srcId = String(ctx.sourceId || '').trim();
+    if (!srcId) return;
+    const rules = this.cfg.modeFlowRules.filter(r =>
+      r.enabled
+      && r.sourceKind === sourceType
+      && r.sourceId === srcId
+      && (r.sourceZone === 'any' || (ctx.zone ? r.sourceZone === ctx.zone : false))
+    );
+    if (!rules.length) return;
+    for (const row of rules) {
+      if (!this.isMonitorModeActive(row.mode)) continue;
+      await this.runModeFlowRule(row, ctx, triggerCam);
+    }
+  }
+
   private async executePanicActions(active: boolean): Promise<void> {
     const rows = this.cfg.panicActions.filter(r => r.when === (active ? 'on' : 'off'));
     for (const row of rows) {
@@ -1801,15 +2212,22 @@ class AlarmSystemAdapter extends utils.Adapter {
       this.autoArmTimer = null;
       return;
     }
+    if (this.cfg.modeFlowAutoAwayMode === 'off') {
+      if (this.autoArmTimer) this.clearTimeout(this.autoArmTimer);
+      this.autoArmTimer = null;
+      return;
+    }
     if (this.autoArmTimer || this.zoneArmed.perimeter || this.zoneArmed.aussenhaut || this.zoneArmed.innenraum) return;
-    const pendingMsg = this.formatWithDelay(this.cfg.autoAwayPendingTelegramText, this.cfg.autoArmDelaySec).trim();
+    if (!this.cfg.autoAwayArmZones.length) return;
+    const delaySec = Math.max(0, Number(this.cfg.modeFlowAutoAwayDelaySec || this.cfg.autoArmDelaySec || 60));
+    const pendingMsg = this.formatWithDelay(this.cfg.autoAwayPendingTelegramText, delaySec).trim();
     if (pendingMsg) await this.sendTelegramText(pendingMsg, this.cfg.autoAwayChatIds);
     this.autoArmTimer = this.setTimeout(async () => {
       this.autoArmTimer = null;
       await this.armZones(this.cfg.autoAwayArmZones);
       const armedMsg = String(this.cfg.autoAwayArmedTelegramText || '').trim();
       if (armedMsg) await this.sendTelegramText(armedMsg, this.cfg.autoAwayChatIds);
-    }, this.cfg.autoArmDelaySec * 1000) ?? null;
+    }, delaySec * 1000) ?? null;
   }
 
   private async handleBedtimePerimeter(): Promise<void> {
@@ -1823,6 +2241,28 @@ class AlarmSystemAdapter extends utils.Adapter {
       await this.armZone('perimeter');
       await this.sendTelegramText('Schlafenszeit erkannt! Perimeterschutz wurde aktiviert!');
     }
+  }
+
+  private startSunsetAutomationCheck(): void {
+    if (this.sunsetAutoTimer) this.clearInterval(this.sunsetAutoTimer);
+    this.sunsetAutoTimer = this.setInterval(() => void this.runSunsetAutomation(), 60000) ?? null;
+    void this.runSunsetAutomation();
+  }
+
+  private async runSunsetAutomation(): Promise<void> {
+    if (!this.cfg.modeFlowAutoPerimeterAfterSunsetEnabled) return;
+    const now = new Date();
+    const day = this.dayString(now);
+    if (!this.isNightModeActive()) return;
+    if (this.lastSunsetAutoArmDay === day) return;
+    if (this.zoneArmed.perimeter && this.zoneArmed.aussenhaut) {
+      this.lastSunsetAutoArmDay = day;
+      return;
+    }
+    await this.armZone('perimeter');
+    await this.armZone('aussenhaut');
+    this.lastSunsetAutoArmDay = day;
+    await this.logEvent('info', 'mode_flow_auto_sunset', 'Perimeterschutz nach Sonnenuntergang automatisch aktiviert');
   }
 
   private isStatusRelatedInputId(id: string): boolean {

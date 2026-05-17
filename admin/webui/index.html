@@ -371,6 +371,120 @@
         </div>
         <div id="quickAlarmActionsList" class="sensor-list" style="margin-top:10px"></div>
       </section>
+      <section class="card" id="modeFlowCard">
+        <h2>Modus-Flow Automationen</h2>
+        <p class="muted">Node-Red-artige Logik: Modus → Trigger-Element → Alarmebene → Aktionen. Diese Card ist zusätzlich zu „Alarm Actions“ und verändert diese nicht.</p>
+
+        <div class="mode-flow-board">
+          <article class="mode-flow-node">
+            <h3>1) Überwachungsmodus</h3>
+            <label>
+              Modus
+              <select id="modeFlowModeSelect">
+                <option value="vollschutz">Vollschutz</option>
+                <option value="aussenhaut">Außenhaut</option>
+                <option value="perimeter">Perimeter</option>
+                <option value="kamera">Kamera</option>
+              </select>
+            </label>
+            <label>
+              Regelname (optional)
+              <input id="modeFlowRuleLabel" type="text" placeholder="z.B. Perimeter Haustür -> Full Alarm" />
+            </label>
+          </article>
+
+          <article class="mode-flow-node">
+            <h3>2) Trigger-Elemente</h3>
+            <label>
+              Suche
+              <input id="modeFlowSourceSearch" type="text" placeholder="min. 2 Zeichen (Label/ID/Zone)" />
+            </label>
+            <div id="modeFlowSourceList" class="mode-flow-source-list"></div>
+          </article>
+
+          <article class="mode-flow-node">
+            <h3>3) Alarmebene</h3>
+            <label>
+              Ebene
+              <select id="modeFlowAlarmLevel">
+                <option value="perimeter_alarm">PerimeterAlarm (Camera-Ton)</option>
+                <option value="interior_alarm">InteriorAlarm (Innensirene)</option>
+                <option value="full_alarm">FullAlarm (alles)</option>
+              </select>
+            </label>
+            <label>
+              Vorher ankündigen
+              <select id="modeFlowAnnounceBefore">
+                <option value="false">nein</option>
+                <option value="true">ja (announceAlarm)</option>
+              </select>
+            </label>
+            <label>
+              Ankündigungs-Timer (s)
+              <input id="modeFlowAnnounceDelaySec" type="number" min="0" value="20" />
+            </label>
+          </article>
+
+          <article class="mode-flow-node">
+            <h3>4) Aktionen</h3>
+            <fieldset class="multi-select-group">
+              <legend>Bei Trigger ausführen</legend>
+              <label class="check-row"><input id="modeFlowActionSnapshotTriggerCamera" type="checkbox" /> Triggernde Kamera: Snapshot senden</label>
+              <label class="check-row"><input id="modeFlowActionCameraAlarmTriggerCamera" type="checkbox" /> Triggernde Kamera: Alarm abspielen</label>
+              <label class="check-row"><input id="modeFlowActionCameraLedTriggerCamera" type="checkbox" /> Triggernde Kamera: LED einschalten</label>
+              <label class="check-row"><input id="modeFlowActionCameraAlarmAll" type="checkbox" /> Alle Kameras: Alarm auslösen</label>
+              <label class="check-row"><input id="modeFlowActionCameraLedAll" type="checkbox" /> Alle Kameras: LED einschalten</label>
+              <label class="check-row"><input id="modeFlowActionAlexaSpeak" type="checkbox" /> Alexa Speak</label>
+            </fieldset>
+            <label>
+              Alexa Text
+              <input id="modeFlowActionAlexaText" type="text" placeholder="z.B. Achtung, Alarm in {mode} ({level}) bei {trigger}" />
+            </label>
+          </article>
+        </div>
+
+        <div class="row">
+          <button id="addModeFlowRuleBtn" class="btn primary">Flow-Regel(n) hinzufügen</button>
+          <span id="modeFlowRuleResult" class="muted"></span>
+        </div>
+        <div id="modeFlowRulesList" class="sensor-list" style="margin-top:10px"></div>
+
+        <h3 class="subhead">Alarmebenen Datapoints</h3>
+        <div class="fields">
+          <label>announceAlarm Datapoint<input id="modeFlowAnnounceCommandId" type="text" placeholder="alarmsystem.0.commands.announceAlarm" /></label>
+          <label>PerimeterAlarm Datapoint<input id="modeFlowPerimeterCommandId" type="text" placeholder="alarmsystem.0.commands.activatePerimeterAlarm" /></label>
+          <label>InteriorAlarm Datapoint<input id="modeFlowInteriorCommandId" type="text" placeholder="alarmsystem.0.commands.activateInteriorAlarm" /></label>
+          <label>FullAlarm Datapoint<input id="modeFlowFullCommandId" type="text" placeholder="alarmsystem.0.commands.activateFullAlarm" /></label>
+        </div>
+
+        <h3 class="subhead">Telegram pro Alarmebene</h3>
+        <div class="fields">
+          <label>PerimeterAlarm Text<input id="modeFlowTelegramPerimeterText" type="text" placeholder="z.B. Perimeter Alarm: {trigger} ({mode})" /></label>
+          <label>InteriorAlarm Text<input id="modeFlowTelegramInteriorText" type="text" placeholder="z.B. Innenalarm: {trigger} ({mode})" /></label>
+          <label>FullAlarm Text<input id="modeFlowTelegramFullText" type="text" placeholder="z.B. Vollalarm: {trigger} ({mode})" /></label>
+        </div>
+
+        <h3 class="subhead">Automationen</h3>
+        <div class="fields">
+          <label>Perimeterschutz nach Sonnenuntergang
+            <select id="modeFlowAutoPerimeterAfterSunsetEnabled">
+              <option value="false">aus</option>
+              <option value="true">an</option>
+            </select>
+          </label>
+          <label>Wenn niemand zuhause ist
+            <select id="modeFlowAutoAwayMode">
+              <option value="legacy">legacy (Globale Parameter)</option>
+              <option value="off">aus</option>
+              <option value="perimeter">Perimeterschutz aktivieren</option>
+              <option value="vollschutz">Vollschutz aktivieren</option>
+            </select>
+          </label>
+          <label>Auto-Arm Delay (s)
+            <input id="modeFlowAutoAwayDelaySec" type="number" min="0" value="60" />
+          </label>
+        </div>
+      </section>
       <section class="card">
         <h2>Alarm Actions</h2>
         <p class="muted">Zonen → Sensoren/Kameras → Trigger → Aktoren (Datapoint, Telegram, Alexa, Snapshot). Hinweise zeigen mögliche Überschneidungen mit Element-Regeln.</p>

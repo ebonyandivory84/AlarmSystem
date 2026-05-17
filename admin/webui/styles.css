@@ -246,6 +246,70 @@ label{display:grid;gap:6px;min-width:220px} input,select,textarea{background:var
 .status-shield.disarmed{color:#8fffb6;border-color:#2f8a45;background:linear-gradient(180deg,rgba(30,120,56,.28),rgba(9,22,14,.85))}
 .status-shield.perimeter{color:#ffe8a1;border-color:#b5962d;background:linear-gradient(180deg,rgba(121,97,20,.32),rgba(23,19,8,.86))}
 .status-shield.armed{color:#ffd9d9;border-color:#a22;background:linear-gradient(180deg,rgba(142,26,36,.36),rgba(30,9,12,.88))}
+.mode-flow-board{
+  margin-top:10px;
+  display:grid;
+  grid-template-columns:repeat(4,minmax(220px,1fr));
+  gap:14px;
+  position:relative;
+}
+.mode-flow-board::before{
+  content:"";
+  position:absolute;
+  left:12%;
+  right:12%;
+  top:34px;
+  border-top:1px dashed rgba(107,183,255,.48);
+  z-index:0;
+}
+.mode-flow-node{
+  position:relative;
+  z-index:1;
+  border:1px solid rgba(120,132,148,.35);
+  border-radius:12px;
+  padding:12px;
+  background:linear-gradient(165deg,rgba(20,26,34,.62),rgba(8,10,13,.84));
+  display:grid;
+  gap:8px;
+  min-height:220px;
+}
+.mode-flow-node h3{
+  margin:0;
+  font-size:.92rem;
+  color:#d7e6ff;
+}
+.mode-flow-source-list{
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:10px;
+  background:rgba(5,8,10,.72);
+  max-height:260px;
+  overflow:auto;
+  padding:8px;
+  display:grid;
+  gap:6px;
+}
+.mode-flow-source-item{
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
+  font-size:.86rem;
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:8px;
+  padding:6px 8px;
+  background:rgba(18,22,28,.56);
+}
+.mode-flow-source-item input{
+  width:16px;
+  height:16px;
+  min-height:16px;
+  margin-top:1px;
+}
+.mode-flow-source-item .meta{
+  display:block;
+  color:#98a7bc;
+  font-size:.74rem;
+  margin-top:2px;
+}
 details summary{cursor:pointer;color:var(--muted);font-weight:600}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50}.modal.hidden{display:none}.modal-inner{position:relative;width:min(1300px,96vw);height:min(860px,92vh);background:#0f0f0f;border:1px solid var(--line-strong);border-radius:16px;padding:16px}
 #entitySettingsModal{z-index:55}
@@ -652,6 +716,12 @@ body.overview-layout-floating #overviewPage .panic-btn{
   .object-browser-layout{
     grid-template-columns:1fr;
     height:calc(100% - 120px);
+  }
+  .mode-flow-board{
+    grid-template-columns:1fr;
+  }
+  .mode-flow-board::before{
+    display:none;
   }
   .object-results,.object-tree{
     min-height:180px;
