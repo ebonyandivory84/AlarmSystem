@@ -243,6 +243,110 @@
         </div>
       </section>
       <section class="card">
+        <h2>Alarm Actions</h2>
+        <p class="muted">Zonen → Sensoren/Kameras → Trigger → Aktoren (Datapoint, Telegram, Alexa). Hinweise zeigen mögliche Überschneidungen mit Element-Regeln.</p>
+        <div id="alarmActionConflictHint" class="status" style="margin-top:10px;white-space:pre-wrap"></div>
+
+        <h3 class="subhead">Trigger-Aktion hinzufügen</h3>
+        <div class="fields">
+          <label>Szenario
+            <select id="alarmActionScenario">
+              <option value="zone_trigger">Zone Trigger</option>
+              <option value="panic_on">PANIC an</option>
+              <option value="panic_off">PANIC aus</option>
+            </select>
+          </label>
+          <label>Zone
+            <select id="alarmActionZone">
+              <option value="any">any</option>
+              <option value="perimeter">perimeter</option>
+              <option value="aussenhaut">aussenhaut</option>
+              <option value="innenraum">innenraum</option>
+            </select>
+          </label>
+          <label>Trigger-Typ
+            <select id="alarmActionTriggerType">
+              <option value="any">any</option>
+              <option value="sensor">Sensor</option>
+              <option value="personDetection">PersonDetection</option>
+              <option value="camera">Camera</option>
+            </select>
+          </label>
+          <label>Trigger-Element
+            <select id="alarmActionTriggerEntity"></select>
+          </label>
+          <label>Scharfstatus
+            <select id="alarmActionArmedMode">
+              <option value="any">any</option>
+              <option value="armed">armed</option>
+              <option value="unarmed">unarmed</option>
+            </select>
+          </label>
+          <label>Aktion
+            <select id="alarmActionKind">
+              <option value="datapoint">Datapoint setzen</option>
+              <option value="telegram">Telegram senden</option>
+              <option value="alexa">Alexa Speak</option>
+            </select>
+          </label>
+          <label id="alarmActionDpWrap">
+            Datapoint ID
+            <span class="input-wrap">
+              <input id="alarmActionDatapointId" class="state-input" list="stateIds" type="text" />
+              <button id="browseAlarmActionDatapointBtn" class="icon-btn" type="button" title="Objektbrowser öffnen">🔎</button>
+            </span>
+          </label>
+          <label id="alarmActionOnWrap">On-Value<input id="alarmActionOnValue" type="text" placeholder="true / 1 / on" /></label>
+          <label id="alarmActionOffWrap">Off-Value (optional)<input id="alarmActionOffValue" type="text" placeholder="false / 0 / off" /></label>
+          <label id="alarmActionDurationWrap">Timer ms (optional)<input id="alarmActionDurationMs" type="number" min="0" placeholder="z.B. 10000" /></label>
+          <label id="alarmActionRepeatCountWrap">Wiederholungen<input id="alarmActionRepeatCount" type="number" min="1" value="1" /></label>
+          <label id="alarmActionRepeatIntervalWrap">Intervall ms<input id="alarmActionRepeatIntervalMs" type="number" min="0" value="1000" /></label>
+          <label id="alarmActionTelegramWrap">Telegram Nachricht<input id="alarmActionTelegramText" type="text" placeholder="Alarm: {trigger} in {zone}" /></label>
+          <label id="alarmActionAlexaWrap">Alexa Speak Text<input id="alarmActionAlexaText" type="text" placeholder="Achtung, Alarm ausgelöst." /></label>
+        </div>
+        <div class="row">
+          <button id="addAlarmActionBtn" class="btn">Alarm Action hinzufügen</button>
+          <span id="alarmActionResult" class="muted"></span>
+        </div>
+        <div id="alarmActionsList" class="sensor-list" style="margin-top:10px"></div>
+
+        <h3 class="subhead">PANIC Actions</h3>
+        <div class="fields">
+          <label>Bei PANIC
+            <select id="panicActionWhen">
+              <option value="on">an</option>
+              <option value="off">aus</option>
+            </select>
+          </label>
+          <label>Aktion
+            <select id="panicActionKind">
+              <option value="datapoint">Datapoint setzen</option>
+              <option value="telegram">Telegram senden</option>
+              <option value="alexa">Alexa Speak</option>
+            </select>
+          </label>
+          <label id="panicActionDpWrap">
+            Datapoint ID
+            <span class="input-wrap">
+              <input id="panicActionDatapointId" class="state-input" list="stateIds" type="text" />
+              <button id="browsePanicActionDatapointBtn" class="icon-btn" type="button" title="Objektbrowser öffnen">🔎</button>
+            </span>
+          </label>
+          <label id="panicActionOnWrap">On-Value<input id="panicActionOnValue" type="text" placeholder="true / 1 / on" /></label>
+          <label id="panicActionOffWrap">Off-Value (optional)<input id="panicActionOffValue" type="text" placeholder="false / 0 / off" /></label>
+          <label id="panicActionDurationWrap">Timer ms (optional)<input id="panicActionDurationMs" type="number" min="0" placeholder="z.B. 10000" /></label>
+          <label id="panicActionRepeatCountWrap">Wiederholungen<input id="panicActionRepeatCount" type="number" min="1" value="1" /></label>
+          <label id="panicActionRepeatIntervalWrap">Intervall ms<input id="panicActionRepeatIntervalMs" type="number" min="0" value="1000" /></label>
+          <label id="panicActionTelegramWrap">Telegram Nachricht<input id="panicActionTelegramText" type="text" placeholder="PANIC wurde aktiviert." /></label>
+          <label id="panicActionAlexaWrap">Alexa Speak Text<input id="panicActionAlexaText" type="text" placeholder="Panic Alarm aktiv." /></label>
+        </div>
+        <div class="row">
+          <button id="addPanicActionBtn" class="btn">PANIC Action hinzufügen</button>
+          <span id="panicActionResult" class="muted"></span>
+        </div>
+        <div id="panicActionsList" class="sensor-list" style="margin-top:10px"></div>
+      </section>
+      <section class="card">
         <h2>Geofence / Abwesenheit</h2>
         <h3 class="subhead">Wenn niemand zuhause ist (Auto-Arm)</h3>
         <div class="fields">
@@ -331,7 +435,7 @@
         <p class="muted">Tipp: Beschriftungen/Quadratmeter können nur über eine bereinigte Bilddatei entfernt werden.</p>
       </section>
       <section class="card">
-        <h2>Zonen-Aktoren bei Alarmtrigger</h2>
+        <h2>Zonen-Aktoren bei Alarmtrigger (Legacy)</h2>
         <div class="fields">
           <label>Zone<select id="zoneActionZone"><option value="perimeter">perimeter</option><option value="aussenhaut">aussenhaut</option><option value="innenraum">innenraum</option></select></label>
           <label>Key<input id="zoneActionKey" type="text" placeholder="z.B. licht_eg" /></label>

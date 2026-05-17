@@ -556,6 +556,8 @@
       }
     ],
     "zoneActionsTable": [],
+    "alarmActionsTable": [],
+    "panicActionsTable": [],
     "floorplanEgImage": "./assets/EG.jpg",
     "floorplanOgImage": "./assets/OG.jpg",
     "floorLayoutsJson": "",

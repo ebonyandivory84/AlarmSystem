@@ -58,6 +58,55 @@
     presenceList: $('presenceList'),
     zoneActionsList: $('zoneActionsList'),
     zoneActionResult: $('zoneActionResult'),
+    alarmActionConflictHint: $('alarmActionConflictHint'),
+    alarmActionsList: $('alarmActionsList'),
+    alarmActionResult: $('alarmActionResult'),
+    alarmActionScenario: $('alarmActionScenario'),
+    alarmActionZone: $('alarmActionZone'),
+    alarmActionTriggerType: $('alarmActionTriggerType'),
+    alarmActionTriggerEntity: $('alarmActionTriggerEntity'),
+    alarmActionArmedMode: $('alarmActionArmedMode'),
+    alarmActionKind: $('alarmActionKind'),
+    alarmActionDatapointId: $('alarmActionDatapointId'),
+    alarmActionOnValue: $('alarmActionOnValue'),
+    alarmActionOffValue: $('alarmActionOffValue'),
+    alarmActionDurationMs: $('alarmActionDurationMs'),
+    alarmActionRepeatCount: $('alarmActionRepeatCount'),
+    alarmActionRepeatIntervalMs: $('alarmActionRepeatIntervalMs'),
+    alarmActionTelegramText: $('alarmActionTelegramText'),
+    alarmActionAlexaText: $('alarmActionAlexaText'),
+    alarmActionDpWrap: $('alarmActionDpWrap'),
+    alarmActionOnWrap: $('alarmActionOnWrap'),
+    alarmActionOffWrap: $('alarmActionOffWrap'),
+    alarmActionDurationWrap: $('alarmActionDurationWrap'),
+    alarmActionRepeatCountWrap: $('alarmActionRepeatCountWrap'),
+    alarmActionRepeatIntervalWrap: $('alarmActionRepeatIntervalWrap'),
+    alarmActionTelegramWrap: $('alarmActionTelegramWrap'),
+    alarmActionAlexaWrap: $('alarmActionAlexaWrap'),
+    browseAlarmActionDatapointBtn: $('browseAlarmActionDatapointBtn'),
+    addAlarmActionBtn: $('addAlarmActionBtn'),
+    panicActionsList: $('panicActionsList'),
+    panicActionResult: $('panicActionResult'),
+    panicActionWhen: $('panicActionWhen'),
+    panicActionKind: $('panicActionKind'),
+    panicActionDatapointId: $('panicActionDatapointId'),
+    panicActionOnValue: $('panicActionOnValue'),
+    panicActionOffValue: $('panicActionOffValue'),
+    panicActionDurationMs: $('panicActionDurationMs'),
+    panicActionRepeatCount: $('panicActionRepeatCount'),
+    panicActionRepeatIntervalMs: $('panicActionRepeatIntervalMs'),
+    panicActionTelegramText: $('panicActionTelegramText'),
+    panicActionAlexaText: $('panicActionAlexaText'),
+    panicActionDpWrap: $('panicActionDpWrap'),
+    panicActionOnWrap: $('panicActionOnWrap'),
+    panicActionOffWrap: $('panicActionOffWrap'),
+    panicActionDurationWrap: $('panicActionDurationWrap'),
+    panicActionRepeatCountWrap: $('panicActionRepeatCountWrap'),
+    panicActionRepeatIntervalWrap: $('panicActionRepeatIntervalWrap'),
+    panicActionTelegramWrap: $('panicActionTelegramWrap'),
+    panicActionAlexaWrap: $('panicActionAlexaWrap'),
+    browsePanicActionDatapointBtn: $('browsePanicActionDatapointBtn'),
+    addPanicActionBtn: $('addPanicActionBtn'),
     telegramInstancesList: $('telegramInstancesList'),
     telegramTargetsList: $('telegramTargetsList'),
     telegramConfigInfo: $('telegramConfigInfo'),
@@ -519,6 +568,8 @@
       }
     });
     if (!Array.isArray(state.config.zoneActionsTable)) state.config.zoneActionsTable = [];
+    if (!Array.isArray(state.config.alarmActionsTable)) state.config.alarmActionsTable = [];
+    if (!Array.isArray(state.config.panicActionsTable)) state.config.panicActionsTable = [];
     if (!Array.isArray(state.config.telegramInstancesTable)) {
       let parsed = [];
       try {
@@ -1515,6 +1566,7 @@
     bindEditorInteractions(ui.mini);
     if (ui.full) bindEditorInteractions(ui.full);
     refreshDesignerBindingPanel();
+    renderAlarmActionsCard();
   }
 
   function tidyCanvasLayout() {
@@ -3424,6 +3476,12 @@
     state.config.telegramTargetsTable = (state.config.telegramTargetsTable || [])
       .map(normalizeTelegramTargetRow)
       .filter(r => r.instance && r.chatId);
+    state.config.alarmActionsTable = (state.config.alarmActionsTable || [])
+      .map(normalizeAlarmActionRow)
+      .filter(r => r.actionKind && r.scenario);
+    state.config.panicActionsTable = (state.config.panicActionsTable || [])
+      .map(normalizePanicActionRow)
+      .filter(r => r.actionKind && r.when);
   }
 
   function renderZoneActions() {
@@ -3443,6 +3501,275 @@
       const pulse = Number(r.pulseMs || 0) > 0 ? `${Number(r.pulseMs)}ms` : '-';
       return `<div class="sensor-item"><span>${label} [${zone}]<br><span class="muted">${dp} | on=${onValue} | off=${offValue} | pulse=${pulse}</span></span><button class="btn danger" data-del-zone-action="${idx}">Löschen</button></div>`;
     }).join('');
+  }
+
+  function normalizeAlarmActionRow(row) {
+    const scenario = ['zone_trigger', 'panic_on', 'panic_off'].includes(String(row?.scenario || ''))
+      ? String(row.scenario)
+      : 'zone_trigger';
+    const actionKind = ['datapoint', 'telegram', 'alexa'].includes(String(row?.actionKind || ''))
+      ? String(row.actionKind)
+      : 'datapoint';
+    const triggerSource = ['any', 'sensor', 'personDetection', 'camera'].includes(String(row?.triggerSource || ''))
+      ? String(row.triggerSource)
+      : 'any';
+    const zone = ['any', 'perimeter', 'aussenhaut', 'innenraum'].includes(String(row?.zone || ''))
+      ? String(row.zone)
+      : 'any';
+    const armedMode = ['any', 'armed', 'unarmed'].includes(String(row?.armedMode || ''))
+      ? String(row.armedMode)
+      : 'any';
+    const repeatCount = Math.max(1, Number(row?.repeatCount || 1));
+    const repeatIntervalMs = Math.max(0, Number(row?.repeatIntervalMs || 1000));
+    const durationMs = Math.max(0, Number(row?.durationMs || 0));
+    return {
+      key: String(row?.key || row?.datapointId || row?.triggerEntityId || `action_${Date.now()}`),
+      label: String(row?.label || row?.key || row?.datapointId || 'Alarm Action').trim(),
+      scenario,
+      zone,
+      triggerSource,
+      triggerEntityId: String(row?.triggerEntityId || '').trim(),
+      armedMode,
+      actionKind,
+      datapointId: String(row?.datapointId || '').trim(),
+      onValue: String(row?.onValue ?? (actionKind === 'datapoint' ? 'true' : '')).trim(),
+      offValue: String(row?.offValue ?? '').trim(),
+      durationMs: Number.isFinite(durationMs) ? durationMs : 0,
+      repeatCount: Number.isFinite(repeatCount) ? repeatCount : 1,
+      repeatIntervalMs: Number.isFinite(repeatIntervalMs) ? repeatIntervalMs : 1000,
+      telegramText: String(row?.telegramText || '').trim(),
+      alexaText: String(row?.alexaText || '').trim()
+    };
+  }
+
+  function normalizePanicActionRow(row) {
+    const when = ['on', 'off'].includes(String(row?.when || '')) ? String(row.when) : 'on';
+    const actionKind = ['datapoint', 'telegram', 'alexa'].includes(String(row?.actionKind || ''))
+      ? String(row.actionKind)
+      : 'datapoint';
+    const repeatCount = Math.max(1, Number(row?.repeatCount || 1));
+    const repeatIntervalMs = Math.max(0, Number(row?.repeatIntervalMs || 1000));
+    const durationMs = Math.max(0, Number(row?.durationMs || 0));
+    return {
+      key: String(row?.key || row?.datapointId || `panic_${Date.now()}`),
+      label: String(row?.label || row?.key || row?.datapointId || `PANIC ${when}`).trim(),
+      when,
+      actionKind,
+      datapointId: String(row?.datapointId || '').trim(),
+      onValue: String(row?.onValue ?? (actionKind === 'datapoint' ? 'true' : '')).trim(),
+      offValue: String(row?.offValue ?? '').trim(),
+      durationMs: Number.isFinite(durationMs) ? durationMs : 0,
+      repeatCount: Number.isFinite(repeatCount) ? repeatCount : 1,
+      repeatIntervalMs: Number.isFinite(repeatIntervalMs) ? repeatIntervalMs : 1000,
+      telegramText: String(row?.telegramText || '').trim(),
+      alexaText: String(row?.alexaText || '').trim()
+    };
+  }
+
+  function alarmTriggerTypeLabel(v) {
+    if (v === 'sensor') return 'Sensor';
+    if (v === 'personDetection') return 'PersonDetection';
+    if (v === 'camera') return 'Camera';
+    return 'any';
+  }
+
+  function alarmScenarioLabel(v) {
+    if (v === 'panic_on') return 'PANIC an';
+    if (v === 'panic_off') return 'PANIC aus';
+    return 'Zone Trigger';
+  }
+
+  function alarmActionKindLabel(v) {
+    if (v === 'telegram') return 'Telegram';
+    if (v === 'alexa') return 'Alexa';
+    return 'Datapoint';
+  }
+
+  function getAlarmTriggerEntities() {
+    ensureTables();
+    const out = [];
+    const push = (kind, zone, id, label) => {
+      const zid = String(zone || 'perimeter');
+      const rid = String(id || '').trim();
+      if (!rid) return;
+      out.push({
+        kind,
+        zone: ['perimeter', 'aussenhaut', 'innenraum'].includes(zid) ? zid : 'perimeter',
+        id: rid,
+        label: String(label || rid).trim()
+      });
+    };
+    (state.config.pirSensorsTable || []).forEach(r => push('sensor', r.zone, r.id, r.label || r.key || r.id));
+    (state.config.contactSensorsTable || []).forEach(r => push('sensor', r.zone, r.id, r.label || r.key || r.id));
+    (state.config.personDetectionTable || []).forEach(r => push('personDetection', r.zone, r.id, r.label || r.key || r.id));
+    (state.config.camerasTable || []).forEach(r => push('camera', r.zone, r.personDetectionDp, r.label || r.key || r.personDetectionDp));
+    return out.sort((a, b) => a.label.localeCompare(b.label, 'de'));
+  }
+
+  function refreshAlarmActionTriggerEntityOptions() {
+    if (!ui.alarmActionTriggerEntity) return;
+    const triggerType = String(ui.alarmActionTriggerType?.value || 'any');
+    const current = String(ui.alarmActionTriggerEntity.value || '').trim();
+    const rows = getAlarmTriggerEntities().filter(r => triggerType === 'any' || r.kind === triggerType);
+    const opts = ['<option value="">any</option>'].concat(rows.map(r => {
+      const txt = `${r.label} [${alarmTriggerTypeLabel(r.kind)} | ${r.zone}]`;
+      return `<option value="${htmlEsc(r.id)}">${htmlEsc(txt)}</option>`;
+    }));
+    ui.alarmActionTriggerEntity.innerHTML = opts.join('');
+    if (current && rows.some(r => r.id === current)) ui.alarmActionTriggerEntity.value = current;
+  }
+
+  function setWrapVisible(el, visible) {
+    if (!el) return;
+    el.classList.toggle('hidden', !visible);
+  }
+
+  function updateAlarmActionUiState() {
+    const scenario = String(ui.alarmActionScenario?.value || 'zone_trigger');
+    const kind = String(ui.alarmActionKind?.value || 'datapoint');
+    const isPanicScenario = scenario === 'panic_on' || scenario === 'panic_off';
+    const isDatapoint = kind === 'datapoint';
+    const isTelegram = kind === 'telegram';
+    const isAlexa = kind === 'alexa';
+
+    setWrapVisible(ui.alarmActionDpWrap, isDatapoint);
+    setWrapVisible(ui.alarmActionOnWrap, isDatapoint);
+    setWrapVisible(ui.alarmActionOffWrap, isDatapoint);
+    setWrapVisible(ui.alarmActionDurationWrap, isDatapoint);
+    setWrapVisible(ui.alarmActionRepeatCountWrap, true);
+    setWrapVisible(ui.alarmActionRepeatIntervalWrap, true);
+    setWrapVisible(ui.alarmActionTelegramWrap, isTelegram);
+    setWrapVisible(ui.alarmActionAlexaWrap, isAlexa);
+
+    if (ui.alarmActionZone?.closest('label')) setWrapVisible(ui.alarmActionZone.closest('label'), !isPanicScenario);
+    if (ui.alarmActionTriggerType?.closest('label')) setWrapVisible(ui.alarmActionTriggerType.closest('label'), !isPanicScenario);
+    if (ui.alarmActionTriggerEntity?.closest('label')) setWrapVisible(ui.alarmActionTriggerEntity.closest('label'), !isPanicScenario);
+    if (ui.alarmActionArmedMode?.closest('label')) setWrapVisible(ui.alarmActionArmedMode.closest('label'), !isPanicScenario);
+  }
+
+  function updatePanicActionUiState() {
+    const kind = String(ui.panicActionKind?.value || 'datapoint');
+    const isDatapoint = kind === 'datapoint';
+    const isTelegram = kind === 'telegram';
+    const isAlexa = kind === 'alexa';
+    setWrapVisible(ui.panicActionDpWrap, isDatapoint);
+    setWrapVisible(ui.panicActionOnWrap, isDatapoint);
+    setWrapVisible(ui.panicActionOffWrap, isDatapoint);
+    setWrapVisible(ui.panicActionDurationWrap, isDatapoint);
+    setWrapVisible(ui.panicActionRepeatCountWrap, true);
+    setWrapVisible(ui.panicActionRepeatIntervalWrap, true);
+    setWrapVisible(ui.panicActionTelegramWrap, isTelegram);
+    setWrapVisible(ui.panicActionAlexaWrap, isAlexa);
+  }
+
+  function getAlarmActionTargetEntities(row) {
+    const all = getAllCanvasEntities().filter(e => ['pirSensorsTable', 'contactSensorsTable', 'personDetectionTable', 'camerasTable'].includes(String(e.kind || '')));
+    const zone = String(row.zone || 'any');
+    const triggerSource = String(row.triggerSource || 'any');
+    const triggerId = String(row.triggerEntityId || '').trim();
+    return all.filter(e => {
+      const ez = String(e.zone || 'perimeter');
+      if (zone !== 'any' && ez !== zone) return false;
+      if (triggerSource === 'sensor' && !['pirSensorsTable', 'contactSensorsTable'].includes(e.kind)) return false;
+      if (triggerSource === 'personDetection' && e.kind !== 'personDetectionTable') return false;
+      if (triggerSource === 'camera' && e.kind !== 'camerasTable') return false;
+      if (!triggerId) return true;
+      return String(e.id || '').trim() === triggerId;
+    });
+  }
+
+  function getAlarmActionConflictMessages(row) {
+    const out = [];
+    if (String(row.scenario || '') !== 'zone_trigger') return out;
+    const targets = getAlarmActionTargetEntities(row);
+    if (!targets.length) return out;
+    const m = getRulesMap();
+    if (String(row.actionKind || '') === 'telegram') {
+      const hits = targets.filter(e => {
+        const r = { ...defaultRule(), ...(m[ruleId(e)] || {}) };
+        return r.telegram === true;
+      });
+      if (hits.length) out.push(`Telegram-Redundanz: ${hits.length} Element(e) haben bereits Telegram-Regel aktiv.`);
+    }
+    const dpId = String(row.datapointId || '').trim();
+    const sirenId = String(state.config?.sirenStateId || '').trim();
+    if (String(row.actionKind || '') === 'datapoint' && dpId && sirenId && dpId === sirenId) {
+      const hits = targets.filter(e => {
+        const r = { ...defaultRule(), ...(m[ruleId(e)] || {}) };
+        return r.sirene === true;
+      });
+      if (hits.length) out.push(`Sirenen-Redundanz: ${hits.length} Element(e) haben bereits "Sirene auslösen".`);
+    }
+    return out;
+  }
+
+  function renderAlarmActionConflictHint() {
+    if (!ui.alarmActionConflictHint) return;
+    const all = getAllCanvasEntities().filter(e => ['pirSensorsTable', 'contactSensorsTable', 'personDetectionTable', 'camerasTable'].includes(String(e.kind || '')));
+    const m = getRulesMap();
+    const withTelegram = [];
+    const withSirene = [];
+    for (const e of all) {
+      const r = { ...defaultRule(), ...(m[ruleId(e)] || {}) };
+      if (r.telegram) withTelegram.push(e.label);
+      if (r.sirene) withSirene.push(e.label);
+    }
+    if (!withTelegram.length && !withSirene.length) {
+      ui.alarmActionConflictHint.classList.remove('err');
+      ui.alarmActionConflictHint.textContent = 'Keine Überschneidung erkannt. Für genauere Prüfung pro Zeile auf die Warnhinweise in der Liste achten.';
+      return;
+    }
+    const lines = [];
+    if (withTelegram.length) lines.push(`Element-Regel Telegram aktiv: ${withTelegram.slice(0, 8).join(', ')}${withTelegram.length > 8 ? ' …' : ''}`);
+    if (withSirene.length) lines.push(`Element-Regel Sirene aktiv: ${withSirene.slice(0, 8).join(', ')}${withSirene.length > 8 ? ' …' : ''}`);
+    ui.alarmActionConflictHint.classList.add('err');
+    ui.alarmActionConflictHint.textContent = lines.join('\n');
+  }
+
+  function renderAlarmActionsCard() {
+    ensureTables();
+    refreshAlarmActionTriggerEntityOptions();
+    updateAlarmActionUiState();
+    updatePanicActionUiState();
+    renderAlarmActionConflictHint();
+
+    if (ui.alarmActionsList) {
+      const rows = (state.config.alarmActionsTable || []).map(normalizeAlarmActionRow);
+      if (!rows.length) {
+        ui.alarmActionsList.innerHTML = '<div class="muted">Keine Alarm Actions konfiguriert.</div>';
+      } else {
+        ui.alarmActionsList.innerHTML = rows.map((r, idx) => {
+          const msg = [];
+          msg.push(`${alarmScenarioLabel(r.scenario)} | ${alarmActionKindLabel(r.actionKind)}`);
+          if (r.scenario === 'zone_trigger') msg.push(`zone=${r.zone} | trigger=${alarmTriggerTypeLabel(r.triggerSource)} | armed=${r.armedMode}`);
+          if (r.triggerEntityId) msg.push(`entity=${r.triggerEntityId}`);
+          if (r.actionKind === 'datapoint') msg.push(`${r.datapointId} | on=${r.onValue || 'true'} | off=${r.offValue || '-'} | timer=${Number(r.durationMs || 0)}ms`);
+          if (r.actionKind === 'telegram') msg.push(`msg="${r.telegramText || ''}"`);
+          if (r.actionKind === 'alexa') msg.push(`speak="${r.alexaText || ''}"`);
+          msg.push(`repeat=${Number(r.repeatCount || 1)}x / ${Number(r.repeatIntervalMs || 1000)}ms`);
+          const warns = getAlarmActionConflictMessages(r);
+          const warnHtml = warns.length ? `<br><span class="muted" style="color:#ffb3b3">${warns.map(htmlEsc).join(' | ')}</span>` : '';
+          return `<div class="sensor-item"><span>${htmlEsc(r.label)}<br><span class="muted">${htmlEsc(msg.join(' | '))}</span>${warnHtml}</span><button class="btn danger" data-del-alarm-action="${idx}">Löschen</button></div>`;
+        }).join('');
+      }
+    }
+
+    if (ui.panicActionsList) {
+      const rows = (state.config.panicActionsTable || []).map(normalizePanicActionRow);
+      if (!rows.length) {
+        ui.panicActionsList.innerHTML = '<div class="muted">Keine PANIC Actions konfiguriert.</div>';
+      } else {
+        ui.panicActionsList.innerHTML = rows.map((r, idx) => {
+          const msg = [];
+          msg.push(`PANIC ${r.when === 'on' ? 'an' : 'aus'} | ${alarmActionKindLabel(r.actionKind)}`);
+          if (r.actionKind === 'datapoint') msg.push(`${r.datapointId} | on=${r.onValue || 'true'} | off=${r.offValue || '-'} | timer=${Number(r.durationMs || 0)}ms`);
+          if (r.actionKind === 'telegram') msg.push(`msg="${r.telegramText || ''}"`);
+          if (r.actionKind === 'alexa') msg.push(`speak="${r.alexaText || ''}"`);
+          msg.push(`repeat=${Number(r.repeatCount || 1)}x / ${Number(r.repeatIntervalMs || 1000)}ms`);
+          return `<div class="sensor-item"><span>${htmlEsc(r.label)}<br><span class="muted">${htmlEsc(msg.join(' | '))}</span></span><button class="btn danger" data-del-panic-action="${idx}">Löschen</button></div>`;
+        }).join('');
+      }
+    }
   }
 
   function normalizeTelegramInstanceRow(row) {
@@ -3537,6 +3864,68 @@
     state.config.zoneActionsTable.push(row);
     renderZoneActions();
     if (ui.zoneActionResult) ui.zoneActionResult.textContent = `Hinzugefügt: ${row.label}`;
+  }
+
+  function addAlarmAction() {
+    ensureTables();
+    const scenario = String(ui.alarmActionScenario?.value || 'zone_trigger');
+    const triggerSource = String(ui.alarmActionTriggerType?.value || 'any');
+    const actionKind = String(ui.alarmActionKind?.value || 'datapoint');
+    const datapointId = String(ui.alarmActionDatapointId?.value || '').trim();
+    if (actionKind === 'datapoint' && !datapointId) {
+      setStatus('Alarm Action: Datapoint ID fehlt', true);
+      if (ui.alarmActionResult) ui.alarmActionResult.textContent = 'Datapoint ID fehlt';
+      return;
+    }
+    const row = normalizeAlarmActionRow({
+      key: `alarm_${Date.now()}`,
+      label: `${alarmScenarioLabel(scenario)} ${alarmActionKindLabel(actionKind)}`,
+      scenario,
+      zone: String(ui.alarmActionZone?.value || 'any'),
+      triggerSource,
+      triggerEntityId: String(ui.alarmActionTriggerEntity?.value || '').trim(),
+      armedMode: String(ui.alarmActionArmedMode?.value || 'any'),
+      actionKind,
+      datapointId,
+      onValue: String(ui.alarmActionOnValue?.value || '').trim() || 'true',
+      offValue: String(ui.alarmActionOffValue?.value || '').trim(),
+      durationMs: Math.max(0, Number(ui.alarmActionDurationMs?.value || 0)),
+      repeatCount: Math.max(1, Number(ui.alarmActionRepeatCount?.value || 1)),
+      repeatIntervalMs: Math.max(0, Number(ui.alarmActionRepeatIntervalMs?.value || 1000)),
+      telegramText: String(ui.alarmActionTelegramText?.value || '').trim(),
+      alexaText: String(ui.alarmActionAlexaText?.value || '').trim()
+    });
+    state.config.alarmActionsTable.push(row);
+    renderAlarmActionsCard();
+    if (ui.alarmActionResult) ui.alarmActionResult.textContent = `Hinzugefügt: ${row.label}`;
+  }
+
+  function addPanicAction() {
+    ensureTables();
+    const actionKind = String(ui.panicActionKind?.value || 'datapoint');
+    const datapointId = String(ui.panicActionDatapointId?.value || '').trim();
+    if (actionKind === 'datapoint' && !datapointId) {
+      setStatus('PANIC Action: Datapoint ID fehlt', true);
+      if (ui.panicActionResult) ui.panicActionResult.textContent = 'Datapoint ID fehlt';
+      return;
+    }
+    const row = normalizePanicActionRow({
+      key: `panic_${Date.now()}`,
+      label: `PANIC ${String(ui.panicActionWhen?.value || 'on') === 'off' ? 'aus' : 'an'} ${alarmActionKindLabel(actionKind)}`,
+      when: String(ui.panicActionWhen?.value || 'on'),
+      actionKind,
+      datapointId,
+      onValue: String(ui.panicActionOnValue?.value || '').trim() || 'true',
+      offValue: String(ui.panicActionOffValue?.value || '').trim(),
+      durationMs: Math.max(0, Number(ui.panicActionDurationMs?.value || 0)),
+      repeatCount: Math.max(1, Number(ui.panicActionRepeatCount?.value || 1)),
+      repeatIntervalMs: Math.max(0, Number(ui.panicActionRepeatIntervalMs?.value || 1000)),
+      telegramText: String(ui.panicActionTelegramText?.value || '').trim(),
+      alexaText: String(ui.panicActionAlexaText?.value || '').trim()
+    });
+    state.config.panicActionsTable.push(row);
+    renderAlarmActionsCard();
+    if (ui.panicActionResult) ui.panicActionResult.textContent = `Hinzugefügt: ${row.label}`;
   }
 
   function addNewEntity() {
@@ -4155,6 +4544,7 @@
     renderAllCanvases();
     renderDesigner();
     renderZoneActions();
+    renderAlarmActionsCard();
     renderTelegramConfigCard();
   }
 
@@ -4761,6 +5151,42 @@
       });
     });
     ui.panicBtn.addEventListener('click', () => togglePanic().catch(e => setStatus(String(e), true)));
+    if (ui.addAlarmActionBtn) ui.addAlarmActionBtn.addEventListener('click', addAlarmAction);
+    if (ui.addPanicActionBtn) ui.addPanicActionBtn.addEventListener('click', addPanicAction);
+    if (ui.browseAlarmActionDatapointBtn && ui.alarmActionDatapointId) ui.browseAlarmActionDatapointBtn.addEventListener('click', () => openObjectBrowser(ui.alarmActionDatapointId));
+    if (ui.browsePanicActionDatapointBtn && ui.panicActionDatapointId) ui.browsePanicActionDatapointBtn.addEventListener('click', () => openObjectBrowser(ui.panicActionDatapointId));
+    if (ui.alarmActionScenario) ui.alarmActionScenario.addEventListener('change', () => {
+      updateAlarmActionUiState();
+      renderAlarmActionsCard();
+    });
+    if (ui.alarmActionTriggerType) ui.alarmActionTriggerType.addEventListener('change', () => {
+      refreshAlarmActionTriggerEntityOptions();
+      renderAlarmActionsCard();
+    });
+    if (ui.alarmActionKind) ui.alarmActionKind.addEventListener('change', updateAlarmActionUiState);
+    if (ui.panicActionKind) ui.panicActionKind.addEventListener('change', updatePanicActionUiState);
+    if (ui.alarmActionsList) {
+      ui.alarmActionsList.addEventListener('click', ev => {
+        const btn = ev.target.closest('[data-del-alarm-action]');
+        if (!btn) return;
+        const idx = Number(btn.getAttribute('data-del-alarm-action'));
+        if (!Number.isInteger(idx) || idx < 0) return;
+        ensureTables();
+        state.config.alarmActionsTable.splice(idx, 1);
+        renderAlarmActionsCard();
+      });
+    }
+    if (ui.panicActionsList) {
+      ui.panicActionsList.addEventListener('click', ev => {
+        const btn = ev.target.closest('[data-del-panic-action]');
+        if (!btn) return;
+        const idx = Number(btn.getAttribute('data-del-panic-action'));
+        if (!Number.isInteger(idx) || idx < 0) return;
+        ensureTables();
+        state.config.panicActionsTable.splice(idx, 1);
+        renderAlarmActionsCard();
+      });
+    }
     if (ui.zoneActionsList) {
       ui.zoneActionsList.addEventListener('click', ev => {
         const btn = ev.target.closest('[data-del-zone-action]');

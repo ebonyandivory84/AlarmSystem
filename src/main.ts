@@ -9,6 +9,10 @@ type Zone = 'perimeter' | 'aussenhaut' | 'innenraum';
 type SensorType = 'pir' | 'contact' | 'presence';
 type DetectionMode = 'boolean' | 'string';
 type SnapshotZoneMode = 'none' | 'any' | 'selected';
+type AlarmActionScenario = 'zone_trigger' | 'panic_on' | 'panic_off';
+type AlarmActionSourceType = 'any' | 'sensor' | 'personDetection' | 'camera';
+type AlarmActionArmedMode = 'any' | 'armed' | 'unarmed';
+type AlarmActionKind = 'datapoint' | 'telegram' | 'alexa';
 
 interface SensorDef {
   key: string;
@@ -63,6 +67,51 @@ interface ZoneActionDef {
   pulseMs?: number;
 }
 
+interface AlarmActionDef {
+  key: string;
+  label: string;
+  scenario: AlarmActionScenario;
+  zone: Zone | 'any';
+  triggerSource: AlarmActionSourceType;
+  triggerEntityId?: string;
+  armedMode: AlarmActionArmedMode;
+  actionKind: AlarmActionKind;
+  datapointId?: string;
+  onValue?: string | boolean | number;
+  offValue?: string | boolean | number;
+  durationMs?: number;
+  repeatCount: number;
+  repeatIntervalMs: number;
+  telegramText?: string;
+  alexaText?: string;
+}
+
+interface PanicActionDef {
+  key: string;
+  label: string;
+  when: 'on' | 'off';
+  actionKind: AlarmActionKind;
+  datapointId?: string;
+  onValue?: string | boolean | number;
+  offValue?: string | boolean | number;
+  durationMs?: number;
+  repeatCount: number;
+  repeatIntervalMs: number;
+  telegramText?: string;
+  alexaText?: string;
+}
+
+interface AlarmActionContext {
+  zone?: Zone;
+  sourceType: AlarmActionSourceType;
+  sourceId?: string;
+  sourceLabel?: string;
+  armed: boolean;
+  caseId?: string;
+  rawVal?: ioBroker.StateValue;
+  panicActive?: boolean;
+}
+
 interface TelegramInstanceDef {
   instance: string;
   token?: string;
@@ -110,6 +159,7 @@ interface Config {
   checkRedId: string;
   checkYellowId: string;
   panicStateId: string;
+  speakId: string;
   fingerprintStateId: string;
   knownFingerprints: string[];
   pinStateId: string;
@@ -144,6 +194,8 @@ interface Config {
   personDetections: PersonDetectionDef[];
   cameras: CameraDef[];
   zoneActions: ZoneActionDef[];
+  alarmActions: AlarmActionDef[];
+  panicActions: PanicActionDef[];
   zoneDelays: Record<Zone, { entryDelaySec: number; exitDelaySec: number }>;
   telegramInstances: TelegramInstanceDef[];
   telegramTargets: TelegramTargetDef[];
@@ -237,6 +289,8 @@ class AlarmSystemAdapter extends utils.Adapter {
     const personDetections = this.parsePersonDetectionTable(n.personDetectionTable);
     const cameras = this.parseCamerasTable(n.camerasTable);
     const zoneActions = this.parseZoneActionsTable(n.zoneActionsTable);
+    const alarmActions = this.parseAlarmActionsTable(n.alarmActionsTable);
+    const panicActions = this.parsePanicActionsTable(n.panicActionsTable);
 
     return {
       dedupeMs: this.toNumber(n.eventDedupeMs, 1000),
@@ -266,6 +320,7 @@ class AlarmSystemAdapter extends utils.Adapter {
       checkRedId: n.checkRedId || 'mqtt.1.AlarmCenter.CheckRed',
       checkYellowId: n.checkYellowId || 'mqtt.1.AlarmCenter.CheckYellow',
       panicStateId: n.panicStateId || '0_userdata.0.AlarmSystem.panic',
+      speakId: n.speakId || '',
       fingerprintStateId: n.fingerprintStateId || 'mqtt.1.fingerprintDoorbell.lastLogMessage',
       knownFingerprints: String(n.fingerprintUsersCsv || 'Sebastian R1,Teresa R1,Catharina R1,Rita R1,Lukas R1,Florian R1,Monika R1,Michelle L1,Marie R1,Julia R1').split(',').map((x: string) => x.trim()).filter(Boolean),
       pinStateId: n.pinStateId || 'mqtt.1.AlarmCenter.PIN',
@@ -337,6 +392,8 @@ class AlarmSystemAdapter extends utils.Adapter {
       personDetections,
       cameras,
       zoneActions,
+      alarmActions,
+      panicActions,
       zoneDelays: this.parseZoneDelays(n.zoneDelaysTable, this.toNumber(n.defaultEntryDelaySec, 20), this.toNumber(n.defaultExitDelaySec, 10)),
       telegramInstances: this.parseTelegramInstances(n.telegramInstancesTable),
       telegramTargets: this.parseTelegramTargets(n.telegramTargetsTable)
@@ -448,6 +505,113 @@ class AlarmSystemAdapter extends utils.Adapter {
           pulseMs: pulseMs > 0 ? pulseMs : undefined
         };
       });
+  }
+
+  private parseAlarmActionsTable(rows: any): AlarmActionDef[] {
+    if (!Array.isArray(rows)) return [];
+    const out: AlarmActionDef[] = [];
+    for (const r of rows) {
+      const actionKind = this.parseAlarmActionKind(r?.actionKind);
+      const scenario = this.parseAlarmActionScenario(r?.scenario);
+      const zone = this.parseAlarmActionZone(r?.zone);
+      const triggerSource = this.parseAlarmActionSourceType(r?.triggerSource);
+      const armedMode = this.parseAlarmActionArmedMode(r?.armedMode);
+      const triggerEntityId = String(r?.triggerEntityId || '').trim() || undefined;
+      const datapointId = String(r?.datapointId || '').trim() || undefined;
+      const onValueRaw = String(r?.onValue ?? '').trim();
+      const offValueRaw = String(r?.offValue ?? '').trim();
+      const repeatCount = Math.max(1, this.toNumber(r?.repeatCount, 1));
+      const repeatIntervalMs = Math.max(0, this.toNumber(r?.repeatIntervalMs, 1000));
+      const durationMs = Math.max(0, this.toNumber(r?.durationMs, 0));
+      const row: AlarmActionDef = {
+        key: String(r?.key || datapointId || triggerEntityId || `alarm_action_${out.length + 1}`),
+        label: String(r?.label || r?.key || datapointId || 'Alarm Action'),
+        scenario,
+        zone,
+        triggerSource,
+        triggerEntityId,
+        armedMode,
+        actionKind,
+        datapointId,
+        onValue: onValueRaw !== '' ? this.parseScalar(onValueRaw) : true,
+        offValue: offValueRaw !== '' ? this.parseScalar(offValueRaw) : undefined,
+        durationMs: durationMs > 0 ? durationMs : undefined,
+        repeatCount,
+        repeatIntervalMs,
+        telegramText: String(r?.telegramText || '').trim() || undefined,
+        alexaText: String(r?.alexaText || '').trim() || undefined
+      };
+      if (actionKind === 'datapoint' && !datapointId) continue;
+      out.push(row);
+    }
+    return out;
+  }
+
+  private parsePanicActionsTable(rows: any): PanicActionDef[] {
+    if (!Array.isArray(rows)) return [];
+    const out: PanicActionDef[] = [];
+    for (const r of rows) {
+      const actionKind = this.parseAlarmActionKind(r?.actionKind);
+      const when = String(r?.when || '').toLowerCase() === 'off' ? 'off' : 'on';
+      const datapointId = String(r?.datapointId || '').trim() || undefined;
+      const onValueRaw = String(r?.onValue ?? '').trim();
+      const offValueRaw = String(r?.offValue ?? '').trim();
+      const repeatCount = Math.max(1, this.toNumber(r?.repeatCount, 1));
+      const repeatIntervalMs = Math.max(0, this.toNumber(r?.repeatIntervalMs, 1000));
+      const durationMs = Math.max(0, this.toNumber(r?.durationMs, 0));
+      const row: PanicActionDef = {
+        key: String(r?.key || datapointId || `panic_action_${out.length + 1}`),
+        label: String(r?.label || r?.key || datapointId || `PANIC ${when}`),
+        when,
+        actionKind,
+        datapointId,
+        onValue: onValueRaw !== '' ? this.parseScalar(onValueRaw) : true,
+        offValue: offValueRaw !== '' ? this.parseScalar(offValueRaw) : undefined,
+        durationMs: durationMs > 0 ? durationMs : undefined,
+        repeatCount,
+        repeatIntervalMs,
+        telegramText: String(r?.telegramText || '').trim() || undefined,
+        alexaText: String(r?.alexaText || '').trim() || undefined
+      };
+      if (actionKind === 'datapoint' && !datapointId) continue;
+      out.push(row);
+    }
+    return out;
+  }
+
+  private parseAlarmActionScenario(v: any): AlarmActionScenario {
+    const s = String(v || '').toLowerCase();
+    if (s === 'panic_on') return 'panic_on';
+    if (s === 'panic_off') return 'panic_off';
+    return 'zone_trigger';
+  }
+
+  private parseAlarmActionZone(v: any): Zone | 'any' {
+    const z = String(v || '').toLowerCase();
+    if (z === 'any') return 'any';
+    return this.parseZone(z);
+  }
+
+  private parseAlarmActionSourceType(v: any): AlarmActionSourceType {
+    const s = String(v || '').toLowerCase();
+    if (s === 'sensor') return 'sensor';
+    if (s === 'persondetection') return 'personDetection';
+    if (s === 'camera') return 'camera';
+    return 'any';
+  }
+
+  private parseAlarmActionArmedMode(v: any): AlarmActionArmedMode {
+    const s = String(v || '').toLowerCase();
+    if (s === 'armed') return 'armed';
+    if (s === 'unarmed') return 'unarmed';
+    return 'any';
+  }
+
+  private parseAlarmActionKind(v: any): AlarmActionKind {
+    const s = String(v || '').toLowerCase();
+    if (s === 'telegram') return 'telegram';
+    if (s === 'alexa') return 'alexa';
+    return 'datapoint';
   }
 
   private parseTelegramInstances(rows: any): TelegramInstanceDef[] {
@@ -581,6 +745,23 @@ class AlarmSystemAdapter extends utils.Adapter {
         if: `Alarmtrigger in Zone ${a.zone} (${a.label})`,
         then: `Setze ${a.datapointId} auf ${String(a.onValue)}${a.pulseMs ? ` und nach ${a.pulseMs}ms auf ${String(a.offValue ?? false)}` : ''}`
       });
+    }
+
+    for (const a of this.cfg.alarmActions) {
+      const when = a.scenario === 'zone_trigger' ? `Zone-Trigger (${a.zone}, ${a.triggerSource}, armed=${a.armedMode})` : (a.scenario === 'panic_on' ? 'PANIC an' : 'PANIC aus');
+      let then = '';
+      if (a.actionKind === 'datapoint') then = `Setze ${a.datapointId} auf ${String(a.onValue)}${a.durationMs ? `, reset nach ${a.durationMs}ms` : ''}`;
+      if (a.actionKind === 'telegram') then = `Telegram: "${String(a.telegramText || '')}"`;
+      if (a.actionKind === 'alexa') then = `Alexa Speak: "${String(a.alexaText || '')}"`;
+      rules.push({ if: when, then: `${then} (repeat ${a.repeatCount}x / ${a.repeatIntervalMs}ms)` });
+    }
+
+    for (const p of this.cfg.panicActions) {
+      let then = '';
+      if (p.actionKind === 'datapoint') then = `Setze ${p.datapointId} auf ${String(p.onValue)}${p.durationMs ? `, reset nach ${p.durationMs}ms` : ''}`;
+      if (p.actionKind === 'telegram') then = `Telegram: "${String(p.telegramText || '')}"`;
+      if (p.actionKind === 'alexa') then = `Alexa Speak: "${String(p.alexaText || '')}"`;
+      rules.push({ if: `PANIC ${p.when}`, then: `${then} (repeat ${p.repeatCount}x / ${p.repeatIntervalMs}ms)` });
     }
 
     rules.push({
@@ -777,10 +958,20 @@ class AlarmSystemAdapter extends utils.Adapter {
     const s = this.cfg.sensors.find(x => x.id === id);
     if (s) {
       const active = this.matchesAny(state.val, s.activeValues);
-      if (active && this.zoneArmed[s.zone] && this.allowEvent(id)) {
-        await this.writeDailyTriggerLog('sensor', s.label, s.id, s.zone, state.val);
-        await this.tryTriggerConfiguredSnapshot(s.label, s.snapshotDatapointId, s.snapshotZoneMode, s.snapshotZones);
-        await this.handleZoneTrigger(s.label, s.zone);
+      if (active && this.allowEvent(`sensor:${id}`)) {
+        await this.executeAlarmActions('zone_trigger', {
+          zone: s.zone,
+          sourceType: 'sensor',
+          sourceId: s.id,
+          sourceLabel: s.label,
+          armed: this.isAnyZoneArmed(),
+          rawVal: state.val
+        });
+        if (this.zoneArmed[s.zone]) {
+          await this.writeDailyTriggerLog('sensor', s.label, s.id, s.zone, state.val);
+          await this.tryTriggerConfiguredSnapshot(s.label, s.snapshotDatapointId, s.snapshotZoneMode, s.snapshotZones);
+          await this.handleZoneTrigger(s.label, s.zone, 'sensor', s.id, state.val);
+        }
       }
       return;
     }
@@ -788,10 +979,20 @@ class AlarmSystemAdapter extends utils.Adapter {
     const p = this.cfg.personDetections.find(x => x.id === id);
     if (p) {
       const active = this.matchesPerson(state.val, p);
-      if (active && this.zoneArmed[p.zone] && this.allowEvent(id)) {
-        await this.writeDailyTriggerLog('personDetection', p.label, p.id, p.zone, state.val);
-        await this.tryTriggerConfiguredSnapshot(p.label, p.snapshotDatapointId, p.snapshotZoneMode, p.snapshotZones);
-        await this.handleZoneTrigger(p.label, p.zone);
+      if (active && this.allowEvent(`person:${id}`)) {
+        await this.executeAlarmActions('zone_trigger', {
+          zone: p.zone,
+          sourceType: 'personDetection',
+          sourceId: p.id,
+          sourceLabel: p.label,
+          armed: this.isAnyZoneArmed(),
+          rawVal: state.val
+        });
+        if (this.zoneArmed[p.zone]) {
+          await this.writeDailyTriggerLog('personDetection', p.label, p.id, p.zone, state.val);
+          await this.tryTriggerConfiguredSnapshot(p.label, p.snapshotDatapointId, p.snapshotZoneMode, p.snapshotZones);
+          await this.handleZoneTrigger(p.label, p.zone, 'personDetection', p.id, state.val);
+        }
       }
       return;
     }
@@ -801,9 +1002,20 @@ class AlarmSystemAdapter extends utils.Adapter {
       const active = state.val === true || state.val === 'human detected';
       const armed = this.zoneArmed.perimeter || this.zoneArmed.aussenhaut || this.zoneArmed.innenraum;
       const nightModeArmed = this.cfg.cameraNightModeArmsCameras && this.isNightModeActive();
-      if (active && this.allowEvent(id) && (armed || nightModeArmed)) {
-        await this.writeDailyTriggerLog('camera', cam.label, cam.personDetectionDp || id, 'perimeter', state.val);
-        await this.triggerCamera(cam);
+      if (active && this.allowEvent(`camera:${id}`)) {
+        const effectiveArmed = armed || nightModeArmed;
+        await this.executeAlarmActions('zone_trigger', {
+          zone: 'perimeter',
+          sourceType: 'camera',
+          sourceId: cam.personDetectionDp || id,
+          sourceLabel: cam.label,
+          armed: effectiveArmed,
+          rawVal: state.val
+        });
+        if (effectiveArmed) {
+          await this.writeDailyTriggerLog('camera', cam.label, cam.personDetectionDp || id, 'perimeter', state.val);
+          await this.triggerCamera(cam);
+        }
       }
     }
 
@@ -911,7 +1123,7 @@ class AlarmSystemAdapter extends utils.Adapter {
     await this.updateStatusAndChecks();
   }
 
-  private async handleZoneTrigger(label: string, zone: Zone): Promise<void> {
+  private async handleZoneTrigger(label: string, zone: Zone, _sourceType: AlarmActionSourceType = 'sensor', _sourceId = '', _rawVal?: ioBroker.StateValue): Promise<void> {
     const entrySec = this.cfg.zoneDelays[zone].entryDelaySec;
     const caseId = `CASE-${Date.now()}`;
     this.activeCaseId = caseId;
@@ -959,15 +1171,165 @@ class AlarmSystemAdapter extends utils.Adapter {
     }
   }
 
+  private actionArmedModeMatches(mode: AlarmActionArmedMode, armed: boolean): boolean {
+    if (mode === 'armed') return armed;
+    if (mode === 'unarmed') return !armed;
+    return true;
+  }
+
+  private actionSourceMatches(row: AlarmActionDef, ctx: AlarmActionContext): boolean {
+    if (row.triggerSource !== 'any' && row.triggerSource !== ctx.sourceType) return false;
+    if (row.triggerEntityId && row.triggerEntityId !== String(ctx.sourceId || '')) return false;
+    return true;
+  }
+
+  private actionZoneMatches(row: AlarmActionDef, ctx: AlarmActionContext): boolean {
+    if (row.zone === 'any') return true;
+    if (!ctx.zone) return false;
+    return row.zone === ctx.zone;
+  }
+
+  private formatAlarmActionText(template: string | undefined, ctx: AlarmActionContext): string {
+    return String(template || '')
+      .split('{zone}').join(String(ctx.zone || ''))
+      .split('{trigger}').join(String(ctx.sourceLabel || ctx.sourceId || 'Trigger'))
+      .split('{sourceId}').join(String(ctx.sourceId || ''))
+      .split('{sourceType}').join(String(ctx.sourceType || ''))
+      .split('{caseId}').join(String(ctx.caseId || ''))
+      .split('{value}').join(String(ctx.rawVal ?? ''))
+      .split('{panic}').join(ctx.panicActive === true ? 'on' : (ctx.panicActive === false ? 'off' : ''));
+  }
+
+  private async runDatapointAction(
+    datapointId: string | undefined,
+    onValue: ioBroker.StateValue,
+    offValue: ioBroker.StateValue | undefined,
+    durationMs: number | undefined,
+    repeatCount: number,
+    repeatIntervalMs: number
+  ): Promise<void> {
+    const id = String(datapointId || '').trim();
+    if (!id) return;
+    const repeats = Math.max(1, Number(repeatCount || 1));
+    const interval = Math.max(0, Number(repeatIntervalMs || 0));
+    for (let i = 0; i < repeats; i++) {
+      const delay = i * interval;
+      this.setTimeout(async () => {
+        await this.setOutput(id, onValue);
+        if (durationMs && durationMs > 0) {
+          const off = offValue !== undefined ? offValue : false;
+          this.setTimeout(() => void this.setOutput(id, off), durationMs);
+        }
+      }, delay);
+    }
+  }
+
+  private async executeAlarmActions(scenario: AlarmActionScenario, ctx: AlarmActionContext): Promise<void> {
+    const rows = this.cfg.alarmActions.filter(r => r.scenario === scenario);
+    for (const row of rows) {
+      if (!this.actionArmedModeMatches(row.armedMode, !!ctx.armed)) continue;
+      if (!this.actionZoneMatches(row, ctx)) continue;
+      if (!this.actionSourceMatches(row, ctx)) continue;
+
+      const repeats = Math.max(1, Number(row.repeatCount || 1));
+      const interval = Math.max(0, Number(row.repeatIntervalMs || 0));
+
+      if (row.actionKind === 'datapoint') {
+        await this.runDatapointAction(
+          row.datapointId,
+          row.onValue !== undefined ? row.onValue : true,
+          row.offValue,
+          row.durationMs,
+          repeats,
+          interval
+        );
+        await this.logEvent('info', 'alarm_action_dp', `Alarm action ${row.label}: ${String(row.datapointId || '')}`, ctx.caseId);
+      } else if (row.actionKind === 'telegram') {
+        const text = this.formatAlarmActionText(row.telegramText, ctx).trim();
+        if (!text) continue;
+        for (let i = 0; i < repeats; i++) {
+          this.setTimeout(() => void this.sendTelegramText(text), i * interval);
+        }
+        await this.logEvent('info', 'alarm_action_telegram', `Alarm action ${row.label}: Telegram`, ctx.caseId);
+      } else if (row.actionKind === 'alexa') {
+        const text = this.formatAlarmActionText(row.alexaText, ctx).trim();
+        if (!text || !this.cfg.speakId) continue;
+        for (let i = 0; i < repeats; i++) {
+          this.setTimeout(() => void this.setOutput(this.cfg.speakId, text), i * interval);
+        }
+        await this.logEvent('info', 'alarm_action_alexa', `Alarm action ${row.label}: Alexa`, ctx.caseId);
+      }
+    }
+  }
+
+  private async executePanicActions(active: boolean): Promise<void> {
+    const rows = this.cfg.panicActions.filter(r => r.when === (active ? 'on' : 'off'));
+    for (const row of rows) {
+      const repeats = Math.max(1, Number(row.repeatCount || 1));
+      const interval = Math.max(0, Number(row.repeatIntervalMs || 0));
+      if (row.actionKind === 'datapoint') {
+        await this.runDatapointAction(
+          row.datapointId,
+          row.onValue !== undefined ? row.onValue : true,
+          row.offValue,
+          row.durationMs,
+          repeats,
+          interval
+        );
+      } else if (row.actionKind === 'telegram') {
+        const text = this.formatAlarmActionText(row.telegramText, {
+          sourceType: 'any',
+          sourceId: this.cfg.panicStateId,
+          sourceLabel: 'PANIC',
+          armed: this.isAnyZoneArmed(),
+          panicActive: active
+        }).trim();
+        if (!text) continue;
+        for (let i = 0; i < repeats; i++) {
+          this.setTimeout(() => void this.sendTelegramText(text), i * interval);
+        }
+      } else if (row.actionKind === 'alexa') {
+        const text = this.formatAlarmActionText(row.alexaText, {
+          sourceType: 'any',
+          sourceId: this.cfg.panicStateId,
+          sourceLabel: 'PANIC',
+          armed: this.isAnyZoneArmed(),
+          panicActive: active
+        }).trim();
+        if (!text || !this.cfg.speakId) continue;
+        for (let i = 0; i < repeats; i++) {
+          this.setTimeout(() => void this.setOutput(this.cfg.speakId, text), i * interval);
+        }
+      }
+      await this.logEvent('info', 'panic_action_custom', `PANIC custom action ${row.label}`, this.activeCaseId || undefined);
+    }
+  }
+
   private async handlePanic(active: boolean): Promise<void> {
     if (active) {
       for (const id of this.cfg.cameraAlarmOnIds) await this.setOutput(id, true);
       for (const id of this.cfg.reolinkSirenIds) await this.setOutput(id, 20);
+      await this.executeAlarmActions('panic_on', {
+        sourceType: 'any',
+        sourceId: this.cfg.panicStateId,
+        sourceLabel: 'PANIC',
+        armed: this.isAnyZoneArmed(),
+        panicActive: true
+      });
+      await this.executePanicActions(true);
       await this.logEvent('alarm', 'panic_on', 'PANIC aktiviert');
     } else {
       for (const id of this.cfg.cameraAlarmOffIds) await this.setOutput(id, true);
       for (const id of this.cfg.reolinkSirenIds) await this.setOutput(id, 0);
       await this.setOutput(this.cfg.cctvDisarmedId, true);
+      await this.executeAlarmActions('panic_off', {
+        sourceType: 'any',
+        sourceId: this.cfg.panicStateId,
+        sourceLabel: 'PANIC',
+        armed: this.isAnyZoneArmed(),
+        panicActive: false
+      });
+      await this.executePanicActions(false);
       await this.logEvent('warn', 'panic_off', 'PANIC deaktiviert');
     }
   }
