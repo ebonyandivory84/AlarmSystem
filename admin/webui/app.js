@@ -1097,6 +1097,7 @@
       setStatus('Elementeinstellungen gespeichert');
       showToast('Element-Einstellungen gespeichert');
     }
+    void saveToInstance().catch(e => setStatus(String(e), true));
     return true;
   }
 
