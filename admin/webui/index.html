@@ -565,6 +565,18 @@
                 <button id="browseRuleTriggerDatapointBtn" class="icon-btn" type="button" title="Objektbrowser öffnen">🔎</button>
               </span>
             </label>
+            <label id="ruleTriggerModeWrap" title="Legt fest, wie der Triggerwert ausgewertet wird (nur für Kamera/PersonDetection).">
+              Trigger Mode
+              <select id="ruleTriggerMode">
+                <option value="auto">auto (Legacy)</option>
+                <option value="boolean">boolean (true/1/on)</option>
+                <option value="string">string (genauer Vergleich)</option>
+              </select>
+            </label>
+            <label id="ruleTriggerDetectValueWrap" title="Nur für string-Mode: exakter Wert, der als Erkennung gilt (z. B. human detected).">
+              Trigger String-Wert
+              <input id="ruleTriggerDetectValue" type="text" placeholder="human detected" />
+            </label>
           </div>
           <p id="ruleTriggerDatapointHint" class="muted">Dieser Datapoint liefert die Triggerinformation für das ausgewählte Element.</p>
         </section>
@@ -685,6 +697,6 @@
   <datalist id="stateIds"></datalist>
 
   <script src="/socket.io/socket.io.js"></script>
-  <script src="./app.js?v=2026-05-18-0010"></script>
+  <script src="./app.js?v=2026-05-18-0020"></script>
 </body>
 </html>

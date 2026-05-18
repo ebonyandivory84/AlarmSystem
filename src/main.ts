@@ -8,6 +8,7 @@ import SunCalc from 'suncalc';
 type Zone = 'perimeter' | 'aussenhaut' | 'innenraum';
 type SensorType = 'pir' | 'contact' | 'presence';
 type DetectionMode = 'boolean' | 'string';
+type CameraDetectionMode = 'auto' | 'boolean' | 'string';
 type SnapshotZoneMode = 'none' | 'any' | 'selected';
 type AlarmActionScenario = 'zone_trigger' | 'panic_on' | 'panic_off';
 type AlarmActionSourceType = 'any' | 'sensor' | 'personDetection' | 'camera';
@@ -55,6 +56,8 @@ interface CameraDef {
   username?: string;
   password?: string;
   personDetectionDp?: string;
+  personDetectionMode: CameraDetectionMode;
+  personDetectionDetectValue?: string;
 }
 
 interface ZoneDelayDef {
@@ -681,6 +684,13 @@ class AlarmSystemAdapter extends utils.Adapter {
     return 'zone_disarmed';
   }
 
+  private parseCameraDetectionMode(v: any): CameraDetectionMode {
+    const s = String(v || '').toLowerCase();
+    if (s === 'boolean') return 'boolean';
+    if (s === 'string') return 'string';
+    return 'auto';
+  }
+
   private parseCamerasTable(rows: any): CameraDef[] {
     if (!Array.isArray(rows)) return [];
     return rows.filter(r => r?.snapshotUrl).map((r: any) => ({
@@ -693,7 +703,9 @@ class AlarmSystemAdapter extends utils.Adapter {
       ledDatapoint: r.ledDatapoint ? String(r.ledDatapoint) : undefined,
       username: r.username ? String(r.username) : undefined,
       password: r.password ? String(r.password) : undefined,
-      personDetectionDp: r.personDetectionDp ? String(r.personDetectionDp) : undefined
+      personDetectionDp: r.personDetectionDp ? String(r.personDetectionDp) : (r.id ? String(r.id) : undefined),
+      personDetectionMode: this.parseCameraDetectionMode(r.personDetectionMode ?? r.mode),
+      personDetectionDetectValue: String((r.personDetectionDetectValue ?? r.detectValue ?? '')).trim() || 'human detected'
     }));
   }
 
@@ -1469,7 +1481,7 @@ class AlarmSystemAdapter extends utils.Adapter {
 
     const cam = this.cfg.cameras.find(c => c.personDetectionDp === id);
     if (cam) {
-      const active = state.val === true || state.val === 'human detected';
+      const active = this.matchesCameraPerson(state.val, cam);
       const armed = this.zoneArmed.perimeter || this.zoneArmed.aussenhaut || this.zoneArmed.innenraum;
       const nightModeArmed = this.cfg.cameraNightModeArmsCameras && this.isNightModeActive();
       if (active && this.allowEvent(`camera:${id}`)) {
@@ -2584,8 +2596,25 @@ class AlarmSystemAdapter extends utils.Adapter {
   }
 
   private matchesPerson(val: ioBroker.StateValue, p: PersonDetectionDef): boolean {
-    if (p.mode === 'boolean') return val === true;
+    if (p.mode === 'boolean') return this.isActiveBooleanValue(val);
     return typeof val === 'string' && val === (p.detectValue || 'human detected');
+  }
+
+  private matchesCameraPerson(val: ioBroker.StateValue, cam: CameraDef): boolean {
+    const mode = cam.personDetectionMode || 'auto';
+    const detect = String(cam.personDetectionDetectValue || 'human detected');
+    if (mode === 'boolean') return this.isActiveBooleanValue(val);
+    if (mode === 'string') return typeof val === 'string' && val === detect;
+    return this.isActiveBooleanValue(val) || (typeof val === 'string' && val === detect);
+  }
+
+  private isActiveBooleanValue(val: ioBroker.StateValue): boolean {
+    if (val === true || val === 1) return true;
+    if (typeof val === 'string') {
+      const s = val.trim().toLowerCase();
+      return s === 'true' || s === '1' || s === 'on';
+    }
+    return false;
   }
 
   private allowEvent(key: string): boolean {

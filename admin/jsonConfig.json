@@ -462,6 +462,30 @@
               "title": "Person detection datapoint"
             },
             {
+              "type": "select",
+              "attr": "personDetectionMode",
+              "title": "Person detection mode",
+              "options": [
+                {
+                  "label": "auto (legacy: true OR human detected)",
+                  "value": "auto"
+                },
+                {
+                  "label": "boolean (true)",
+                  "value": "boolean"
+                },
+                {
+                  "label": "string (detectValue)",
+                  "value": "string"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "attr": "personDetectionDetectValue",
+              "title": "Person detection string value"
+            },
+            {
               "type": "text",
               "attr": "username",
               "title": "Username"

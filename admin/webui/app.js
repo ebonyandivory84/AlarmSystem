@@ -254,6 +254,10 @@
     ruleTriggerDatapointLabel: $('ruleTriggerDatapointLabel'),
     ruleTriggerDatapointHint: $('ruleTriggerDatapointHint'),
     ruleTriggerGroup: $('entityTriggerGroup'),
+    ruleTriggerMode: $('ruleTriggerMode'),
+    ruleTriggerModeWrap: $('ruleTriggerModeWrap'),
+    ruleTriggerDetectValue: $('ruleTriggerDetectValue'),
+    ruleTriggerDetectValueWrap: $('ruleTriggerDetectValueWrap'),
     ruleLed: $('ruleLed'),
     ruleSnapshotDatapointId: $('ruleSnapshotDatapointId'),
     ruleSnapshotZoneMode: $('ruleSnapshotZoneMode'),
@@ -1052,14 +1056,22 @@
         const st = await getState(id);
         const rawVal = st?.val;
         const raw = String(st?.val ?? '').trim().toLowerCase();
+        const isCamera = type === 'camera';
+        const triggerMode = normalizeTriggerMode(isCamera ? row?.personDetectionMode : row?.mode, isCamera);
+        const detectValue = String((isCamera ? row?.personDetectionDetectValue : row?.detectValue) || 'human detected').trim().toLowerCase();
         let on = false;
-        if (mode === 'detectValue') on = raw === String(row?.detectValue || 'human detected').trim().toLowerCase();
+        if (mode === 'detectValue') {
+          if (triggerMode === 'boolean') on = asArmed(rawVal);
+          else if (triggerMode === 'auto') on = asArmed(rawVal) || raw === detectValue;
+          else on = raw === detectValue;
+        }
         else if (String(row?.activeValuesCsv || '').trim()) {
           const vals = String(row.activeValuesCsv).toLowerCase().split(',').map(x => x.trim()).filter(Boolean);
           on = vals.includes(raw) || asArmed(rawVal);
-        } else if (type === 'camera') {
-          const detectValue = String(row?.detectValue || 'human detected').trim().toLowerCase();
-          on = raw === detectValue || asArmed(st?.val);
+        } else if (isCamera) {
+          if (triggerMode === 'boolean') on = asArmed(rawVal);
+          else if (triggerMode === 'auto') on = asArmed(rawVal) || raw === detectValue;
+          else on = raw === detectValue;
         } else on = asArmed(st?.val);
         if (!showSensors) {
           if (type === 'pir' && !fullArmed) on = false;
@@ -1235,6 +1247,29 @@
   function isEntityTriggerDatapointKind(kind) {
     return ['contactSensorsTable', 'pirSensorsTable', 'personDetectionTable', 'camerasTable'].includes(String(kind || ''));
   }
+  function isTriggerDetectionConfigKind(kind) {
+    return ['personDetectionTable', 'camerasTable'].includes(String(kind || ''));
+  }
+  function normalizeTriggerMode(rawMode, isCamera = false) {
+    const v = String(rawMode || '').trim().toLowerCase();
+    if (v === 'boolean') return 'boolean';
+    if (v === 'string') return 'string';
+    return isCamera ? 'auto' : 'string';
+  }
+  function getTriggerDetectionConfigFromRow(kind, row) {
+    const isCamera = String(kind || '') === 'camerasTable';
+    const modeRaw = isCamera ? row?.personDetectionMode : row?.mode;
+    const detectRaw = isCamera ? row?.personDetectionDetectValue : row?.detectValue;
+    const mode = normalizeTriggerMode(modeRaw, isCamera);
+    const detectValue = String(detectRaw || 'human detected').trim() || 'human detected';
+    return { mode, detectValue };
+  }
+  function updateTriggerDetectValueUiState(kind) {
+    if (!ui.ruleTriggerMode || !ui.ruleTriggerDetectValueWrap) return;
+    const detectionKind = isTriggerDetectionConfigKind(kind);
+    const isString = String(ui.ruleTriggerMode.value || '') === 'string';
+    ui.ruleTriggerDetectValueWrap.classList.toggle('hidden', !(detectionKind && isString));
+  }
   function getTriggerDatapointFromRow(kind, row) {
     if (!row || typeof row !== 'object') return '';
     if (String(kind || '') === 'camerasTable') return String(row.personDetectionDp || row.id || '').trim();
@@ -1247,6 +1282,8 @@
     ui.ruleTriggerGroup.classList.toggle('hidden', !enabled);
     if (!enabled) {
       ui.ruleTriggerDatapointId.value = '';
+      if (ui.ruleTriggerModeWrap) ui.ruleTriggerModeWrap.classList.add('hidden');
+      if (ui.ruleTriggerDetectValueWrap) ui.ruleTriggerDetectValueWrap.classList.add('hidden');
       return;
     }
     const isCamera = kind === 'camerasTable';
@@ -1260,6 +1297,15 @@
         ? 'Dieser Datapoint liefert die Personenerkennung für dieses Element.'
         : 'Dieser Datapoint meldet den Triggerzustand dieses Elements.');
     ui.ruleTriggerDatapointId.value = getTriggerDatapointFromRow(kind, row);
+    if (ui.ruleTriggerModeWrap) ui.ruleTriggerModeWrap.classList.toggle('hidden', !isTriggerDetectionConfigKind(kind));
+    if (ui.ruleTriggerMode) {
+      const autoOpt = ui.ruleTriggerMode.querySelector('option[value="auto"]');
+      if (autoOpt) autoOpt.disabled = !!isPerson;
+    }
+    const cfg = getTriggerDetectionConfigFromRow(kind, row || {});
+    if (ui.ruleTriggerMode) ui.ruleTriggerMode.value = cfg.mode;
+    if (ui.ruleTriggerDetectValue) ui.ruleTriggerDetectValue.value = cfg.detectValue;
+    updateTriggerDetectValueUiState(kind);
   }
   function readRuleForm(){ return { enabled: $('ruleEnabled').value==='true', onlyArmed: $('ruleOnlyArmed').value==='true', onlyNight: $('ruleOnlyNight').value==='true', sirene: $('ruleSirene').value==='true', snapshot: $('ruleSnapshot').value==='true', telegram: $('ruleTelegram').value==='true', led: $('ruleLed')?.value === 'true' }; }
   function writeRuleForm(rule){ const r={...defaultRule(), ...(rule||{})}; $('ruleEnabled').value=String(r.enabled); $('ruleOnlyArmed').value=String(r.onlyArmed); $('ruleOnlyNight').value=String(r.onlyNight); $('ruleSirene').value=String(r.sirene); $('ruleSnapshot').value=String(r.snapshot); $('ruleTelegram').value=String(r.telegram); if ($('ruleLed')) $('ruleLed').value = String(!!r.led); }
@@ -1331,6 +1377,8 @@
       zone: readZoneSel(),
       floor: readFloorSel(),
       triggerDatapointId: String(ui.ruleTriggerDatapointId?.value || '').trim(),
+      triggerMode: String(ui.ruleTriggerMode?.value || '').trim(),
+      triggerDetectValue: String(ui.ruleTriggerDetectValue?.value || '').trim(),
       rule: readRuleForm(),
       health: readHealthForm(),
       snapshot: {
@@ -1368,14 +1416,33 @@
     }
     const kind = String(state.selectedEntity.kind || '');
     const triggerDatapointId = String(ui.ruleTriggerDatapointId?.value || '').trim();
+    const triggerMode = normalizeTriggerMode(ui.ruleTriggerMode?.value, kind === 'camerasTable');
+    const triggerDetectValue = String(ui.ruleTriggerDetectValue?.value || '').trim();
     const triggerPatch = {};
     if (isEntityTriggerDatapointKind(kind)) {
       if (!triggerDatapointId) {
         setStatus('Trigger-Datapoint fehlt', true);
         return false;
       }
-      if (kind === 'camerasTable') triggerPatch.personDetectionDp = triggerDatapointId;
-      else triggerPatch.id = triggerDatapointId;
+      if (kind === 'camerasTable') {
+        if (triggerMode === 'string' && !triggerDetectValue) {
+          setStatus('Trigger-String-Wert fehlt', true);
+          return false;
+        }
+        triggerPatch.personDetectionDp = triggerDatapointId;
+        triggerPatch.personDetectionMode = triggerMode;
+        triggerPatch.personDetectionDetectValue = triggerMode === 'string' ? triggerDetectValue : '';
+      } else if (kind === 'personDetectionTable') {
+        if (triggerMode === 'string' && !triggerDetectValue) {
+          setStatus('Trigger-String-Wert fehlt', true);
+          return false;
+        }
+        triggerPatch.id = triggerDatapointId;
+        triggerPatch.mode = triggerMode === 'boolean' ? 'boolean' : 'string';
+        triggerPatch.detectValue = triggerMode === 'string' ? triggerDetectValue : '';
+      } else {
+        triggerPatch.id = triggerDatapointId;
+      }
     }
     const z = readZoneSel();
     const f = readFloorSel();
@@ -6010,6 +6077,7 @@
     if (ui.browseRuleHeartbeatIdBtn && ui.ruleHealthHeartbeatId) ui.browseRuleHeartbeatIdBtn.addEventListener('click', () => openObjectBrowser(ui.ruleHealthHeartbeatId));
     if (ui.browseRuleOnlineIdBtn && ui.ruleHealthOnlineId) ui.browseRuleOnlineIdBtn.addEventListener('click', () => openObjectBrowser(ui.ruleHealthOnlineId));
     if (ui.browseRuleSnapshotDatapointBtn && ui.ruleSnapshotDatapointId) ui.browseRuleSnapshotDatapointBtn.addEventListener('click', () => openObjectBrowser(ui.ruleSnapshotDatapointId));
+    if (ui.ruleTriggerMode) ui.ruleTriggerMode.addEventListener('change', () => updateTriggerDetectValueUiState(state.selectedEntity?.kind));
     if (ui.ruleSnapshotZoneMode) ui.ruleSnapshotZoneMode.addEventListener('change', updateSnapshotZoneUiState);
     $('closeBrowserBtn').addEventListener('click', closeObjectBrowser);
     ui.objectSearch.addEventListener('input', renderObjectResults);
