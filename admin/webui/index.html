@@ -555,6 +555,20 @@
           </div>
         </section>
 
+        <section class="entity-settings-group" id="entityTriggerGroup">
+          <h3 class="entity-settings-title">Trigger-Quelle</h3>
+          <div class="fields">
+            <label title="Datapoint, der die Auslösung dieses Elements meldet. Bei Kamera-Elementen ist das der Personenerkennungs-Datapoint.">
+              <span id="ruleTriggerDatapointLabel">Trigger Datapoint</span>
+              <span class="input-wrap">
+                <input id="ruleTriggerDatapointId" class="state-input" list="stateIds" type="text" />
+                <button id="browseRuleTriggerDatapointBtn" class="icon-btn" type="button" title="Objektbrowser öffnen">🔎</button>
+              </span>
+            </label>
+          </div>
+          <p id="ruleTriggerDatapointHint" class="muted">Dieser Datapoint liefert die Triggerinformation für das ausgewählte Element.</p>
+        </section>
+
         <section class="entity-settings-group">
           <h3 class="entity-settings-title">Regel</h3>
           <div class="fields">
@@ -671,6 +685,6 @@
   <datalist id="stateIds"></datalist>
 
   <script src="/socket.io/socket.io.js"></script>
-  <script src="./app.js?v=2026-05-16-2315"></script>
+  <script src="./app.js?v=2026-05-18-0010"></script>
 </body>
 </html>

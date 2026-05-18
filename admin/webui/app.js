@@ -250,10 +250,15 @@
     ruleHealthHeartbeatId: $('ruleHealthHeartbeatId'),
     ruleHealthHeartbeatMaxSec: $('ruleHealthHeartbeatMaxSec'),
     ruleHealthOnlineId: $('ruleHealthOnlineId'),
+    ruleTriggerDatapointId: $('ruleTriggerDatapointId'),
+    ruleTriggerDatapointLabel: $('ruleTriggerDatapointLabel'),
+    ruleTriggerDatapointHint: $('ruleTriggerDatapointHint'),
+    ruleTriggerGroup: $('entityTriggerGroup'),
     ruleLed: $('ruleLed'),
     ruleSnapshotDatapointId: $('ruleSnapshotDatapointId'),
     ruleSnapshotZoneMode: $('ruleSnapshotZoneMode'),
     ruleSnapshotZones: $('ruleSnapshotZones'),
+    browseRuleTriggerDatapointBtn: $('browseRuleTriggerDatapointBtn'),
     browseRuleHeartbeatIdBtn: $('browseRuleHeartbeatIdBtn'),
     browseRuleOnlineIdBtn: $('browseRuleOnlineIdBtn'),
     browseRuleSnapshotDatapointBtn: $('browseRuleSnapshotDatapointBtn'),
@@ -842,7 +847,7 @@
       presenceByPerson[person] = true;
     });
     add(state.config.personDetectionTable, 'personDetectionTable', r => r?.id);
-    add(state.config.camerasTable, 'camerasTable', r => r?.personDetectionDp || r?.snapshotUrl || r?.ip);
+    add(state.config.camerasTable, 'camerasTable', r => r?.personDetectionDp || r?.id || r?.snapshotUrl || r?.ip);
     return rows;
   }
 
@@ -873,7 +878,7 @@
     add(state.config.contactSensorsTable, 'contactSensorsTable', r => r?.id);
     add(state.config.presenceSensorsTable, 'presenceSensorsTable', r => r?.id);
     add(state.config.personDetectionTable, 'personDetectionTable', r => r?.id);
-    add(state.config.camerasTable, 'camerasTable', r => r?.personDetectionDp || r?.snapshotUrl || r?.ip);
+    add(state.config.camerasTable, 'camerasTable', r => r?.personDetectionDp || r?.id || r?.snapshotUrl || r?.ip);
     return out;
   }
 
@@ -1042,7 +1047,7 @@
     const readRows = async (rows, type, mode = 'activeValues') => {
       for (const row of (rows || [])) {
         const key = String(row?.key || row?.id || row?.personDetectionDp || row?.snapshotUrl || row?.ip || '');
-        const id = String((type === 'camera' ? row?.personDetectionDp : row?.id) || '');
+        const id = String((type === 'camera' ? (row?.personDetectionDp || row?.id) : row?.id) || '');
         if (!key || !id) continue;
         const st = await getState(id);
         const rawVal = st?.val;
@@ -1052,6 +1057,9 @@
         else if (String(row?.activeValuesCsv || '').trim()) {
           const vals = String(row.activeValuesCsv).toLowerCase().split(',').map(x => x.trim()).filter(Boolean);
           on = vals.includes(raw) || asArmed(rawVal);
+        } else if (type === 'camera') {
+          const detectValue = String(row?.detectValue || 'human detected').trim().toLowerCase();
+          on = raw === detectValue || asArmed(st?.val);
         } else on = asArmed(st?.val);
         if (!showSensors) {
           if (type === 'pir' && !fullArmed) on = false;
@@ -1224,6 +1232,35 @@
   function setRulesMap(m){ state.config.rulesJson = JSON.stringify(m); }
   function ruleId(e){ return `${e.kind}:${e.entityKey}`; }
   function defaultRule(){ return { enabled:true, onlyArmed:true, onlyNight:false, sirene:false, snapshot:true, telegram:true, led:false }; }
+  function isEntityTriggerDatapointKind(kind) {
+    return ['contactSensorsTable', 'pirSensorsTable', 'personDetectionTable', 'camerasTable'].includes(String(kind || ''));
+  }
+  function getTriggerDatapointFromRow(kind, row) {
+    if (!row || typeof row !== 'object') return '';
+    if (String(kind || '') === 'camerasTable') return String(row.personDetectionDp || row.id || '').trim();
+    return String(row.id || '').trim();
+  }
+  function writeTriggerDatapointForm(entity, row) {
+    if (!ui.ruleTriggerDatapointId || !ui.ruleTriggerGroup || !ui.ruleTriggerDatapointLabel || !ui.ruleTriggerDatapointHint) return;
+    const kind = String(entity?.kind || '');
+    const enabled = isEntityTriggerDatapointKind(kind);
+    ui.ruleTriggerGroup.classList.toggle('hidden', !enabled);
+    if (!enabled) {
+      ui.ruleTriggerDatapointId.value = '';
+      return;
+    }
+    const isCamera = kind === 'camerasTable';
+    const isPerson = kind === 'personDetectionTable';
+    ui.ruleTriggerDatapointLabel.textContent = isCamera
+      ? 'Personenerkennung Datapoint'
+      : (isPerson ? 'PersonDetection Datapoint' : 'Trigger Datapoint');
+    ui.ruleTriggerDatapointHint.textContent = isCamera
+      ? 'Dieser Datapoint wird für die Personenerkennung der Kamera ausgewertet (z. B. "human detected").'
+      : (isPerson
+        ? 'Dieser Datapoint liefert die Personenerkennung für dieses Element.'
+        : 'Dieser Datapoint meldet den Triggerzustand dieses Elements.');
+    ui.ruleTriggerDatapointId.value = getTriggerDatapointFromRow(kind, row);
+  }
   function readRuleForm(){ return { enabled: $('ruleEnabled').value==='true', onlyArmed: $('ruleOnlyArmed').value==='true', onlyNight: $('ruleOnlyNight').value==='true', sirene: $('ruleSirene').value==='true', snapshot: $('ruleSnapshot').value==='true', telegram: $('ruleTelegram').value==='true', led: $('ruleLed')?.value === 'true' }; }
   function writeRuleForm(rule){ const r={...defaultRule(), ...(rule||{})}; $('ruleEnabled').value=String(r.enabled); $('ruleOnlyArmed').value=String(r.onlyArmed); $('ruleOnlyNight').value=String(r.onlyNight); $('ruleSirene').value=String(r.sirene); $('ruleSnapshot').value=String(r.snapshot); $('ruleTelegram').value=String(r.telegram); if ($('ruleLed')) $('ruleLed').value = String(!!r.led); }
   function readHealthForm() {
@@ -1293,6 +1330,7 @@
       ref,
       zone: readZoneSel(),
       floor: readFloorSel(),
+      triggerDatapointId: String(ui.ruleTriggerDatapointId?.value || '').trim(),
       rule: readRuleForm(),
       health: readHealthForm(),
       snapshot: {
@@ -1328,11 +1366,33 @@
       setStatus('Bitte erst ein Element anklicken', true);
       return false;
     }
+    const kind = String(state.selectedEntity.kind || '');
+    const triggerDatapointId = String(ui.ruleTriggerDatapointId?.value || '').trim();
+    const triggerPatch = {};
+    if (isEntityTriggerDatapointKind(kind)) {
+      if (!triggerDatapointId) {
+        setStatus('Trigger-Datapoint fehlt', true);
+        return false;
+      }
+      if (kind === 'camerasTable') triggerPatch.personDetectionDp = triggerDatapointId;
+      else triggerPatch.id = triggerDatapointId;
+    }
     const z = readZoneSel();
     const f = readFloorSel();
     const h = readHealthForm();
     const snap = readSnapshotForm();
-    setEntity(state.selectedEntity.kind, state.selectedEntity.idx, { zone: z, floor: f, ...h, ...snap });
+    setEntity(state.selectedEntity.kind, state.selectedEntity.idx, { zone: z, floor: f, ...h, ...snap, ...triggerPatch });
+    const updatedRow = state.config?.[state.selectedEntity.kind]?.[state.selectedEntity.idx];
+    if (updatedRow) {
+      const updatedId = getTriggerDatapointFromRow(state.selectedEntity.kind, updatedRow)
+        || (kind === 'camerasTable'
+          ? String(updatedRow.snapshotUrl || updatedRow.ip || '')
+          : String(updatedRow.id || ''));
+      state.selectedEntity.id = updatedId;
+      state.selectedEntity.entityId = updatedId;
+      state.selectedEntity.entityKey = String(updatedRow.key || updatedId);
+      state.selectedEntity.label = String(updatedRow.label || updatedRow.key || updatedId);
+    }
     const m = getRulesMap();
     m[ruleId(state.selectedEntity)] = readRuleForm();
     setRulesMap(m);
@@ -1453,8 +1513,10 @@
     writeZoneSel(e.zone);
     writeFloorSel(e.floor || 'EG');
     writeRuleForm(getRulesMap()[ruleId(e)]);
-    writeHealthForm(state.config?.[e.kind]?.[e.idx] || null);
-    writeSnapshotForm(state.config?.[e.kind]?.[e.idx] || null);
+    const selectedRow = state.config?.[e.kind]?.[e.idx] || null;
+    writeTriggerDatapointForm(e, selectedRow);
+    writeHealthForm(selectedRow);
+    writeSnapshotForm(selectedRow);
     refreshDesignerBindingPanel();
     if (openModal) {
       ui.entityModal.classList.remove('hidden');
@@ -4036,7 +4098,11 @@
     (state.config.pirSensorsTable || []).forEach(r => push('sensor', r.zone, r.id, r.label || r.key || r.id));
     (state.config.contactSensorsTable || []).forEach(r => push('sensor', r.zone, r.id, r.label || r.key || r.id));
     (state.config.personDetectionTable || []).forEach(r => push('personDetection', r.zone, r.id, r.label || r.key || r.id));
-    (state.config.camerasTable || []).forEach(r => push('camera', r.zone, r.personDetectionDp, r.label || r.key || r.personDetectionDp));
+    (state.config.camerasTable || []).forEach(r => {
+      const id = String(r?.personDetectionDp || r?.id || '').trim();
+      if (!id) return;
+      push('camera', r.zone, id, r.label || r.key || id);
+    });
     return out.sort((a, b) => a.label.localeCompare(b.label, 'de'));
   }
 
@@ -4418,7 +4484,11 @@
     (state.config.pirSensorsTable || []).forEach(r => push('sensor', r.id, r.label || r.key || r.id, r.zone));
     (state.config.contactSensorsTable || []).forEach(r => push('sensor', r.id, r.label || r.key || r.id, r.zone));
     (state.config.personDetectionTable || []).forEach(r => push('personDetection', r.id, r.label || r.key || r.id, r.zone));
-    (state.config.camerasTable || []).forEach(r => push('camera', r.personDetectionDp, r.label || r.key || r.personDetectionDp, r.zone));
+    (state.config.camerasTable || []).forEach(r => {
+      const id = String(r?.personDetectionDp || r?.id || '').trim();
+      if (!id) return;
+      push('camera', id, r.label || r.key || id, r.zone);
+    });
     const zoneOrder = { perimeter: 0, aussenhaut: 1, innenraum: 2 };
     rows.sort((a, b) => {
       const za = zoneOrder[a.zone] ?? 9;
@@ -5936,6 +6006,7 @@
     $('browseNewIdBtn').addEventListener('click', () => openObjectBrowser($('newId')));
     $('browseZoneActionIdBtn').addEventListener('click', () => openObjectBrowser($('zoneActionId')));
     if (ui.browseSnapshotActionDatapointBtn && ui.snapshotActionDatapointId) ui.browseSnapshotActionDatapointBtn.addEventListener('click', () => openObjectBrowser(ui.snapshotActionDatapointId));
+    if (ui.browseRuleTriggerDatapointBtn && ui.ruleTriggerDatapointId) ui.browseRuleTriggerDatapointBtn.addEventListener('click', () => openObjectBrowser(ui.ruleTriggerDatapointId));
     if (ui.browseRuleHeartbeatIdBtn && ui.ruleHealthHeartbeatId) ui.browseRuleHeartbeatIdBtn.addEventListener('click', () => openObjectBrowser(ui.ruleHealthHeartbeatId));
     if (ui.browseRuleOnlineIdBtn && ui.ruleHealthOnlineId) ui.browseRuleOnlineIdBtn.addEventListener('click', () => openObjectBrowser(ui.ruleHealthOnlineId));
     if (ui.browseRuleSnapshotDatapointBtn && ui.ruleSnapshotDatapointId) ui.browseRuleSnapshotDatapointBtn.addEventListener('click', () => openObjectBrowser(ui.ruleSnapshotDatapointId));
@@ -6278,7 +6349,7 @@
           state.currentFloor = floor;
           void updateFloorButtons();
           const id = kind === 'camerasTable'
-            ? String(row.personDetectionDp || row.snapshotUrl || row.ip || '')
+            ? String(row.personDetectionDp || row.id || row.snapshotUrl || row.ip || '')
             : String(row.id || '');
           const x = floor === 'OG' ? row.posXOg : (row.posXEg ?? row.posX);
           const y = floor === 'OG' ? row.posYOg : (row.posYEg ?? row.posY);
