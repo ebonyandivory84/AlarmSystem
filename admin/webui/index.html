@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AlarmSystem WebUI</title>
-  <link rel="stylesheet" href="./styles.css?v=2026-05-31-sounds3" />
+  <link rel="stylesheet" href="./styles.css?v=2026-05-31-sounds4" />
 </head>
 <body class="theme-black">
   <div class="app">
@@ -37,10 +37,10 @@
         <div class="canvas-overlay left-stack">
           <div class="controls-card">
             <div class="row">
-              <button id="toggleAlarmBtn" class="btn" title="Vollschutz umschalten">Vollschutz off</button>
-              <button id="toggleHullBtn" class="btn" title="Außenhaut umschalten">Außenhaut off</button>
-              <button id="togglePerimeterBtn" class="btn" title="Perimeter umschalten">Perimeter off</button>
-              <button id="toggleCamerasBtn" class="btn" title="Kamera umschalten">Kamera off</button>
+              <button id="toggleAlarmBtn" class="btn" title="Vollschutz umschalten">Vollschutz aktivieren</button>
+              <button id="toggleHullBtn" class="btn" title="Außenhautschutz umschalten">Außenhautschutz aktivieren</button>
+              <button id="togglePerimeterBtn" class="btn" title="Perimeterschutz umschalten">Perimeterschutz aktivieren</button>
+              <button id="toggleCamerasBtn" class="btn" title="Kamera ObjectDetection umschalten">Kamera ObjectDetection aktivieren</button>
             </div>
             <div class="row" style="margin-top:8px">
               <button id="overviewShowSensorsBtn" class="btn primary" title="Sensor-Detektionen im Grundriss anzeigen">Show sensors: on</button>
@@ -764,6 +764,6 @@
   <datalist id="stateIds"></datalist>
 
   <script src="/socket.io/socket.io.js"></script>
-  <script src="./app.js?v=2026-05-31-sounds3"></script>
+  <script src="./app.js?v=2026-05-31-sounds4"></script>
 </body>
 </html>

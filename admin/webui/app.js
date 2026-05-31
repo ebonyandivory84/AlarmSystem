@@ -5807,9 +5807,9 @@
     else offBtn.classList.add('state-off');
   }
 
-  function setToggleButton(btn, label, isOn) {
+  function setToggleButton(btn, activateText, deactivateText, isOn) {
     if (!btn) return;
-    btn.textContent = `${label} ${isOn ? 'on' : 'off'}`;
+    btn.textContent = isOn ? deactivateText : activateText;
     btn.classList.toggle('toggle-on', !!isOn);
     btn.classList.toggle('toggle-off', !isOn);
   }
@@ -6146,10 +6146,15 @@
     paintChip(ui.liveAussenhaut, aussenArmed);
     paintChip(ui.liveInnenraum, innenArmed);
     paintChip(ui.liveCameras, camerasArmed);
-    setToggleButton($('toggleAlarmBtn'), 'Vollschutz', fullArmed);
-    setToggleButton($('toggleHullBtn'), 'Außenhaut', rawHull || fullArmed);
-    setToggleButton($('togglePerimeterBtn'), 'Perimeter', rawPerimeterCombined || fullArmed);
-    setToggleButton($('toggleCamerasBtn'), 'Kamera', asArmed(cam?.val) || camerasArmed);
+    setToggleButton($('toggleAlarmBtn'), 'Vollschutz aktivieren', 'Vollschutz deaktivieren', fullArmed);
+    setToggleButton($('toggleHullBtn'), 'Außenhautschutz aktivieren', 'Außenhautschutz deaktivieren', rawHull || fullArmed);
+    setToggleButton($('togglePerimeterBtn'), 'Perimeterschutz aktivieren', 'Perimeterschutz deaktivieren', rawPerimeterCombined || fullArmed);
+    setToggleButton(
+      $('toggleCamerasBtn'),
+      'Kamera ObjectDetection aktivieren',
+      'Kamera ObjectDetection deaktivieren',
+      asArmed(cam?.val) || camerasArmed
+    );
     // Keep canvas blink logic aligned with effective armed evaluation
     // (datapoints + zone states), not only raw zone states.
     state.live.perimeterArmed = perimeterArmed;
