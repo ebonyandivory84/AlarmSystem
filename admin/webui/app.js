@@ -245,6 +245,7 @@
     soundBtnFloorEg: $('soundBtnFloorEg'),
     soundBtnFloorOg: $('soundBtnFloorOg'),
     soundBtnPanic: $('soundBtnPanic'),
+    soundBtnNumpadKey: $('soundBtnNumpadKey'),
     soundEventPersonArmed: $('soundEventPersonArmed'),
     soundEventPersonDisarmed: $('soundEventPersonDisarmed'),
     soundEventDoorArmed: $('soundEventDoorArmed'),
@@ -451,7 +452,8 @@
     ['soundBtnShowSensors', 'showSensors'],
     ['soundBtnFloorEg', 'floorEg'],
     ['soundBtnFloorOg', 'floorOg'],
-    ['soundBtnPanic', 'panic']
+    ['soundBtnPanic', 'panic'],
+    ['soundBtnNumpadKey', 'numpadKey']
   ];
   const SOUND_EVENT_FIELD_MAP = [
     ['soundEventPersonArmed', 'personArmed'],
@@ -470,6 +472,7 @@
     soundBtnFloorEg: 'Floor EG',
     soundBtnFloorOg: 'Floor OG',
     soundBtnPanic: 'PANIC',
+    soundBtnNumpadKey: 'Numpad Tasten',
     soundEventPersonArmed: 'Person detection (scharf)',
     soundEventPersonDisarmed: 'Person detection (unscharf)',
     soundEventDoorArmed: 'Tueroeffnung (scharf)',
@@ -502,7 +505,8 @@
       showSensors: [],
       floorEg: [],
       floorOg: [],
-      panic: []
+      panic: [],
+      numpadKey: []
     },
     events: {
       personArmed: [],
@@ -6864,17 +6868,20 @@
 
     $('closePinBtn').addEventListener('click', closePinModal);
     $('pinClearBtn').addEventListener('click', () => {
+      playConfiguredButtonSound('numpadKey');
       state.pinInput = '';
       renderPinDots();
       if (ui.pinHint) ui.pinHint.textContent = 'PIN: 4-stellig';
     });
     $('pinBackBtn').addEventListener('click', () => {
+      playConfiguredButtonSound('numpadKey');
       state.pinInput = state.pinInput.slice(0, -1);
       renderPinDots();
       if (ui.pinHint) ui.pinHint.textContent = 'PIN: 4-stellig';
     });
     document.querySelectorAll('.numpad [data-pin]').forEach(btn => {
       btn.addEventListener('click', () => {
+        playConfiguredButtonSound('numpadKey');
         void onPinDigit(btn.getAttribute('data-pin')).catch(e => setStatus(String(e), true));
       });
     });
