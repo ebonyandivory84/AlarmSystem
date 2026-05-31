@@ -235,6 +235,22 @@
     floorplanEgUpload: $('floorplanEgUpload'),
     floorplanOgUpload: $('floorplanOgUpload'),
     uploadFloorplansBtn: $('uploadFloorplansBtn'),
+    soundsEnabled: $('soundsEnabled'),
+    soundsVolume: $('soundsVolume'),
+    soundBtnToggleAlarm: $('soundBtnToggleAlarm'),
+    soundBtnToggleHull: $('soundBtnToggleHull'),
+    soundBtnTogglePerimeter: $('soundBtnTogglePerimeter'),
+    soundBtnToggleCameras: $('soundBtnToggleCameras'),
+    soundBtnShowSensors: $('soundBtnShowSensors'),
+    soundBtnFloorEg: $('soundBtnFloorEg'),
+    soundBtnFloorOg: $('soundBtnFloorOg'),
+    soundBtnPanic: $('soundBtnPanic'),
+    soundEventPersonArmed: $('soundEventPersonArmed'),
+    soundEventPersonDisarmed: $('soundEventPersonDisarmed'),
+    soundEventDoorArmed: $('soundEventDoorArmed'),
+    soundEventDoorDisarmed: $('soundEventDoorDisarmed'),
+    soundEventZoneArmed: $('soundEventZoneArmed'),
+    soundEventZoneDisarmed: $('soundEventZoneDisarmed'),
     healthOverviewText: $('healthOverviewText'),
     healthDetailsPanel: $('healthDetailsPanel'),
     healthCard: $('healthCard'),
@@ -316,6 +332,13 @@
     objectTarget: null,
     live: { perimeterArmed: false, aussenArmed: false, innenArmed: false, fullArmed: false, innerFillArmed: false },
     liveAlerts: { contact: {}, pir: {}, camera: {} },
+    uiSounds: null,
+    soundRuntime: {
+      initialized: false,
+      doors: {},
+      persons: {},
+      zones: { perimeter: false, aussenhaut: false, innenraum: false }
+    },
     overviewShowSensors: true,
     avatarProfiles: {},
     avatarDesigner: { person: 'sebastian', dragging: false, startX: 0, startY: 0, startPanX: 0, startPanY: 0 },
@@ -372,6 +395,93 @@
     designerHistory: []
   };
   const DISARM_PIN = '1492';
+  const VOYAGER_SOUND_FILES = [
+    'alarm2.wav',
+    'alarm4.wav',
+    'alarm6.wav',
+    'computerbeep_12.mp3',
+    'computerbeep_23.mp3',
+    'computerbeep_30.mp3',
+    'computerbeep_4.mp3',
+    'computerbeep_55.mp3',
+    'computerbeep_59.mp3',
+    'computerbeep_61.mp3',
+    'computerbeep_66.mp3',
+    'computerbeep_68.mp3',
+    'computerbeep_69.mp3',
+    'computerbeep_74.mp3',
+    'denybeep1.mp3',
+    'denybeep3.mp3',
+    'incoming_hail3.mp3',
+    'input_ok_1_clean.mp3',
+    'inputok1.wav',
+    'inputok2.wav',
+    'keydenied.wav',
+    'keyok1.mp3',
+    'keyok2.mp3',
+    'keyok3.wav',
+    'keyok4.wav',
+    'keyok5.mp3',
+    'keyok5.wav',
+    'processing1.wav',
+    'processing3.mp3',
+    'processing3.wav',
+    'scrclose1.wav',
+    'scrclose2.wav',
+    'scrdisplay1.wav',
+    'scrdisplay2.wav',
+    'scrscroll1.mp3',
+    'scrscroll1.wav',
+    'scrscroll2.mp3',
+    'scrscroll2.wav',
+    'scrsearch.mp3',
+    'scrsearch.wav',
+    'voiceinput2.wav',
+    'voiceinput3.wav',
+    'voiceinput4.wav',
+    'voy_hail.mp3'
+  ];
+  const VOYAGER_SOUND_SET = new Set(VOYAGER_SOUND_FILES);
+  const SOUND_BUTTON_FIELD_MAP = [
+    ['soundBtnToggleAlarm', 'toggleAlarm'],
+    ['soundBtnToggleHull', 'toggleHull'],
+    ['soundBtnTogglePerimeter', 'togglePerimeter'],
+    ['soundBtnToggleCameras', 'toggleCameras'],
+    ['soundBtnShowSensors', 'showSensors'],
+    ['soundBtnFloorEg', 'floorEg'],
+    ['soundBtnFloorOg', 'floorOg'],
+    ['soundBtnPanic', 'panic']
+  ];
+  const SOUND_EVENT_FIELD_MAP = [
+    ['soundEventPersonArmed', 'personArmed'],
+    ['soundEventPersonDisarmed', 'personDisarmed'],
+    ['soundEventDoorArmed', 'doorArmed'],
+    ['soundEventDoorDisarmed', 'doorDisarmed'],
+    ['soundEventZoneArmed', 'zoneArmed'],
+    ['soundEventZoneDisarmed', 'zoneDisarmed']
+  ];
+  const DEFAULT_UI_SOUND_CONFIG = {
+    enabled: true,
+    volume: 70,
+    buttons: {
+      toggleAlarm: '',
+      toggleHull: '',
+      togglePerimeter: '',
+      toggleCameras: '',
+      showSensors: '',
+      floorEg: '',
+      floorOg: '',
+      panic: ''
+    },
+    events: {
+      personArmed: '',
+      personDisarmed: '',
+      doorArmed: '',
+      doorDisarmed: '',
+      zoneArmed: '',
+      zoneDisarmed: ''
+    }
+  };
 
   const globalSpec = [['defaultEntryDelaySec','number'],['defaultExitDelaySec','number'],['eventDedupeMs','number'],['heartbeatTimeoutSec','number'],['snapshotSendDelayMs','number'],['snapshotBurstCount','number'],['snapshotBurstIntervalMs','number'],['bedtimeHour','number'],['bedtimeLightThreshold','number'],['simulationMode','boolean'],['cameraNightModeEnabled','boolean'],['cameraNightModeArmsCameras','boolean'],['alarmActionZoneTriggerTiming','select']];
   const globalHelp = {
@@ -564,6 +674,220 @@
     return asArmed(val);
   }
   const readStateVal = s => (s && typeof s === 'object' && Object.prototype.hasOwnProperty.call(s, 'val')) ? s.val : s;
+  function normalizeSoundFileName(raw) {
+    const name = String(raw || '').trim();
+    return VOYAGER_SOUND_SET.has(name) ? name : '';
+  }
+
+  function normalizeSoundZone(raw) {
+    const zone = String(raw || '').trim().toLowerCase();
+    if (zone === 'aussenhaut' || zone === 'innenraum' || zone === 'perimeter') return zone;
+    return 'perimeter';
+  }
+
+  function normalizeUiSoundConfig(raw) {
+    const input = raw && typeof raw === 'object' ? raw : {};
+    const normalized = {
+      enabled: input.enabled !== false,
+      volume: Math.max(0, Math.min(100, Number.isFinite(Number(input.volume)) ? Math.round(Number(input.volume)) : Number(DEFAULT_UI_SOUND_CONFIG.volume))),
+      buttons: { ...DEFAULT_UI_SOUND_CONFIG.buttons },
+      events: { ...DEFAULT_UI_SOUND_CONFIG.events }
+    };
+    for (const [, key] of SOUND_BUTTON_FIELD_MAP) {
+      normalized.buttons[key] = normalizeSoundFileName(input?.buttons?.[key]);
+    }
+    for (const [, key] of SOUND_EVENT_FIELD_MAP) {
+      normalized.events[key] = normalizeSoundFileName(input?.events?.[key]);
+    }
+    return normalized;
+  }
+
+  function ensureUiSoundConfig() {
+    if (!state.config || typeof state.config !== 'object') return;
+    let parsed = {};
+    try { parsed = JSON.parse(String(state.config.uiSoundConfigJson || '{}')); } catch {}
+    state.uiSounds = normalizeUiSoundConfig(parsed);
+    state.config.uiSoundConfigJson = JSON.stringify(state.uiSounds);
+  }
+
+  function getUiSoundConfig() {
+    if (!state.uiSounds) state.uiSounds = normalizeUiSoundConfig({});
+    return state.uiSounds;
+  }
+
+  function soundFileUrl(fileName) {
+    return `./assets/voyager-sounds/${encodeURIComponent(String(fileName || '').trim())}`;
+  }
+
+  function playSoundFile(fileName, force = false) {
+    const file = normalizeSoundFileName(fileName);
+    if (!file) return;
+    const cfg = getUiSoundConfig();
+    if (!force && !cfg.enabled) return;
+    const volume = Math.max(0, Math.min(1, Number(cfg.volume || 0) / 100));
+    try {
+      const audio = new Audio(soundFileUrl(file));
+      audio.volume = volume;
+      void audio.play().catch(() => {});
+    } catch {}
+  }
+
+  function playConfiguredButtonSound(key) {
+    const cfg = getUiSoundConfig();
+    playSoundFile(cfg?.buttons?.[String(key || '')], false);
+  }
+
+  function playConfiguredEventSound(key) {
+    const cfg = getUiSoundConfig();
+    playSoundFile(cfg?.events?.[String(key || '')], false);
+  }
+
+  function renderSoundOptionsIntoSelect(selectEl, selectedValue) {
+    if (!selectEl) return;
+    const selected = normalizeSoundFileName(selectedValue);
+    const options = ['<option value="">(kein Sound)</option>']
+      .concat(VOYAGER_SOUND_FILES.map(file => `<option value="${htmlEsc(file)}">${htmlEsc(file)}</option>`));
+    selectEl.innerHTML = options.join('');
+    selectEl.value = selected;
+  }
+
+  function renderSoundsCard() {
+    ensureUiSoundConfig();
+    const cfg = getUiSoundConfig();
+    if (ui.soundsEnabled) ui.soundsEnabled.value = String(cfg.enabled !== false);
+    if (ui.soundsVolume) ui.soundsVolume.value = String(Math.max(0, Math.min(100, Number(cfg.volume || 0))));
+    SOUND_BUTTON_FIELD_MAP.forEach(([fieldId, key]) => {
+      renderSoundOptionsIntoSelect(ui[fieldId], cfg.buttons?.[key]);
+    });
+    SOUND_EVENT_FIELD_MAP.forEach(([fieldId, key]) => {
+      renderSoundOptionsIntoSelect(ui[fieldId], cfg.events?.[key]);
+    });
+  }
+
+  function readUiSoundConfigFromForm() {
+    const next = normalizeUiSoundConfig(getUiSoundConfig());
+    if (ui.soundsEnabled) next.enabled = String(ui.soundsEnabled.value || 'true') === 'true';
+    if (ui.soundsVolume) {
+      const n = Number(ui.soundsVolume.value || next.volume || 70);
+      next.volume = Math.max(0, Math.min(100, Number.isFinite(n) ? Math.round(n) : 70));
+    }
+    SOUND_BUTTON_FIELD_MAP.forEach(([fieldId, key]) => {
+      next.buttons[key] = normalizeSoundFileName(ui[fieldId]?.value);
+    });
+    SOUND_EVENT_FIELD_MAP.forEach(([fieldId, key]) => {
+      next.events[key] = normalizeSoundFileName(ui[fieldId]?.value);
+    });
+    return normalizeUiSoundConfig(next);
+  }
+
+  function syncUiSoundConfigFromForm() {
+    state.uiSounds = readUiSoundConfigFromForm();
+    if (state.config && typeof state.config === 'object') {
+      state.config.uiSoundConfigJson = JSON.stringify(state.uiSounds);
+    }
+  }
+
+  function bindSoundCardControls() {
+    if (ui.soundsEnabled) {
+      ui.soundsEnabled.addEventListener('change', () => {
+        syncUiSoundConfigFromForm();
+      });
+    }
+    if (ui.soundsVolume) {
+      ui.soundsVolume.addEventListener('change', () => {
+        syncUiSoundConfigFromForm();
+      });
+    }
+    const bindSelect = fieldId => {
+      const el = ui[fieldId];
+      if (!el) return;
+      el.addEventListener('change', () => {
+        syncUiSoundConfigFromForm();
+        playSoundFile(el.value, true);
+      });
+    };
+    SOUND_BUTTON_FIELD_MAP.forEach(([fieldId]) => bindSelect(fieldId));
+    SOUND_EVENT_FIELD_MAP.forEach(([fieldId]) => bindSelect(fieldId));
+  }
+
+  function soundZoneIsArmed(zone, zones) {
+    const z = normalizeSoundZone(zone);
+    if (z === 'innenraum') return !!zones?.innenraum;
+    if (z === 'aussenhaut') return !!zones?.aussenhaut;
+    return !!zones?.perimeter;
+  }
+
+  function emitSoundForDetection(kind, zone, zones) {
+    const armed = soundZoneIsArmed(zone, zones);
+    if (kind === 'door') {
+      playConfiguredEventSound(armed ? 'doorArmed' : 'doorDisarmed');
+      return;
+    }
+    playConfiguredEventSound(armed ? 'personArmed' : 'personDisarmed');
+  }
+
+  function captureSoundSnapshotEntry(target, id, zone, active) {
+    const key = String(id || '').trim();
+    if (!key) return;
+    const prev = target[key];
+    target[key] = {
+      zone: prev?.zone || normalizeSoundZone(zone),
+      on: !!active || !!prev?.on
+    };
+  }
+
+  function emitSoundTransitionsByMap(prevMap, nextMap, kind, zones, allowEmit) {
+    if (!allowEmit) return;
+    Object.keys(nextMap || {}).forEach(id => {
+      const nextEntry = nextMap[id];
+      const prevOn = !!prevMap?.[id]?.on;
+      const nextOn = !!nextEntry?.on;
+      if (nextOn && !prevOn) {
+        emitSoundForDetection(kind, nextEntry?.zone, zones);
+      }
+    });
+  }
+
+  function emitZoneModeTransitionSound(prevZones, nextZones, allowEmit) {
+    if (!allowEmit) return;
+    const zoneKeys = ['perimeter', 'aussenhaut', 'innenraum'];
+    let armCount = 0;
+    let disarmCount = 0;
+    zoneKeys.forEach(zone => {
+      const prevOn = !!prevZones?.[zone];
+      const nextOn = !!nextZones?.[zone];
+      if (!prevOn && nextOn) armCount += 1;
+      if (prevOn && !nextOn) disarmCount += 1;
+    });
+    if (!armCount && !disarmCount) return;
+    if (armCount > disarmCount) playConfiguredEventSound('zoneArmed');
+    else playConfiguredEventSound('zoneDisarmed');
+  }
+
+  function applySoundEventTransitions(doorMap, personMap, zoneStates) {
+    const runtime = state.soundRuntime || {
+      initialized: false,
+      doors: {},
+      persons: {},
+      zones: { perimeter: false, aussenhaut: false, innenraum: false }
+    };
+    const nextZones = {
+      perimeter: !!zoneStates?.perimeter,
+      aussenhaut: !!zoneStates?.aussenhaut,
+      innenraum: !!zoneStates?.innenraum
+    };
+    const shouldEmit = runtime.initialized;
+    emitSoundTransitionsByMap(runtime.doors, doorMap, 'door', nextZones, shouldEmit);
+    emitSoundTransitionsByMap(runtime.persons, personMap, 'person', nextZones, shouldEmit);
+    emitZoneModeTransitionSound(runtime.zones, nextZones, shouldEmit);
+    state.soundRuntime = {
+      initialized: true,
+      doors: doorMap,
+      persons: personMap,
+      zones: nextZones
+    };
+  }
+
   const defaultLayout = () => ({
     imageRect: { x: 8, y: 6, w: 84, h: 88 },
     zones: {
@@ -789,6 +1113,7 @@
       } catch {}
       state.config.telegramTargetsTable = parsed;
     }
+    ensureUiSoundConfig();
   }
 
   function getHullProtectionId() {
@@ -1045,10 +1370,14 @@
     const fullArmed = !!flags.fullArmed;
     const aussenArmed = !!flags.aussenArmed;
     const perimeterArmed = !!flags.perimeterArmed;
+    const innenArmed = !!flags.innenArmed;
     const camerasArmed = !!flags.camerasArmed;
     const showSensors = !!flags.showSensors;
+    const trackSoundEvents = flags.trackSoundEvents !== false;
     const next = { contact: {}, pir: {}, camera: {} };
-    const readRows = async (rows, type, mode = 'activeValues') => {
+    const soundDoorMap = {};
+    const soundPersonMap = {};
+    const readRows = async (rows, type, mode = 'activeValues', soundKind = '') => {
       for (const row of (rows || [])) {
         const key = String(row?.key || row?.id || row?.personDetectionDp || row?.snapshotUrl || row?.ip || '');
         const id = String((type === 'camera' ? (row?.personDetectionDp || row?.id) : row?.id) || '');
@@ -1073,6 +1402,12 @@
           else if (triggerMode === 'auto') on = asArmed(rawVal) || raw === detectValue;
           else on = raw === detectValue;
         } else on = asArmed(st?.val);
+        const eventOn = !!on;
+        if (trackSoundEvents && soundKind === 'door') {
+          captureSoundSnapshotEntry(soundDoorMap, row?.id, row?.zone, eventOn);
+        } else if (trackSoundEvents && soundKind === 'person') {
+          captureSoundSnapshotEntry(soundPersonMap, id, row?.zone, eventOn);
+        }
         if (!showSensors) {
           if (type === 'pir' && !fullArmed) on = false;
           if (type === 'contact' && !(fullArmed || aussenArmed)) on = false;
@@ -1085,11 +1420,18 @@
         }
       }
     };
-    await readRows(state.config.contactSensorsTable, 'contact', 'activeValues');
+    await readRows(state.config.contactSensorsTable, 'contact', 'activeValues', 'door');
     await readRows(state.config.pirSensorsTable, 'pir', 'activeValues');
-    await readRows(state.config.camerasTable, 'camera', 'activeValues');
-    await readRows(state.config.personDetectionTable, 'camera', 'detectValue');
+    await readRows(state.config.camerasTable, 'camera', 'activeValues', 'person');
+    await readRows(state.config.personDetectionTable, 'camera', 'detectValue', 'person');
     state.liveAlerts = next;
+    if (trackSoundEvents) {
+      applySoundEventTransitions(soundDoorMap, soundPersonMap, {
+        perimeter: perimeterArmed,
+        aussenhaut: aussenArmed,
+        innenraum: innenArmed || fullArmed
+      });
+    }
   }
 
   function addZones(canvas) {
@@ -3825,6 +4167,8 @@
       }
       state.config[key] = raw;
     });
+    state.uiSounds = readUiSoundConfigFromForm();
+    state.config.uiSoundConfigJson = JSON.stringify(state.uiSounds);
     if (ui.alarmActionGlobalTiming) state.config.alarmActionZoneTriggerTiming = String(ui.alarmActionGlobalTiming.value || 'after_alarm');
     state.config.floorplanEgImage = String(ui.floorplanEgInput?.value || './assets/EG.jpg').trim();
     state.config.floorplanOgImage = String(ui.floorplanOgInput?.value || state.config.floorplanEgImage || './assets/OG.jpg').trim();
@@ -5518,7 +5862,15 @@
     state.live.innenArmed = innenArmed;
     state.live.fullArmed = fullArmed;
     state.live.innerFillArmed = innerFillArmed;
-    await refreshAlertStates({ fullArmed, aussenArmed, perimeterArmed, camerasArmed, showSensors: state.overviewShowSensors });
+    await refreshAlertStates({
+      fullArmed,
+      aussenArmed,
+      perimeterArmed,
+      innenArmed,
+      camerasArmed,
+      showSensors: state.overviewShowSensors,
+      trackSoundEvents: true
+    });
     await evaluateSystemHealth();
     await updateFloorButtons();
     applyZoneArmedVisuals(ui.mini);
@@ -5563,6 +5915,12 @@
     if (!p) { setStatus(`Profil nicht gefunden: ${n}`, true); return; }
     state.activeProfile = n;
     state.config = clone(p);
+    state.soundRuntime = {
+      initialized: false,
+      doors: {},
+      persons: {},
+      zones: { perimeter: false, aussenhaut: false, innenraum: false }
+    };
     renderAll();
     setStatus(`Profil geladen: ${n}`);
   }
@@ -5590,9 +5948,12 @@
   }
 
   function renderAll() {
+    ensureTables();
+    ensureUiSoundConfig();
     rebuildProfileSelect();
     void updateFloorButtons();
     renderFields();
+    renderSoundsCard();
     renderGeofenceSettings();
     renderAvatarDesigner();
     ensureFloorLayouts();
@@ -5622,6 +5983,12 @@
     ensureTables();
     ensureFloorLayouts();
     ensureDesignerData();
+    state.soundRuntime = {
+      initialized: false,
+      doors: {},
+      persons: {},
+      zones: { perimeter: false, aussenhaut: false, innenraum: false }
+    };
     state.designerHistory = [];
     if (ui.instance) ui.instance.textContent = `Instanz: ${state.instanceId}`;
     renderAll();
@@ -5697,6 +6064,7 @@
     bindPoolDrop();
     bindModal();
     await reloadFromInstance();
+    bindSoundCardControls();
     writeRuleForm(defaultRule());
 
     $('reloadBtn').addEventListener('click', () => reloadFromInstance().catch(e => setStatus(String(e), true)));
@@ -5920,11 +6288,13 @@
     }
     bindDesignerInteractions();
     ui.floorEgBtn.addEventListener('click', () => {
+      playConfiguredButtonSound('floorEg');
       state.currentFloor = 'EG';
       void updateFloorButtons();
       renderAllCanvases();
     });
     ui.floorOgBtn.addEventListener('click', () => {
+      playConfiguredButtonSound('floorOg');
       state.currentFloor = 'OG';
       void updateFloorButtons();
       renderAllCanvases();
@@ -6139,6 +6509,7 @@
 
     $('toggleAlarmBtn').addEventListener('click', async () => {
       try {
+        playConfiguredButtonSound('toggleAlarm');
         const st = await getState(state.config.armStateId || '');
         const toOn = !asArmed(st?.val);
         if (toOn) await manualControl('armAlarm');
@@ -6149,6 +6520,7 @@
     });
     $('toggleHullBtn')?.addEventListener('click', async () => {
       try {
+        playConfiguredButtonSound('toggleHull');
         const st = await getState(getHullProtectionId());
         const toOn = !asArmed(st?.val);
         if (toOn) await manualControl('armHull');
@@ -6159,6 +6531,7 @@
     });
     $('togglePerimeterBtn').addEventListener('click', async () => {
       try {
+        playConfiguredButtonSound('togglePerimeter');
         const st = await getState(state.config.perimeterStateId || '');
         const toOn = !asArmed(st?.val);
         if (toOn) await manualControl('armPerimeter');
@@ -6169,6 +6542,7 @@
     });
     $('toggleCamerasBtn').addEventListener('click', async () => {
       try {
+        playConfiguredButtonSound('toggleCameras');
         const st = await getState(state.config.cctvArmedId || '');
         const manual = await getState(`${state.instanceId}.runtime.camerasManualArmed`);
         const toOn = !(asArmed(st?.val) || asArmed(manual?.val));
@@ -6180,6 +6554,7 @@
     });
     if (ui.overviewShowSensorsBtn) {
       ui.overviewShowSensorsBtn.addEventListener('click', async () => {
+        playConfiguredButtonSound('showSensors');
         state.overviewShowSensors = !state.overviewShowSensors;
         updateOverviewShowSensorsButton();
         await refreshLiveStatus();
@@ -6210,7 +6585,10 @@
         void onPinDigit(btn.getAttribute('data-pin')).catch(e => setStatus(String(e), true));
       });
     });
-    ui.panicBtn.addEventListener('click', () => togglePanic().catch(e => setStatus(String(e), true)));
+    ui.panicBtn.addEventListener('click', () => {
+      playConfiguredButtonSound('panic');
+      togglePanic().catch(e => setStatus(String(e), true));
+    });
     if (ui.addSnapshotActionBtn) ui.addSnapshotActionBtn.addEventListener('click', addSnapshotActionTarget);
     if (ui.addQuickAlarmActionBtn) ui.addQuickAlarmActionBtn.addEventListener('click', addQuickAlarmAction);
     if (ui.addModeFlowRuleBtn) ui.addModeFlowRuleBtn.addEventListener('click', addModeFlowRulesFromSelection);

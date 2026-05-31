@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AlarmSystem WebUI</title>
-  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./styles.css?v=2026-05-31-sounds1" />
 </head>
 <body class="theme-black">
   <div class="app">
@@ -163,6 +163,70 @@
       </section>
 
       <section class="card"><h2>Globale Parameter</h2><div class="fields" id="globalFields"></div></section>
+      <section class="card" id="soundsCard">
+        <h2>Sounds</h2>
+        <p class="muted">Voyager-Sounds fuer Buttons auf der Uebersicht und fuer Event-Benachrichtigungen.</p>
+        <div class="fields">
+          <label>Sounds aktiv
+            <select id="soundsEnabled">
+              <option value="true">true</option>
+              <option value="false">false</option>
+            </select>
+          </label>
+          <label>Lautstaerke (0-100)
+            <input id="soundsVolume" type="number" min="0" max="100" step="1" value="70" />
+          </label>
+        </div>
+        <h2 class="subhead">Uebersicht Buttons</h2>
+        <div class="fields">
+          <label>Vollschutz
+            <select id="soundBtnToggleAlarm"></select>
+          </label>
+          <label>Aussenhaut
+            <select id="soundBtnToggleHull"></select>
+          </label>
+          <label>Perimeter
+            <select id="soundBtnTogglePerimeter"></select>
+          </label>
+          <label>Kamera
+            <select id="soundBtnToggleCameras"></select>
+          </label>
+          <label>Show sensors
+            <select id="soundBtnShowSensors"></select>
+          </label>
+          <label>Floor EG
+            <select id="soundBtnFloorEg"></select>
+          </label>
+          <label>Floor OG
+            <select id="soundBtnFloorOg"></select>
+          </label>
+          <label>PANIC
+            <select id="soundBtnPanic"></select>
+          </label>
+        </div>
+        <h2 class="subhead">Events</h2>
+        <div class="fields">
+          <label>Person detection (scharf)
+            <select id="soundEventPersonArmed"></select>
+          </label>
+          <label>Person detection (unscharf)
+            <select id="soundEventPersonDisarmed"></select>
+          </label>
+          <label>Tueroeffnung (scharf)
+            <select id="soundEventDoorArmed"></select>
+          </label>
+          <label>Tueroeffnung (unscharf)
+            <select id="soundEventDoorDisarmed"></select>
+          </label>
+          <label>Zone scharfschalten
+            <select id="soundEventZoneArmed"></select>
+          </label>
+          <label>Zone unscharfschalten
+            <select id="soundEventZoneDisarmed"></select>
+          </label>
+        </div>
+        <p class="muted">Beim Aendern wird der Sound direkt abgespielt. Dauerhaft gespeichert erst mit "In Instanz speichern".</p>
+      </section>
       <section class="grid2 settings-grid">
         <div class="settings-col">
           <article class="card">
@@ -697,6 +761,6 @@
   <datalist id="stateIds"></datalist>
 
   <script src="/socket.io/socket.io.js"></script>
-  <script src="./app.js?v=2026-05-18-0020"></script>
+  <script src="./app.js?v=2026-05-31-sounds1"></script>
 </body>
 </html>
