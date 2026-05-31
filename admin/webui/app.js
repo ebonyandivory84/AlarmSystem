@@ -337,7 +337,8 @@
       initialized: false,
       doors: {},
       persons: {},
-      zones: { perimeter: false, aussenhaut: false, innenraum: false }
+      zones: { perimeter: false, aussenhaut: false, innenraum: false },
+      soundCycles: {}
     },
     overviewShowSensors: true,
     avatarProfiles: {},
@@ -460,26 +461,56 @@
     ['soundEventZoneArmed', 'zoneArmed'],
     ['soundEventZoneDisarmed', 'zoneDisarmed']
   ];
+  const SOUND_FIELD_TITLES = {
+    soundBtnToggleAlarm: 'Vollschutz',
+    soundBtnToggleHull: 'Aussenhaut',
+    soundBtnTogglePerimeter: 'Perimeter',
+    soundBtnToggleCameras: 'Kamera',
+    soundBtnShowSensors: 'Show sensors',
+    soundBtnFloorEg: 'Floor EG',
+    soundBtnFloorOg: 'Floor OG',
+    soundBtnPanic: 'PANIC',
+    soundEventPersonArmed: 'Person detection (scharf)',
+    soundEventPersonDisarmed: 'Person detection (unscharf)',
+    soundEventDoorArmed: 'Tueroeffnung (scharf)',
+    soundEventDoorDisarmed: 'Tueroeffnung (unscharf)',
+    soundEventZoneArmed: 'Zone scharfschalten',
+    soundEventZoneDisarmed: 'Zone unscharfschalten'
+  };
+  const MAX_SOUND_SELECTION = 5;
+  const soundPicker = {
+    initialized: false,
+    targetFieldId: '',
+    draft: [],
+    modal: null,
+    title: null,
+    counter: null,
+    list: null,
+    close: null,
+    cancel: null,
+    clear: null,
+    apply: null
+  };
   const DEFAULT_UI_SOUND_CONFIG = {
     enabled: true,
     volume: 70,
     buttons: {
-      toggleAlarm: '',
-      toggleHull: '',
-      togglePerimeter: '',
-      toggleCameras: '',
-      showSensors: '',
-      floorEg: '',
-      floorOg: '',
-      panic: ''
+      toggleAlarm: [],
+      toggleHull: [],
+      togglePerimeter: [],
+      toggleCameras: [],
+      showSensors: [],
+      floorEg: [],
+      floorOg: [],
+      panic: []
     },
     events: {
-      personArmed: '',
-      personDisarmed: '',
-      doorArmed: '',
-      doorDisarmed: '',
-      zoneArmed: '',
-      zoneDisarmed: ''
+      personArmed: [],
+      personDisarmed: [],
+      doorArmed: [],
+      doorDisarmed: [],
+      zoneArmed: [],
+      zoneDisarmed: []
     }
   };
 
@@ -679,6 +710,42 @@
     return VOYAGER_SOUND_SET.has(name) ? name : '';
   }
 
+  function normalizeSoundSelection(raw, max = MAX_SOUND_SELECTION) {
+    const input = Array.isArray(raw) ? raw : (typeof raw === 'string' ? [raw] : []);
+    const out = [];
+    input.forEach(entry => {
+      const file = normalizeSoundFileName(entry);
+      if (!file || out.includes(file)) return;
+      if (out.length < max) out.push(file);
+    });
+    return out;
+  }
+
+  function setSelectedSoundValues(selectEl, values) {
+    if (!selectEl) return;
+    const selected = normalizeSoundSelection(values);
+    const selectedSet = new Set(selected);
+    Array.from(selectEl.options || []).forEach(opt => {
+      const file = normalizeSoundFileName(opt?.value);
+      opt.selected = !!file && selectedSet.has(file);
+    });
+    selectEl.dataset.prevSelection = JSON.stringify(selected);
+  }
+
+  function getSelectedSoundValues(selectEl) {
+    if (!selectEl) return [];
+    const vals = Array.from(selectEl.selectedOptions || []).map(opt => String(opt?.value || ''));
+    return normalizeSoundSelection(vals);
+  }
+
+  function soundSelectionSummary(selection) {
+    const normalized = normalizeSoundSelection(selection);
+    if (!normalized.length) return 'Keine Sounds ausgewaehlt';
+    const preview = normalized.slice(0, 3).join(', ');
+    const suffix = normalized.length > 3 ? ` (+${normalized.length - 3})` : '';
+    return `${normalized.length}/${MAX_SOUND_SELECTION}: ${preview}${suffix}`;
+  }
+
   function normalizeSoundZone(raw) {
     const zone = String(raw || '').trim().toLowerCase();
     if (zone === 'aussenhaut' || zone === 'innenraum' || zone === 'perimeter') return zone;
@@ -694,10 +761,10 @@
       events: { ...DEFAULT_UI_SOUND_CONFIG.events }
     };
     for (const [, key] of SOUND_BUTTON_FIELD_MAP) {
-      normalized.buttons[key] = normalizeSoundFileName(input?.buttons?.[key]);
+      normalized.buttons[key] = normalizeSoundSelection(input?.buttons?.[key]);
     }
     for (const [, key] of SOUND_EVENT_FIELD_MAP) {
-      normalized.events[key] = normalizeSoundFileName(input?.events?.[key]);
+      normalized.events[key] = normalizeSoundSelection(input?.events?.[key]);
     }
     return normalized;
   }
@@ -719,6 +786,37 @@
     return `./assets/voyager-sounds/${encodeURIComponent(String(fileName || '').trim())}`;
   }
 
+  function shuffleCopy(list) {
+    const out = Array.isArray(list) ? list.slice() : [];
+    for (let i = out.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = out[i];
+      out[i] = out[j];
+      out[j] = tmp;
+    }
+    return out;
+  }
+
+  function nextSoundFromSelection(selection, cycleKey) {
+    const normalized = normalizeSoundSelection(selection);
+    if (!normalized.length) return '';
+    if (normalized.length === 1) return normalized[0];
+    const cycles = (state.soundRuntime && state.soundRuntime.soundCycles) ? state.soundRuntime.soundCycles : {};
+    const key = String(cycleKey || 'default');
+    const signature = normalized.join('|');
+    let entry = cycles[key];
+    if (!entry || entry.signature !== signature || !Array.isArray(entry.pool) || !entry.pool.length) {
+      entry = { signature, pool: shuffleCopy(normalized) };
+    }
+    const next = normalizeSoundFileName(entry.pool.shift());
+    if (!entry.pool.length) {
+      entry.pool = shuffleCopy(normalized);
+    }
+    cycles[key] = entry;
+    state.soundRuntime.soundCycles = cycles;
+    return next || normalizeSoundFileName(normalized[0]);
+  }
+
   function playSoundFile(fileName, force = false) {
     const file = normalizeSoundFileName(fileName);
     if (!file) return;
@@ -732,35 +830,222 @@
     } catch {}
   }
 
+  function playSoundSelection(selection, cycleKey, force = false) {
+    const next = nextSoundFromSelection(selection, cycleKey);
+    if (!next) return;
+    playSoundFile(next, force);
+  }
+
   function playConfiguredButtonSound(key) {
     const cfg = getUiSoundConfig();
-    playSoundFile(cfg?.buttons?.[String(key || '')], false);
+    playSoundSelection(cfg?.buttons?.[String(key || '')], `btn:${String(key || '')}`, false);
   }
 
   function playConfiguredEventSound(key) {
     const cfg = getUiSoundConfig();
-    playSoundFile(cfg?.events?.[String(key || '')], false);
+    playSoundSelection(cfg?.events?.[String(key || '')], `evt:${String(key || '')}`, false);
   }
 
-  function renderSoundOptionsIntoSelect(selectEl, selectedValue) {
+  function renderSoundOptionsIntoSelect(selectEl, selectedValues) {
     if (!selectEl) return;
-    const selected = normalizeSoundFileName(selectedValue);
-    const options = ['<option value="">(kein Sound)</option>']
-      .concat(VOYAGER_SOUND_FILES.map(file => `<option value="${htmlEsc(file)}">${htmlEsc(file)}</option>`));
+    const selected = normalizeSoundSelection(selectedValues);
+    const selectedSet = new Set(selected);
+    const options = VOYAGER_SOUND_FILES.map(file => {
+      const sel = selectedSet.has(file) ? ' selected' : '';
+      return `<option value="${htmlEsc(file)}"${sel}>${htmlEsc(file)}</option>`;
+    });
     selectEl.innerHTML = options.join('');
-    selectEl.value = selected;
+    selectEl.multiple = true;
+    selectEl.size = 8;
+    setSelectedSoundValues(selectEl, selected);
+  }
+
+  function updateSoundFieldSummary(fieldId) {
+    const selectEl = ui[fieldId];
+    if (!selectEl) return;
+    const summaryEl = document.getElementById(`${fieldId}Summary`);
+    if (!summaryEl) return;
+    summaryEl.textContent = soundSelectionSummary(getSelectedSoundValues(selectEl));
+  }
+
+  function ensureSoundPickerModal() {
+    if (soundPicker.initialized) return;
+    const modal = document.createElement('div');
+    modal.id = 'soundPickerModal';
+    modal.className = 'modal hidden';
+    modal.innerHTML = `
+      <div class="modal-inner sound-picker-inner">
+        <button id="soundPickerCloseBtn" class="modal-close">X</button>
+        <h2 id="soundPickerTitle">Sounds waehlen</h2>
+        <p class="muted">Bis zu ${MAX_SOUND_SELECTION} Sounds auswaehlen. Jeder Sound hat eine direkte Preview.</p>
+        <div class="row sound-picker-toolbar">
+          <button id="soundPickerClearBtn" class="btn ghost" type="button">Auswahl leeren</button>
+          <span id="soundPickerCounter" class="status-chip">0/${MAX_SOUND_SELECTION}</span>
+        </div>
+        <div id="soundPickerList" class="sound-picker-list"></div>
+        <div class="row sound-picker-footer">
+          <button id="soundPickerApplyBtn" class="btn primary" type="button">Uebernehmen</button>
+          <button id="soundPickerCancelBtn" class="btn ghost" type="button">Abbrechen</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    soundPicker.modal = modal;
+    soundPicker.title = modal.querySelector('#soundPickerTitle');
+    soundPicker.counter = modal.querySelector('#soundPickerCounter');
+    soundPicker.list = modal.querySelector('#soundPickerList');
+    soundPicker.close = modal.querySelector('#soundPickerCloseBtn');
+    soundPicker.cancel = modal.querySelector('#soundPickerCancelBtn');
+    soundPicker.clear = modal.querySelector('#soundPickerClearBtn');
+    soundPicker.apply = modal.querySelector('#soundPickerApplyBtn');
+    const closeModal = () => {
+      soundPicker.targetFieldId = '';
+      soundPicker.draft = [];
+      if (soundPicker.modal) soundPicker.modal.classList.add('hidden');
+    };
+    if (soundPicker.close) soundPicker.close.addEventListener('click', closeModal);
+    if (soundPicker.cancel) soundPicker.cancel.addEventListener('click', closeModal);
+    if (soundPicker.modal) {
+      soundPicker.modal.addEventListener('click', ev => {
+        if (ev.target !== soundPicker.modal) return;
+        closeModal();
+      });
+    }
+    if (soundPicker.clear) {
+      soundPicker.clear.addEventListener('click', () => {
+        soundPicker.draft = [];
+        renderSoundPickerList();
+      });
+    }
+    if (soundPicker.list) {
+      soundPicker.list.addEventListener('change', ev => {
+        const checkbox = ev.target.closest('input[data-sound-pick]');
+        if (!checkbox) return;
+        const sound = normalizeSoundFileName(checkbox.getAttribute('data-sound-pick') || checkbox.value);
+        if (!sound) return;
+        const draftSet = new Set(soundPicker.draft);
+        if (checkbox.checked) {
+          if (draftSet.size >= MAX_SOUND_SELECTION) {
+            checkbox.checked = false;
+            showToast(`Maximal ${MAX_SOUND_SELECTION} Sounds pro Feld`, true);
+            return;
+          }
+          draftSet.add(sound);
+        } else {
+          draftSet.delete(sound);
+        }
+        soundPicker.draft = normalizeSoundSelection(Array.from(draftSet));
+        updateSoundPickerCounter();
+      });
+      soundPicker.list.addEventListener('click', ev => {
+        const previewBtn = ev.target.closest('[data-sound-preview]');
+        if (!previewBtn) return;
+        const sound = normalizeSoundFileName(previewBtn.getAttribute('data-sound-preview'));
+        playSoundFile(sound, true);
+      });
+    }
+    if (soundPicker.apply) {
+      soundPicker.apply.addEventListener('click', () => {
+        const fieldId = String(soundPicker.targetFieldId || '');
+        const selectEl = ui[fieldId];
+        if (fieldId && selectEl) {
+          setSelectedSoundValues(selectEl, soundPicker.draft);
+          updateSoundFieldSummary(fieldId);
+          syncUiSoundConfigFromForm();
+        }
+        closeModal();
+      });
+    }
+    soundPicker.initialized = true;
+  }
+
+  function updateSoundPickerCounter() {
+    if (!soundPicker.counter) return;
+    const count = normalizeSoundSelection(soundPicker.draft).length;
+    soundPicker.counter.textContent = `${count}/${MAX_SOUND_SELECTION}`;
+  }
+
+  function renderSoundPickerList() {
+    if (!soundPicker.list) return;
+    const selected = new Set(normalizeSoundSelection(soundPicker.draft));
+    soundPicker.list.innerHTML = VOYAGER_SOUND_FILES.map(file => {
+      const checked = selected.has(file) ? ' checked' : '';
+      return `
+        <div class="sound-picker-item">
+          <label class="sound-picker-choice">
+            <input type="checkbox" data-sound-pick="${htmlEsc(file)}" value="${htmlEsc(file)}"${checked} />
+            <span>${htmlEsc(file)}</span>
+          </label>
+          <button class="btn ghost sound-picker-preview-btn" type="button" data-sound-preview="${htmlEsc(file)}">▶</button>
+        </div>
+      `;
+    }).join('');
+    updateSoundPickerCounter();
+  }
+
+  function openSoundPicker(fieldId) {
+    const selectEl = ui[fieldId];
+    if (!selectEl) return;
+    ensureSoundPickerModal();
+    soundPicker.targetFieldId = String(fieldId || '');
+    soundPicker.draft = getSelectedSoundValues(selectEl);
+    if (soundPicker.title) {
+      const title = SOUND_FIELD_TITLES[fieldId] || fieldId;
+      soundPicker.title.textContent = `Sounds: ${title}`;
+    }
+    renderSoundPickerList();
+    if (soundPicker.modal) soundPicker.modal.classList.remove('hidden');
+  }
+
+  function ensureSoundFieldControls() {
+    const allFields = SOUND_BUTTON_FIELD_MAP.concat(SOUND_EVENT_FIELD_MAP).map(([fieldId]) => fieldId);
+    allFields.forEach(fieldId => {
+      const selectEl = ui[fieldId];
+      if (!selectEl || selectEl.dataset.soundEnhanced === '1') return;
+      const summary = document.createElement('span');
+      summary.id = `${fieldId}Summary`;
+      summary.className = 'muted sound-selection-summary';
+      const actions = document.createElement('span');
+      actions.className = 'sound-selection-actions';
+      const editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'btn';
+      editBtn.textContent = 'Sounds waehlen';
+      editBtn.addEventListener('click', () => openSoundPicker(fieldId));
+      const previewBtn = document.createElement('button');
+      previewBtn.type = 'button';
+      previewBtn.className = 'btn ghost';
+      previewBtn.textContent = 'Preview Auswahl';
+      previewBtn.addEventListener('click', () => {
+        const selection = getSelectedSoundValues(selectEl);
+        if (!selection.length) {
+          showToast('Keine Sounds ausgewaehlt', true);
+          return;
+        }
+        playSoundSelection(selection, `preview:${fieldId}`, true);
+      });
+      actions.appendChild(editBtn);
+      actions.appendChild(previewBtn);
+      selectEl.classList.add('sound-select-hidden');
+      selectEl.insertAdjacentElement('afterend', actions);
+      selectEl.insertAdjacentElement('afterend', summary);
+      selectEl.dataset.soundEnhanced = '1';
+    });
   }
 
   function renderSoundsCard() {
     ensureUiSoundConfig();
+    ensureSoundFieldControls();
     const cfg = getUiSoundConfig();
     if (ui.soundsEnabled) ui.soundsEnabled.value = String(cfg.enabled !== false);
     if (ui.soundsVolume) ui.soundsVolume.value = String(Math.max(0, Math.min(100, Number(cfg.volume || 0))));
     SOUND_BUTTON_FIELD_MAP.forEach(([fieldId, key]) => {
       renderSoundOptionsIntoSelect(ui[fieldId], cfg.buttons?.[key]);
+      updateSoundFieldSummary(fieldId);
     });
     SOUND_EVENT_FIELD_MAP.forEach(([fieldId, key]) => {
       renderSoundOptionsIntoSelect(ui[fieldId], cfg.events?.[key]);
+      updateSoundFieldSummary(fieldId);
     });
   }
 
@@ -772,10 +1057,10 @@
       next.volume = Math.max(0, Math.min(100, Number.isFinite(n) ? Math.round(n) : 70));
     }
     SOUND_BUTTON_FIELD_MAP.forEach(([fieldId, key]) => {
-      next.buttons[key] = normalizeSoundFileName(ui[fieldId]?.value);
+      next.buttons[key] = getSelectedSoundValues(ui[fieldId]);
     });
     SOUND_EVENT_FIELD_MAP.forEach(([fieldId, key]) => {
-      next.events[key] = normalizeSoundFileName(ui[fieldId]?.value);
+      next.events[key] = getSelectedSoundValues(ui[fieldId]);
     });
     return normalizeUiSoundConfig(next);
   }
@@ -785,9 +1070,13 @@
     if (state.config && typeof state.config === 'object') {
       state.config.uiSoundConfigJson = JSON.stringify(state.uiSounds);
     }
+    if (state.soundRuntime && state.soundRuntime.soundCycles) {
+      state.soundRuntime.soundCycles = {};
+    }
   }
 
   function bindSoundCardControls() {
+    ensureSoundPickerModal();
     if (ui.soundsEnabled) {
       ui.soundsEnabled.addEventListener('change', () => {
         syncUiSoundConfigFromForm();
@@ -803,7 +1092,7 @@
       if (!el) return;
       el.addEventListener('change', () => {
         syncUiSoundConfigFromForm();
-        playSoundFile(el.value, true);
+        updateSoundFieldSummary(fieldId);
       });
     };
     SOUND_BUTTON_FIELD_MAP.forEach(([fieldId]) => bindSelect(fieldId));
@@ -869,7 +1158,8 @@
       initialized: false,
       doors: {},
       persons: {},
-      zones: { perimeter: false, aussenhaut: false, innenraum: false }
+      zones: { perimeter: false, aussenhaut: false, innenraum: false },
+      soundCycles: {}
     };
     const nextZones = {
       perimeter: !!zoneStates?.perimeter,
@@ -884,7 +1174,8 @@
       initialized: true,
       doors: doorMap,
       persons: personMap,
-      zones: nextZones
+      zones: nextZones,
+      soundCycles: runtime.soundCycles || {}
     };
   }
 
@@ -5919,7 +6210,8 @@
       initialized: false,
       doors: {},
       persons: {},
-      zones: { perimeter: false, aussenhaut: false, innenraum: false }
+      zones: { perimeter: false, aussenhaut: false, innenraum: false },
+      soundCycles: {}
     };
     renderAll();
     setStatus(`Profil geladen: ${n}`);
@@ -5987,7 +6279,8 @@
       initialized: false,
       doors: {},
       persons: {},
-      zones: { perimeter: false, aussenhaut: false, innenraum: false }
+      zones: { perimeter: false, aussenhaut: false, innenraum: false },
+      soundCycles: {}
     };
     state.designerHistory = [];
     if (ui.instance) ui.instance.textContent = `Instanz: ${state.instanceId}`;

@@ -15,7 +15,7 @@
           "button": true,
           "variant": "contained",
           "icon": "open_in_new",
-          "href": "%web_protocol%://%ip%:%web_port%/adapter/alarmsystem/webui/index.html?instance=alarmsystem.%instance%&v=2026-05-31-sounds1"
+          "href": "%web_protocol%://%ip%:%web_port%/adapter/alarmsystem/webui/index.html?instance=alarmsystem.%instance%&v=2026-05-31-sounds2"
         },
         "debugLevel": {
           "type": "select",

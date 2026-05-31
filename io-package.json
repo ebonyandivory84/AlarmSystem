@@ -39,7 +39,7 @@
     },
     "localLinks": {
       "WebUI": {
-        "link": "%web_protocol%://%ip%:%web_port%/adapter/alarmsystem/webui/index.html?instance=alarmsystem.%instance%&v=2026-05-31-sounds1",
+        "link": "%web_protocol%://%ip%:%web_port%/adapter/alarmsystem/webui/index.html?instance=alarmsystem.%instance%&v=2026-05-31-sounds2",
         "icon": "web"
       }
     },

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AlarmSystem WebUI</title>
-  <link rel="stylesheet" href="./styles.css?v=2026-05-31-sounds1" />
+  <link rel="stylesheet" href="./styles.css?v=2026-05-31-sounds2" />
 </head>
 <body class="theme-black">
   <div class="app">
@@ -165,7 +165,7 @@
       <section class="card"><h2>Globale Parameter</h2><div class="fields" id="globalFields"></div></section>
       <section class="card" id="soundsCard">
         <h2>Sounds</h2>
-        <p class="muted">Voyager-Sounds fuer Buttons auf der Uebersicht und fuer Event-Benachrichtigungen.</p>
+        <p class="muted">Voyager-Sounds fuer Buttons auf der Uebersicht und fuer Event-Benachrichtigungen. Pro Feld bis zu 5 Sounds, Wiedergabe als zufaellige Permutation ohne Wiederholung bis alle einmal gespielt wurden.</p>
         <div class="fields">
           <label>Sounds aktiv
             <select id="soundsEnabled">
@@ -225,7 +225,7 @@
             <select id="soundEventZoneDisarmed"></select>
           </label>
         </div>
-        <p class="muted">Beim Aendern wird der Sound direkt abgespielt. Dauerhaft gespeichert erst mit "In Instanz speichern".</p>
+        <p class="muted">Mit "Sounds waehlen" oeffnest du die Bibliothek mit Preview pro Sound. Dauerhaft gespeichert erst mit "In Instanz speichern".</p>
       </section>
       <section class="grid2 settings-grid">
         <div class="settings-col">
@@ -761,6 +761,6 @@
   <datalist id="stateIds"></datalist>
 
   <script src="/socket.io/socket.io.js"></script>
-  <script src="./app.js?v=2026-05-31-sounds1"></script>
+  <script src="./app.js?v=2026-05-31-sounds2"></script>
 </body>
 </html>
