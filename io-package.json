@@ -25,6 +25,7 @@
     },
     "platform": "Javascript/Node.js",
     "mode": "daemon",
+    "main": "build/main.js",
     "icon": "alarmsystem.png",
     "enabled": true,
     "extIcon": "",
