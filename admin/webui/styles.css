@@ -29,6 +29,7 @@ body::after{content:none}
   gap:20px;
 }
 .settings-grid{
+  grid-template-columns:minmax(0,1fr);
   align-items:stretch;
 }
 .settings-col{
@@ -430,6 +431,8 @@ details summary{cursor:pointer;color:var(--muted);font-weight:600}
 .ui-toast.err{border-color:#a22;color:#ffe0e0;background:linear-gradient(180deg,rgba(116,26,33,.94),rgba(23,8,10,.95))}
 .designer-wrap{margin-top:12px;border:1px dashed var(--line-strong);border-radius:14px;background:linear-gradient(180deg,rgba(0,0,0,.18),rgba(0,0,0,.10));overflow:hidden}
 .designer-bind-panel{margin-top:12px;padding:12px;border-radius:12px;border:1px solid var(--line-strong);background:#101010}
+.designer-camera-eye-panel{margin-top:12px;padding:12px;border-radius:12px;border:1px solid rgba(124,242,165,.34);background:rgba(12,18,14,.72)}
+.designer-camera-eye-panel .status-chip{align-self:center}
 .designer-svg{
   display:block;
   width:100%;
@@ -490,6 +493,18 @@ details summary{cursor:pointer;color:var(--muted);font-weight:600}
 .designer-item .coverage-arc{fill:none;stroke:rgba(124,242,165,.65);stroke-width:2.1}
 .designer-item .coverage-anchor{fill:#9effbe;stroke:#0d2a18;stroke-width:1.4}
 .designer-item .coverage-anchor-handle{fill:#c8ffd9;stroke:#0d2a18;stroke-width:1.6;cursor:move}
+.designer-item .camera-eye-action{pointer-events:all}
+.designer-item .camera-eye-hit{fill:rgba(0,0,0,.001);stroke:none}
+.designer-item .camera-eye-bg{fill:rgba(5,12,9,.92) !important;stroke:#d9ffe8 !important;stroke-width:1.4}
+.designer-item .camera-eye-shape{fill:none !important;stroke:#d9ffe8 !important;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.designer-item .camera-eye-pupil{fill:#d9ffe8 !important;stroke:none !important}
+.designer-item .camera-eye-action.designer-eye{cursor:move}
+.designer-item .camera-eye-action.unconfigured{opacity:.48}
+.designer-item.selected .camera-eye-action.unconfigured{opacity:.9}
+.designer-overview-overlay.action-enabled{pointer-events:none}
+.designer-overview-overlay.action-enabled svg{pointer-events:none}
+.designer-overview-overlay .camera-eye-action{pointer-events:all;cursor:pointer}
+.designer-overview-overlay .camera-eye-action:focus .camera-eye-bg{stroke:#3f8cff !important;stroke-width:2.2}
 .designer-item-rotate{cursor:pointer}
 .designer-item-rotate-hit{fill:transparent;stroke:none;pointer-events:all}
 .designer-item-rotate circle{fill:#0e1a12;stroke:#8bffbd;stroke-width:1.3}

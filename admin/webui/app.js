@@ -312,6 +312,12 @@
     designerPickEntityBtn: $('designerPickEntityBtn'),
     designerSelectedEntityInfo: $('designerSelectedEntityInfo'),
     designerSelectedItemInfo: $('designerSelectedItemInfo'),
+    designerCameraEyePanel: $('designerCameraEyePanel'),
+    designerCameraEyeDatapoint: $('designerCameraEyeDatapoint'),
+    designerCameraEyeBrowseBtn: $('designerCameraEyeBrowseBtn'),
+    designerCameraEyeApplyBtn: $('designerCameraEyeApplyBtn'),
+    designerCameraEyeClearBtn: $('designerCameraEyeClearBtn'),
+    designerCameraEyeInfo: $('designerCameraEyeInfo'),
     designerCopyFloorBtn: $('designerCopyFloorBtn'),
     designerClearBtn: $('designerClearBtn'),
     designerSvg: $('designerSvg')
@@ -392,6 +398,7 @@
       dragRotateStartAngle: null,
       dragRotateOrigRotation: null,
       dragAnchorItemId: null,
+      dragEyeItemId: null,
       showSensorsPreview: false
     },
     designerHistory: []
@@ -1260,6 +1267,25 @@
     });
   }
 
+  async function toggleCameraEyeDatapoint(id, label = 'Kamera') {
+    const datapointId = String(id || '').trim();
+    if (!datapointId) {
+      setStatus('Kamera-Auge: Datenpunkt fehlt', true);
+      return;
+    }
+    try {
+      const cur = await getState(datapointId);
+      const next = !asArmed(cur?.val);
+      await setState(datapointId, next);
+      setStatus(`Kamera-Auge ${label}: ${next ? 'ein' : 'aus'}`);
+      showToast(`Kamera-Auge: ${next ? 'ein' : 'aus'}`);
+      setTimeout(() => { void refreshLiveStatus(); }, 150);
+    } catch (e) {
+      setStatus(`Kamera-Auge fehlgeschlagen: ${String(e?.message || e)}`, true);
+      showToast('Kamera-Auge fehlgeschlagen', true);
+    }
+  }
+
   async function loadStateIds() {
     return new Promise(resolve => {
       const done = ids => {
@@ -1640,16 +1666,40 @@
         : 'designer-wall';
       html += wallRenderHtml(wall.points, wall.id, cls, false, wallCutMap);
     }
+    let hasCameraEyeActions = false;
     for (const item of (model.items || [])) {
       const t = String(item.type || '');
       const bType = String(item.alarmBindingType || '');
       const bKey = String(item.alarmBindingKey || '');
       const bId = String(item.alarmBindingId || '');
       const active = !!(bType && ((bKey && state.liveAlerts?.[bType]?.[bKey]) || (bId && state.liveAlerts?.[bType]?.[bId])));
-      if ((t === 'pirZone' || t === 'cameraZone') && !active) continue;
+      const hasEyeAction = t === 'cameraZone' && !!String(item.cameraEyeDatapointId || '').trim();
+      if ((t === 'pirZone' || t === 'cameraZone') && !active && !hasEyeAction) continue;
+      if (hasEyeAction) hasCameraEyeActions = true;
       html += svgForDesignerItem({ ...item, alarmActive: active }, { handles: false, selected: false, overview: true });
     }
     svg.innerHTML += html;
+    if (hasCameraEyeActions) {
+      wrap.classList.add('action-enabled');
+      wrap.addEventListener('click', ev => {
+        const action = ev.target.closest('[data-camera-eye-action]');
+        if (!action) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        const datapointId = String(action.getAttribute('data-camera-eye-dp') || '').trim();
+        const label = String(action.getAttribute('data-camera-eye-label') || 'Kamera');
+        void toggleCameraEyeDatapoint(datapointId, label);
+      });
+      wrap.addEventListener('keydown', ev => {
+        if (ev.key !== 'Enter' && ev.key !== ' ') return;
+        const action = ev.target.closest('[data-camera-eye-action]');
+        if (!action) return;
+        ev.preventDefault();
+        const datapointId = String(action.getAttribute('data-camera-eye-dp') || '').trim();
+        const label = String(action.getAttribute('data-camera-eye-label') || 'Kamera');
+        void toggleCameraEyeDatapoint(datapointId, label);
+      });
+    }
     wrap.appendChild(svg);
     canvas.appendChild(wrap);
   }
@@ -2138,6 +2188,69 @@
     return t || '-';
   }
 
+  function getSelectedDesignerItem() {
+    const model = getDesignerFloorModel();
+    return findDesignerItemById(model, Number(state.designer.selectedItemId));
+  }
+
+  function getSelectedCameraZoneItem() {
+    const it = getSelectedDesignerItem();
+    return it && canonicalDesignerItemType(it.type) === 'cameraZone' ? it : null;
+  }
+
+  function refreshDesignerCameraEyePanel() {
+    if (!ui.designerCameraEyePanel) return;
+    const it = getSelectedCameraZoneItem();
+    ui.designerCameraEyePanel.classList.toggle('hidden', !it);
+    if (!it) {
+      if (ui.designerCameraEyeDatapoint) ui.designerCameraEyeDatapoint.value = '';
+      if (ui.designerCameraEyeInfo) ui.designerCameraEyeInfo.textContent = 'Auge: -';
+      return;
+    }
+    const datapointId = String(it.cameraEyeDatapointId || '').trim();
+    if (ui.designerCameraEyeDatapoint && document.activeElement !== ui.designerCameraEyeDatapoint) {
+      ui.designerCameraEyeDatapoint.value = datapointId;
+    }
+    if (ui.designerCameraEyeInfo) {
+      const pos = normalizeCameraEyePosition(it.cameraEyePosition);
+      ui.designerCameraEyeInfo.textContent = datapointId
+        ? `Auge: ${datapointId} | Position ${Math.round(pos.x * 100)} / ${Math.round(pos.y * 100)}`
+        : `Auge: kein Datenpunkt | Position ${Math.round(pos.x * 100)} / ${Math.round(pos.y * 100)}`;
+    }
+  }
+
+  function applySelectedCameraEyeDatapoint(showStatus = true) {
+    const it = getSelectedCameraZoneItem();
+    if (!it) {
+      if (showStatus) setStatus('Bitte zuerst eine Kamerafläche auswählen', true);
+      return false;
+    }
+    const datapointId = String(ui.designerCameraEyeDatapoint?.value || '').trim();
+    snapshotDesignerState();
+    it.cameraEyeDatapointId = datapointId;
+    it.cameraEyePosition = normalizeCameraEyePosition(it.cameraEyePosition);
+    saveDesignerData();
+    renderDesigner();
+    renderAllCanvases();
+    if (showStatus) setStatus(datapointId ? 'Kamera-Auge zugewiesen' : 'Kamera-Auge ohne Datenpunkt gespeichert');
+    return true;
+  }
+
+  function clearSelectedCameraEyeDatapoint() {
+    const it = getSelectedCameraZoneItem();
+    if (!it) {
+      setStatus('Bitte zuerst eine Kamerafläche auswählen', true);
+      return;
+    }
+    snapshotDesignerState();
+    it.cameraEyeDatapointId = '';
+    it.cameraEyePosition = normalizeCameraEyePosition(it.cameraEyePosition);
+    saveDesignerData();
+    renderDesigner();
+    renderAllCanvases();
+    setStatus('Kamera-Auge Datenpunkt gelöscht');
+  }
+
   function refreshDesignerBindingPanel() {
     if (ui.designerEntitySelect) {
       const bindRows = getAllCanvasEntities()
@@ -2158,17 +2271,20 @@
         : 'Sensor: -';
     }
     if (ui.designerSelectedItemInfo) {
-      const model = getDesignerFloorModel();
-      const it = findDesignerItemById(model, Number(state.designer.selectedItemId));
+      const it = getSelectedDesignerItem();
       if (!it) {
         ui.designerSelectedItemInfo.textContent = 'Objekt: -';
       } else {
       const bindText = (it.alarmBindingType && it.alarmBindingKey)
           ? ` | bind=${it.alarmBindingType}:${it.alarmBindingKey}${it.alarmBindingId ? ` (${it.alarmBindingId})` : ''}`
           : '';
-        ui.designerSelectedItemInfo.textContent = `Objekt: #${it.id} ${formatDesignerItemType(it.type)}${bindText}`;
+        const eyeText = canonicalDesignerItemType(it.type) === 'cameraZone' && String(it.cameraEyeDatapointId || '').trim()
+          ? ` | auge=${it.cameraEyeDatapointId}`
+          : '';
+        ui.designerSelectedItemInfo.textContent = `Objekt: #${it.id} ${formatDesignerItemType(it.type)}${bindText}${eyeText}`;
       }
     }
+    refreshDesignerCameraEyePanel();
   }
 
   function pickDesignerEntityFromSelect() {
@@ -2960,6 +3076,7 @@
       state.designer.dragResizeStart = null;
       state.designer.dragResizeOrig = null;
       state.designer.dragAnchorItemId = null;
+      state.designer.dragEyeItemId = null;
       state.designer.dragRotateItemId = null;
       state.designer.dragRotateCenter = null;
       state.designer.dragRotateStartAngle = null;
@@ -3505,6 +3622,59 @@
     return { edge: 'top', t: Math.max(0, Math.min(1, (x + hw) / w)) };
   }
 
+  function normalizeCameraEyePosition(pos) {
+    const x = Math.max(0, Math.min(1, Number(pos?.x ?? 0.5)));
+    const y = Math.max(0, Math.min(1, Number(pos?.y ?? 0.5)));
+    return {
+      x: Number.isFinite(x) ? x : 0.5,
+      y: Number.isFinite(y) ? y : 0.5
+    };
+  }
+
+  function cameraEyeToLocal(item, w, h) {
+    const p = normalizeCameraEyePosition(item?.cameraEyePosition);
+    return {
+      x: (-w / 2) + (w * p.x),
+      y: (-h / 2) + (h * p.y)
+    };
+  }
+
+  function cameraEyeFromLocal(w, h, lx, ly) {
+    const hw = w / 2;
+    const hh = h / 2;
+    const x = Math.max(-hw, Math.min(hw, Number(lx || 0)));
+    const y = Math.max(-hh, Math.min(hh, Number(ly || 0)));
+    return {
+      x: Math.max(0, Math.min(1, (x + hw) / w)),
+      y: Math.max(0, Math.min(1, (y + hh) / h))
+    };
+  }
+
+  function cameraEyeIconHtml(item, w, h, opts = {}) {
+    const pos = cameraEyeToLocal(item, w, h);
+    const configured = !!String(item?.cameraEyeDatapointId || '').trim();
+    if (opts.overview && !configured) return '';
+    const size = Math.max(18, Math.min(34, Math.min(w, h) * 0.24));
+    const scale = size / 24;
+    const attrs = [];
+    if (opts.overview) {
+      attrs.push(`data-camera-eye-action="${Number(item.id) || 0}"`);
+      attrs.push(`data-camera-eye-dp="${htmlEsc(String(item.cameraEyeDatapointId || ''))}"`);
+      attrs.push(`data-camera-eye-label="${htmlEsc(String(item.label || item.alarmBindingKey || item.id || 'Kamera'))}"`);
+      attrs.push('role="button"');
+      attrs.push('tabindex="0"');
+    } else {
+      attrs.push(`data-item-eye="${Number(item.id) || 0}"`);
+    }
+    const cls = `camera-eye-action${configured ? ' configured' : ' unconfigured'}${opts.overview ? ' overview-eye' : ' designer-eye'}`;
+    return `<g class="${cls}" ${attrs.join(' ')} transform="translate(${pos.x},${pos.y}) scale(${scale})">`
+      + '<circle class="camera-eye-hit" cx="0" cy="0" r="15"></circle>'
+      + '<circle class="camera-eye-bg" cx="0" cy="0" r="11"></circle>'
+      + '<path class="camera-eye-shape" d="M -9 0 C -6 -5 -3 -7 0 -7 C 3 -7 6 -5 9 0 C 6 5 3 7 0 7 C -3 7 -6 5 -9 0 Z"></path>'
+      + '<circle class="camera-eye-pupil" cx="0" cy="0" r="3"></circle>'
+      + '</g>';
+  }
+
   function toItemLocalPoint(item, p) {
     const cx = Number(item?.x || 0);
     const cy = Number(item?.y || 0);
@@ -3539,6 +3709,10 @@
       }
       if (String(it.type || '') === 'cameraZone' || String(it.type || '') === 'pirZone') {
         if (!it.coverageAnchor || typeof it.coverageAnchor !== 'object') it.coverageAnchor = { edge: 'top', t: 0.5 };
+      }
+      if (String(it.type || '') === 'cameraZone') {
+        it.cameraEyePosition = normalizeCameraEyePosition(it.cameraEyePosition);
+        it.cameraEyeDatapointId = String(it.cameraEyeDatapointId || '').trim();
       }
     }
   }
@@ -3620,6 +3794,7 @@
       inner += `<defs><clipPath id="${clipId}"><rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="4"></rect></clipPath></defs>`;
       inner += `<g clip-path="url(#${clipId})">${arcs}</g>`;
       inner += `<circle class="coverage-anchor" cx="${ax}" cy="${ay}" r="4"></circle>`;
+      inner += cameraEyeIconHtml(it, w, h, { overview });
     } else if (type === 'pirZone') {
       if (it.alarmActive && overview) {
         const gradId = `pir-vig-${Number(it.id) || 0}`;
@@ -3907,6 +4082,7 @@
       const moveEl = e.target.closest('[data-item-move]');
       const resizeEl = e.target.closest('[data-item-resize]');
       const anchorEl = e.target.closest('[data-item-anchor]');
+      const eyeEl = e.target.closest('[data-item-eye]');
       const itemType = String(ui.designerItemType?.value || 'door');
       if (tool === 'place' && itemType === 'beam' && itemEl) {
         const targetId = Number(itemEl.getAttribute('data-item-id'));
@@ -4038,6 +4214,18 @@
           snapshotDesignerState();
           state.designer.selectedItemId = itemId;
           state.designer.dragAnchorItemId = itemId;
+          svg.setPointerCapture(e.pointerId);
+          renderDesigner();
+        }
+        return;
+      }
+      if (canMoveExisting && eyeEl) {
+        const itemId = Number(eyeEl.getAttribute('data-item-eye'));
+        const it = findDesignerItemById(m, itemId);
+        if (it && canonicalDesignerItemType(it.type) === 'cameraZone') {
+          snapshotDesignerState();
+          state.designer.selectedItemId = itemId;
+          state.designer.dragEyeItemId = itemId;
           svg.setPointerCapture(e.pointerId);
           renderDesigner();
         }
@@ -4176,6 +4364,16 @@
         renderDesigner();
         return;
       }
+      if (state.designer.dragEyeItemId) {
+        const it = findDesignerItemById(m, state.designer.dragEyeItemId);
+        if (!it || canonicalDesignerItemType(it.type) !== 'cameraZone') return;
+        const w = Math.max(8, Number(it.w || defaultDesignerItemSpec(it.type).w));
+        const h = Math.max(8, Number(it.h || defaultDesignerItemSpec(it.type).h));
+        const lp = toItemLocalPoint(it, p);
+        it.cameraEyePosition = cameraEyeFromLocal(w, h, lp.x, lp.y);
+        renderDesigner();
+        return;
+      }
       if (state.designer.dragResizeItemId && state.designer.dragResizeStart && state.designer.dragResizeOrig) {
         const it = findDesignerItemById(m, state.designer.dragResizeItemId);
         if (!it) return;
@@ -4311,6 +4509,10 @@
         state.designer.dragAnchorItemId = null;
         changed = true;
       }
+      if (state.designer.dragEyeItemId) {
+        state.designer.dragEyeItemId = null;
+        changed = true;
+      }
       if (state.designer.dragRotateItemId) {
         state.designer.dragRotateItemId = null;
         state.designer.dragRotateCenter = null;
@@ -4366,6 +4568,7 @@
       state.designer.dragResizeStart = null;
       state.designer.dragResizeOrig = null;
       state.designer.dragAnchorItemId = null;
+      state.designer.dragEyeItemId = null;
       state.designer.dragRotateItemId = null;
       state.designer.dragRotateCenter = null;
       state.designer.dragRotateStartAngle = null;
@@ -5671,6 +5874,8 @@
     if (!chosen || !state.objectTarget) return;
     state.objectTreeSelectedId = chosen;
     state.objectTarget.value = chosen;
+    state.objectTarget.dispatchEvent(new Event('input', { bubbles: true }));
+    state.objectTarget.dispatchEvent(new Event('change', { bubbles: true }));
     closeObjectBrowser();
   }
 
@@ -6387,6 +6592,7 @@
         state.designer.dragRotateStartAngle = null;
         state.designer.dragRotateOrigRotation = null;
         state.designer.dragAnchorItemId = null;
+        state.designer.dragEyeItemId = null;
         state.designer.drawingWallCursor = null;
         if (String(ui.designerTool.value || '') !== 'wall') {
           state.designer.drawingWall = null;
@@ -6530,6 +6736,18 @@
     if (ui.designerEntitySelect) {
       ui.designerEntitySelect.addEventListener('change', () => pickDesignerEntityFromSelect());
     }
+    if (ui.designerCameraEyeBrowseBtn && ui.designerCameraEyeDatapoint) {
+      ui.designerCameraEyeBrowseBtn.addEventListener('click', () => openObjectBrowser(ui.designerCameraEyeDatapoint));
+    }
+    if (ui.designerCameraEyeDatapoint) {
+      ui.designerCameraEyeDatapoint.addEventListener('change', () => applySelectedCameraEyeDatapoint(true));
+    }
+    if (ui.designerCameraEyeApplyBtn) {
+      ui.designerCameraEyeApplyBtn.addEventListener('click', () => applySelectedCameraEyeDatapoint(true));
+    }
+    if (ui.designerCameraEyeClearBtn) {
+      ui.designerCameraEyeClearBtn.addEventListener('click', clearSelectedCameraEyeDatapoint);
+    }
     if (ui.designerCopyFloorBtn) {
       ui.designerCopyFloorBtn.addEventListener('click', () => {
         snapshotDesignerState();
@@ -6560,6 +6778,7 @@
         state.designer.dragResizeStart = null;
         state.designer.dragResizeOrig = null;
         state.designer.dragAnchorItemId = null;
+        state.designer.dragEyeItemId = null;
         state.designer.dragRotateItemId = null;
         state.designer.dragRotateCenter = null;
         state.designer.dragRotateStartAngle = null;
