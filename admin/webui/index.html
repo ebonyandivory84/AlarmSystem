@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AlarmSystem WebUI</title>
-  <link rel="stylesheet" href="./styles.css?v=2026-05-31-settings-fullwidth1" />
+  <link rel="stylesheet" href="./styles.css?v=2026-05-31-sounds4" />
 </head>
 <body class="theme-black">
   <div class="app">
@@ -140,22 +140,6 @@
             <button id="designerShowSensorsBtn" class="btn">Sensoren anzeigen: aus</button>
           </div>
           <p class="muted">Ablauf: Sensor wählen, im Plan das Ziel anklicken, dann „Auswahl zuweisen“.</p>
-          <div id="designerCameraEyePanel" class="designer-camera-eye-panel hidden">
-            <strong>Kamera-Auge</strong>
-            <div class="row">
-              <label>Auge-Datenpunkt
-                <span class="input-wrap">
-                  <input id="designerCameraEyeDatapoint" class="state-input" list="stateIds" type="text" />
-                  <button id="designerCameraEyeBrowseBtn" class="icon-btn" type="button" title="Objektbrowser öffnen">🔎</button>
-                </span>
-              </label>
-            </div>
-            <div class="row">
-              <button id="designerCameraEyeApplyBtn" class="btn primary" type="button">Auge-DP übernehmen</button>
-              <button id="designerCameraEyeClearBtn" class="btn" type="button">Auge-DP löschen</button>
-              <span id="designerCameraEyeInfo" class="status-chip">Auge: -</span>
-            </div>
-          </div>
         </section>
         <div id="designerCanvasWrap" class="designer-wrap">
           <svg id="designerSvg" class="designer-svg" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet"></svg>
