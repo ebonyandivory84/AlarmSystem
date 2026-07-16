@@ -396,6 +396,7 @@
     },
     designerHistory: []
   };
+  const DISARM_PIN = '1492';
   const VOYAGER_SOUND_FILES = [
     'alarm2.wav',
     'alarm4.wav',
@@ -5725,12 +5726,20 @@
       setTimeout(() => { void setState(id, false); }, 400);
     };
     if (which === 'armAlarm') await setState(state.config.armStateId, true);
+    if (which === 'disarmAlarm') await setState(state.config.armStateId, false);
     if (which === 'armHull') await setState(getHullProtectionId(), true);
+    if (which === 'disarmHull') await setState(getHullProtectionId(), false);
     if (which === 'armPerimeter') await setState(state.config.perimeterStateId, true);
+    if (which === 'disarmPerimeter') await setState(state.config.perimeterStateId, false);
     if (which === 'armCameras') {
       const ids = JSON.parse(state.config.cameraAlarmOnIdsJson || '[]');
       for (const id of ids) await pulse(id);
       await setState(`${state.instanceId}.commands.armCameras`, true);
+    }
+    if (which === 'disarmCameras') {
+      const ids = JSON.parse(state.config.cameraAlarmOffIdsJson || '[]');
+      for (const id of ids) await pulse(id);
+      await setState(`${state.instanceId}.commands.disarmCameras`, true);
     }
     setStatus('Manuelle Aktion ausgeführt');
   }
@@ -5763,29 +5772,16 @@
     state.pinInput += String(d);
     renderPinDots();
     if (state.pinInput.length < 4) return;
-    const action = state.pinTargetAction;
-    const code = state.pinInput;
-    let result = '';
-    try {
-      await setState(`${state.instanceId}.commands.pinDisarmResult`, '');
-      await setState(`${state.instanceId}.commands.pinDisarmAction`, action || '');
-      await setState(`${state.instanceId}.commands.pinDisarmCode`, code);
-      for (let i = 0; i < 10 && !result; i++) {
-        await new Promise(r => setTimeout(r, 150));
-        const st = await getState(`${state.instanceId}.commands.pinDisarmResult`);
-        result = st?.val || '';
-      }
-    } catch (e) {
-      setStatus(String(e), true);
-    }
-    if (result === 'ok') {
-      closePinModal();
-      setStatus('Entschärft');
+    if (state.pinInput !== DISARM_PIN) {
+      if (ui.pinHint) ui.pinHint.textContent = 'Falsche PIN';
+      state.pinInput = '';
+      renderPinDots();
       return;
     }
-    if (ui.pinHint) ui.pinHint.textContent = 'Falsche PIN';
-    state.pinInput = '';
-    renderPinDots();
+    const action = state.pinTargetAction;
+    closePinModal();
+    if (!action) return;
+    await manualControl(action);
   }
 
   async function loadTriggerLogForDate(day) {
