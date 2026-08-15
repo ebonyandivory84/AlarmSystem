@@ -1,6 +1,8 @@
 (() => {
   const qs = new URLSearchParams(window.location.search);
   const rawInstance = qs.get('instance') || 'alarmsystem.0';
+  const embedMode = qs.get('embed') === '1' || qs.get('embed') === 'true';
+  if (embedMode) document.body.classList.add('embed-mode');
 
   const $ = id => document.getElementById(id);
   const ui = {

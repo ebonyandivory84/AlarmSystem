@@ -4,6 +4,8 @@ body::before{content:none}
 body::after{content:none}
 .app{width:100%;max-width:none;margin:0;padding:14px 22px 94px;display:grid;gap:12px;min-height:100dvh}.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:120;background:rgba(3,4,3,.95);backdrop-filter:blur(8px);padding:8px 0}
 .app{position:relative;z-index:1}
+body.embed-mode .topbar{display:none}
+body.embed-mode .app{padding-top:8px}
 .page{display:grid;gap:12px}
 #settingsPage{
   gap:20px;
