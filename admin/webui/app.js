@@ -5924,6 +5924,8 @@
   }
 
   function restoreOverviewLayout() {
+    const forced = qs.get('layout');
+    if (forced) { applyOverviewLayout(forced, false); return; }
     let saved = 'focus';
     try { saved = String(localStorage.getItem(OVERVIEW_LAYOUT_STORAGE_KEY) || 'focus'); } catch {}
     applyOverviewLayout(saved, false);
