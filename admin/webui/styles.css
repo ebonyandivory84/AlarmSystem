@@ -713,21 +713,22 @@ body.overview-layout-floating #overviewPage .panic-btn{
   z-index:16;
 }
 
-/* Compact layout: toolbar-style header above the floorplan, ticker log,
-   health/panic footer below the floorplan. Built with display:contents so
-   the existing status-mini/left-stack/controls-card wrapper markup can be
-   re-flattened into a single canvas-shell grid without any HTML changes. */
+/* Compact layout: one-row toolbar above a dominant, centered floorplan,
+   ticker log directly below it, de-emphasized presence/health footer last.
+   Built with display:contents so the existing status-mini/left-stack/
+   controls-card wrapper markup can be re-flattened into a single
+   canvas-shell grid without any HTML changes. Toolbar uses explicit
+   grid-area placement (not flex-wrap) so it never wraps to a second line. */
 body.overview-layout-compact #overviewPage .canvas-shell{
   display:grid;
-  grid-template-columns:repeat(6,minmax(0,1fr));
-  grid-template-rows:auto auto auto auto auto;
+  grid-template-columns:repeat(12,minmax(0,1fr));
+  grid-template-rows:auto auto auto auto;
   grid-template-areas:
-    "shield shield shield toggles toggles toggles"
-    "sensors sensors absence presence floor floor"
-    "ticker ticker ticker ticker ticker ticker"
-    "canvas canvas canvas canvas canvas canvas"
-    ". health health panic panic .";
-  gap:8px;
+    "toggles toggles toggles toggles toggles sensors sensors floor floor floor panic panic"
+    "canvas canvas canvas canvas canvas canvas canvas canvas canvas canvas canvas canvas"
+    "ticker ticker ticker ticker ticker ticker ticker ticker ticker ticker ticker ticker"
+    "absence absence absence absence presence presence presence presence health health health health";
+  gap:6px;
   width:min(100%,480px);
   margin:0 auto;
   align-content:start;
@@ -744,10 +745,24 @@ body.overview-layout-compact #overviewPage .status-mini{
   display:contents;
 }
 body.overview-layout-compact #overviewPage .status-mini .status-shield{
-  grid-area:shield;
+  grid-area:canvas;
+  justify-self:start;
+  align-self:start;
+  position:relative;
+  z-index:2;
+  width:auto;
+  min-height:0;
+  margin:8px;
+  padding:4px 10px;
+  font-size:.7rem;
+  gap:4px;
+  border-radius:8px;
   justify-content:flex-start;
   text-align:left;
-  margin:0;
+}
+body.overview-layout-compact #overviewPage .status-mini .status-shield svg{
+  width:16px;
+  height:16px;
 }
 body.overview-layout-compact #overviewPage .overview-log-wrap{
   grid-area:ticker;
@@ -770,13 +785,13 @@ body.overview-layout-compact #overviewPage .controls-card .row:first-of-type{
   grid-area:toggles;
   display:flex;
   align-items:center;
-  justify-content:flex-end;
-  gap:8px;
+  justify-content:center;
+  gap:6px;
   margin:0;
 }
 body.overview-layout-compact #overviewPage .controls-card .row:first-of-type .btn{
-  width:44px;
-  min-height:44px;
+  width:40px;
+  min-height:40px;
   padding:0;
   display:flex;
   align-items:center;
@@ -794,39 +809,73 @@ body.overview-layout-compact #overviewPage .controls-card .row:last-of-type{
   grid-area:sensors;
   display:flex;
   align-items:center;
+  justify-content:center;
   min-width:0;
   margin:0;
+}
+body.overview-layout-compact #overviewPage #overviewShowSensorsBtn{
+  width:40px;
+  min-height:40px;
+  padding:0;
+  font-size:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+body.overview-layout-compact #overviewPage #overviewShowSensorsBtn::before{
+  content:"\1F441";
+  font-size:1.1rem;
 }
 body.overview-layout-compact #overviewPage .floor-card{
   grid-area:floor;
   width:100%;
   min-width:0;
+  padding:4px 6px;
   display:flex;
-  justify-content:flex-end;
+  align-items:center;
+  justify-content:center;
 }
 body.overview-layout-compact #overviewPage .floor-card .row{
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  justify-content:end;
+  display:flex;
+  justify-content:center;
   gap:6px;
 }
 body.overview-layout-compact #overviewPage .floor-card .btn{
-  padding:8px 10px;
-  min-height:36px;
+  padding:6px 8px;
+  min-height:32px;
+  font-size:.75rem;
+}
+body.overview-layout-compact #overviewPage .panic-btn{
+  grid-area:panic;
+  position:static;
+  width:100%;
+  max-width:none;
+  min-height:40px;
+  padding:0 6px;
+  font-size:.8rem;
 }
 body.overview-layout-compact #overviewPage .absence-card{
   grid-area:absence;
   width:100%;
   min-width:0;
-  padding:4px;
+  padding:6px;
 }
 body.overview-layout-compact #overviewPage .presence-card{
   grid-area:presence;
   width:100%;
   min-width:0;
-  padding:4px;
+  padding:6px;
+}
+body.overview-layout-compact #overviewPage .status-card{
+  grid-area:health;
+  width:100%;
+  min-width:0;
+  padding:6px;
+  text-align:center;
 }
 body.overview-layout-compact #overviewPage .absence-card > strong,
-body.overview-layout-compact #overviewPage .presence-card > strong{
+body.overview-layout-compact #overviewPage .presence-card > strong,
+body.overview-layout-compact #overviewPage .status-card > strong{
   display:none;
 }
 body.overview-layout-compact #overviewPage .absence-card .absence-list,
@@ -841,8 +890,8 @@ body.overview-layout-compact #overviewPage .presence-card .legend-row{
   margin-top:0;
 }
 body.overview-layout-compact #overviewPage .absence-list .presence-avatar{
-  width:40px;
-  height:40px;
+  width:26px;
+  height:26px;
 }
 body.overview-layout-compact #overviewPage .presence-avatar.away{
   filter:grayscale(1);
@@ -852,19 +901,10 @@ body.overview-layout-compact #overviewPage .presence-avatar.home{
   filter:none;
   opacity:1;
 }
-body.overview-layout-compact #overviewPage .status-card{
-  grid-area:health;
-  width:100%;
-  text-align:center;
-}
-body.overview-layout-compact #overviewPage .status-card > strong{
-  display:none;
-}
-body.overview-layout-compact #overviewPage .panic-btn{
-  grid-area:panic;
-  position:static;
-  width:100%;
-  max-width:none;
+body.overview-layout-compact #overviewPage .health-pill{
+  font-size:.78rem;
+  padding:6px 8px;
+  margin-top:0;
 }
 
 #designerPage .designer-wrap{
@@ -953,9 +993,23 @@ body.overview-layout-compact #overviewPage .panic-btn{
     min-height:360px;
     height:52dvh;
   }
+  body.overview-layout-compact #overviewPage .status-mini .status-shield{
+    position:static;
+    margin:0 0 8px;
+  }
+  body.overview-layout-compact #overviewPage #overviewShowSensorsBtn{
+    width:auto;
+    min-height:0;
+    padding:8px 12px;
+    font-size:inherit;
+  }
+  body.overview-layout-compact #overviewPage #overviewShowSensorsBtn::before{
+    content:none;
+  }
   body.overview-layout-compact #overviewPage .panic-btn{
     position:static;
     width:100%;
+    font-size:1rem;
   }
   .object-browser-layout{
     grid-template-columns:1fr;
