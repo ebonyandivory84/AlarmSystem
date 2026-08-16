@@ -398,7 +398,6 @@
     },
     designerHistory: []
   };
-  const DISARM_PIN = '1492';
   const VOYAGER_SOUND_FILES = [
     'alarm2.wav',
     'alarm4.wav',
@@ -2301,10 +2300,10 @@
     ui.absenceCard.classList.remove('hidden');
     ui.presenceCard.classList.remove('hidden');
     ui.absenceList.innerHTML = away.length
-      ? away.map(a => `<div class="legend-row"><span class="presence-avatar tiny" style="${avatarCssStyle(a.person)}"></span></div>`).join('')
+      ? away.map(a => `<div class="legend-row"><span class="presence-avatar tiny away" style="${avatarCssStyle(a.person)}"></span></div>`).join('')
       : '';
     ui.presenceList.innerHTML = home.length
-      ? home.map(a => `<div class="legend-row"><span class="presence-avatar tiny" style="${avatarCssStyle(a.person)}"></span></div>`).join('')
+      ? home.map(a => `<div class="legend-row"><span class="presence-avatar tiny home" style="${avatarCssStyle(a.person)}"></span></div>`).join('')
       : '';
   }
 
@@ -5728,20 +5727,12 @@
       setTimeout(() => { void setState(id, false); }, 400);
     };
     if (which === 'armAlarm') await setState(state.config.armStateId, true);
-    if (which === 'disarmAlarm') await setState(state.config.armStateId, false);
     if (which === 'armHull') await setState(getHullProtectionId(), true);
-    if (which === 'disarmHull') await setState(getHullProtectionId(), false);
     if (which === 'armPerimeter') await setState(state.config.perimeterStateId, true);
-    if (which === 'disarmPerimeter') await setState(state.config.perimeterStateId, false);
     if (which === 'armCameras') {
       const ids = JSON.parse(state.config.cameraAlarmOnIdsJson || '[]');
       for (const id of ids) await pulse(id);
       await setState(`${state.instanceId}.commands.armCameras`, true);
-    }
-    if (which === 'disarmCameras') {
-      const ids = JSON.parse(state.config.cameraAlarmOffIdsJson || '[]');
-      for (const id of ids) await pulse(id);
-      await setState(`${state.instanceId}.commands.disarmCameras`, true);
     }
     setStatus('Manuelle Aktion ausgeführt');
   }
@@ -5774,16 +5765,29 @@
     state.pinInput += String(d);
     renderPinDots();
     if (state.pinInput.length < 4) return;
-    if (state.pinInput !== DISARM_PIN) {
-      if (ui.pinHint) ui.pinHint.textContent = 'Falsche PIN';
-      state.pinInput = '';
-      renderPinDots();
+    const action = state.pinTargetAction;
+    const code = state.pinInput;
+    let result = '';
+    try {
+      await setState(`${state.instanceId}.commands.pinDisarmResult`, '');
+      await setState(`${state.instanceId}.commands.pinDisarmAction`, action || '');
+      await setState(`${state.instanceId}.commands.pinDisarmCode`, code);
+      for (let i = 0; i < 10 && !result; i++) {
+        await new Promise(r => setTimeout(r, 150));
+        const st = await getState(`${state.instanceId}.commands.pinDisarmResult`);
+        result = st?.val || '';
+      }
+    } catch (e) {
+      setStatus(String(e), true);
+    }
+    if (result === 'ok') {
+      closePinModal();
+      setStatus('Entschärft');
       return;
     }
-    const action = state.pinTargetAction;
-    closePinModal();
-    if (!action) return;
-    await manualControl(action);
+    if (ui.pinHint) ui.pinHint.textContent = 'Falsche PIN';
+    state.pinInput = '';
+    renderPinDots();
   }
 
   async function loadTriggerLogForDate(day) {
@@ -5809,9 +5813,22 @@
     else offBtn.classList.add('state-off');
   }
 
-  function setToggleButton(btn, activateText, deactivateText, isOn) {
+  // Icon set for the compact overview layout (icon-only zone toggle buttons).
+  // Kept purely additive: these are only rendered when a caller opts in via
+  // setToggleButton()'s optional iconMarkup argument; plain-text callers are unaffected.
+  const TOGGLE_ICON_SHIELD = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v6c0 5-3.2 8-7 9-3.8-1-7-4-7-9V6l7-3z"></path></svg>';
+  const TOGGLE_ICON_HOUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7"></path><path d="M6 10v9h12v-9"></path></svg>';
+  const TOGGLE_ICON_PERIMETER = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="4 3"></rect></svg>';
+  const TOGGLE_ICON_CAMERA = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-2h6l2 2h3v11H4z"></path><circle cx="12" cy="13.5" r="3.2"></circle></svg>';
+
+  function setToggleButton(btn, activateText, deactivateText, isOn, iconMarkup) {
     if (!btn) return;
-    btn.textContent = isOn ? deactivateText : activateText;
+    const text = isOn ? deactivateText : activateText;
+    if (iconMarkup) {
+      btn.innerHTML = `<span class="btn-icon">${iconMarkup}</span><span class="btn-label">${text}</span>`;
+    } else {
+      btn.textContent = text;
+    }
     btn.classList.toggle('toggle-on', !!isOn);
     btn.classList.toggle('toggle-off', !isOn);
   }
@@ -5871,7 +5888,8 @@
   const OVERVIEW_LAYOUTS = [
     { key: 'focus', className: 'overview-layout-focus', label: 'Layout: Fokus' },
     { key: 'sidebar', className: 'overview-layout-sidebar', label: 'Layout: Sidebar' },
-    { key: 'floating', className: 'overview-layout-floating', label: 'Layout: Floating' }
+    { key: 'floating', className: 'overview-layout-floating', label: 'Layout: Floating' },
+    { key: 'compact', className: 'overview-layout-compact', label: 'Layout: Kompakt' }
   ];
   const OVERVIEW_LAYOUT_STORAGE_KEY = 'alarmsystem.overviewLayoutMode';
 
@@ -6076,15 +6094,26 @@
     const events = Array.isArray(eventsRaw) ? eventsRaw : [];
     const lastArmTs = Number((events.find(e => String(e?.type || '') === 'zone_armed') || {}).ts || 0);
     const filtered = (lastArmTs > 0 ? events.filter(e => Number(e?.ts || 0) >= lastArmTs) : events).slice(0, 120);
-    const lines = filtered
-      .slice()
-      .reverse()
-      .map(e => {
+    const chronological = filtered.slice().reverse();
+    // Compact layout renders the log as a single-line, right-appending ticker
+    // instead of the multi-line "newest first" view used by the other layouts.
+    if (document.body.classList.contains('overview-layout-compact')) {
+      const parts = chronological.map(e => {
         const ts = formatEventTs(e?.ts);
         const lvl = String(e?.level || 'info').toUpperCase();
         const msg = String(e?.message || e?.type || '');
-        return `${ts}  [${lvl}]  ${msg}`;
+        return `${ts} [${lvl}] ${msg}`;
       });
+      el.textContent = parts.length ? parts.join('  ·  ') : 'Noch keine Einträge seit letzter Scharfschaltung';
+      el.scrollLeft = el.scrollWidth;
+      return;
+    }
+    const lines = chronological.map(e => {
+      const ts = formatEventTs(e?.ts);
+      const lvl = String(e?.level || 'info').toUpperCase();
+      const msg = String(e?.message || e?.type || '');
+      return `${ts}  [${lvl}]  ${msg}`;
+    });
     el.textContent = lines.length ? lines.join('\n') : 'Noch keine Einträge seit letzter Scharfschaltung';
   }
 
@@ -6148,14 +6177,15 @@
     paintChip(ui.liveAussenhaut, aussenArmed);
     paintChip(ui.liveInnenraum, innenArmed);
     paintChip(ui.liveCameras, camerasArmed);
-    setToggleButton($('toggleAlarmBtn'), 'Vollschutz aktivieren', 'Vollschutz deaktivieren', fullArmed);
-    setToggleButton($('toggleHullBtn'), 'Außenhautschutz aktivieren', 'Außenhautschutz deaktivieren', rawHull || fullArmed);
-    setToggleButton($('togglePerimeterBtn'), 'Perimeterschutz aktivieren', 'Perimeterschutz deaktivieren', rawPerimeterCombined || fullArmed);
+    setToggleButton($('toggleAlarmBtn'), 'Vollschutz aktivieren', 'Vollschutz deaktivieren', fullArmed, TOGGLE_ICON_SHIELD);
+    setToggleButton($('toggleHullBtn'), 'Außenhautschutz aktivieren', 'Außenhautschutz deaktivieren', rawHull || fullArmed, TOGGLE_ICON_HOUSE);
+    setToggleButton($('togglePerimeterBtn'), 'Perimeterschutz aktivieren', 'Perimeterschutz deaktivieren', rawPerimeterCombined || fullArmed, TOGGLE_ICON_PERIMETER);
     setToggleButton(
       $('toggleCamerasBtn'),
       'Kamera ObjectDetection aktivieren',
       'Kamera ObjectDetection deaktivieren',
-      asArmed(cam?.val) || camerasArmed
+      asArmed(cam?.val) || camerasArmed,
+      TOGGLE_ICON_CAMERA
     );
     // Keep canvas blink logic aligned with effective armed evaluation
     // (datapoints + zone states), not only raw zone states.

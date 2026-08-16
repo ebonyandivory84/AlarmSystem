@@ -426,6 +426,9 @@ details summary{cursor:pointer;color:var(--muted);font-weight:600}
 .panic-btn.on{border-color:#2d8f54;background:linear-gradient(135deg,#145f34,#2dbf6d);box-shadow:none}
 .btn.toggle-on{background:#7a1414;border-color:#b1262f;color:#fff}
 .btn.toggle-off{background:#145f34;border-color:#2dbf6d;color:#fff}
+.btn .btn-icon{display:none}
+.btn .btn-icon svg{width:18px;height:18px;display:block;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.btn .btn-label{display:inline}
 .ui-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(14px);padding:10px 14px;border-radius:10px;border:1px solid var(--line-strong);background:rgba(8,10,8,.92);color:#eaf3ff;font-weight:600;letter-spacing:.2px;opacity:0;pointer-events:none;z-index:220;transition:opacity .18s ease,transform .18s ease;box-shadow:0 10px 30px rgba(0,0,0,.45)}
 .ui-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .ui-toast.ok{border-color:#2f8a45;color:#d8ffe5;background:linear-gradient(180deg,rgba(20,98,52,.93),rgba(7,20,12,.95))}
@@ -710,6 +713,140 @@ body.overview-layout-floating #overviewPage .panic-btn{
   z-index:16;
 }
 
+/* Compact layout: toolbar-style header above the floorplan, ticker log,
+   health/panic footer below the floorplan. Built with display:contents so
+   the existing status-mini/left-stack/controls-card wrapper markup can be
+   re-flattened into a single canvas-shell grid without any HTML changes. */
+body.overview-layout-compact #overviewPage .canvas-shell{
+  display:grid;
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  grid-template-rows:auto auto auto minmax(380px,1fr) auto;
+  grid-template-areas:
+    "shield shield shield toggles toggles toggles"
+    "sensors sensors absence presence floor floor"
+    "ticker ticker ticker ticker ticker ticker"
+    "canvas canvas canvas canvas canvas canvas"
+    ". health health panic panic .";
+  gap:10px;
+}
+body.overview-layout-compact #overviewPage .zone-canvas{
+  grid-area:canvas;
+  width:100%;
+  height:100%;
+  min-height:380px;
+  margin:0;
+}
+body.overview-layout-compact #overviewPage .status-mini{
+  display:contents;
+}
+body.overview-layout-compact #overviewPage .status-mini .status-shield{
+  grid-area:shield;
+  justify-content:flex-start;
+  text-align:left;
+  margin:0;
+}
+body.overview-layout-compact #overviewPage .overview-log-wrap{
+  grid-area:ticker;
+  margin:0;
+}
+body.overview-layout-compact #overviewPage .overview-event-log{
+  max-height:none;
+  white-space:nowrap;
+  overflow-x:hidden;
+  overflow-y:hidden;
+  scroll-behavior:smooth;
+}
+body.overview-layout-compact #overviewPage .left-stack{
+  display:contents;
+}
+body.overview-layout-compact #overviewPage .controls-card{
+  display:contents;
+}
+body.overview-layout-compact #overviewPage .controls-card .row:first-of-type{
+  grid-area:toggles;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  margin:0;
+}
+body.overview-layout-compact #overviewPage .controls-card .row:first-of-type .btn{
+  width:44px;
+  min-height:44px;
+  padding:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+body.overview-layout-compact #overviewPage .controls-card .row:first-of-type .btn .btn-icon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+body.overview-layout-compact #overviewPage .controls-card .row:first-of-type .btn .btn-label{
+  display:none;
+}
+body.overview-layout-compact #overviewPage .controls-card .row:last-of-type{
+  grid-area:sensors;
+  display:flex;
+  align-items:center;
+  margin:0;
+}
+body.overview-layout-compact #overviewPage .floor-card{
+  grid-area:floor;
+  width:100%;
+  display:flex;
+  justify-content:flex-end;
+}
+body.overview-layout-compact #overviewPage .floor-card .row{
+  justify-content:flex-end;
+}
+body.overview-layout-compact #overviewPage .absence-card{
+  grid-area:absence;
+  width:100%;
+}
+body.overview-layout-compact #overviewPage .presence-card{
+  grid-area:presence;
+  width:100%;
+}
+body.overview-layout-compact #overviewPage .absence-card > strong,
+body.overview-layout-compact #overviewPage .presence-card > strong{
+  display:none;
+}
+body.overview-layout-compact #overviewPage .absence-card .absence-list,
+body.overview-layout-compact #overviewPage .presence-card .absence-list{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:0;
+}
+body.overview-layout-compact #overviewPage .absence-card .legend-row,
+body.overview-layout-compact #overviewPage .presence-card .legend-row{
+  margin-top:0;
+}
+body.overview-layout-compact #overviewPage .presence-avatar.away{
+  filter:grayscale(1);
+  opacity:.42;
+}
+body.overview-layout-compact #overviewPage .presence-avatar.home{
+  filter:none;
+  opacity:1;
+}
+body.overview-layout-compact #overviewPage .status-card{
+  grid-area:health;
+  width:100%;
+  text-align:center;
+}
+body.overview-layout-compact #overviewPage .status-card > strong{
+  display:none;
+}
+body.overview-layout-compact #overviewPage .panic-btn{
+  grid-area:panic;
+  position:static;
+  width:100%;
+  max-width:none;
+}
+
 #designerPage .designer-wrap{
   width:100%;
   min-height:72dvh;
@@ -772,6 +909,31 @@ body.overview-layout-floating #overviewPage .panic-btn{
   }
   body.overview-layout-sidebar #overviewPage .panic-btn,
   body.overview-layout-floating #overviewPage .panic-btn{
+    position:static;
+    width:100%;
+  }
+  /* Compact layout on narrow screens: fall back to a simple stacked column
+     instead of the display:contents header/footer grid. */
+  body.overview-layout-compact #overviewPage .canvas-shell{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  body.overview-layout-compact #overviewPage .status-mini,
+  body.overview-layout-compact #overviewPage .left-stack,
+  body.overview-layout-compact #overviewPage .controls-card{
+    display:block;
+  }
+  body.overview-layout-compact #overviewPage .controls-card .row:first-of-type{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:flex-start;
+  }
+  body.overview-layout-compact #overviewPage .zone-canvas{
+    min-height:360px;
+    height:52dvh;
+  }
+  body.overview-layout-compact #overviewPage .panic-btn{
     position:static;
     width:100%;
   }
