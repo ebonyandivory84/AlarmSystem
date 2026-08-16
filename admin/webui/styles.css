@@ -720,20 +720,24 @@ body.overview-layout-floating #overviewPage .panic-btn{
 body.overview-layout-compact #overviewPage .canvas-shell{
   display:grid;
   grid-template-columns:repeat(6,minmax(0,1fr));
-  grid-template-rows:auto auto auto minmax(380px,1fr) auto;
+  grid-template-rows:auto auto auto auto auto;
   grid-template-areas:
     "shield shield shield toggles toggles toggles"
     "sensors sensors absence presence floor floor"
     "ticker ticker ticker ticker ticker ticker"
     "canvas canvas canvas canvas canvas canvas"
     ". health health panic panic .";
-  gap:10px;
+  gap:8px;
+  width:min(100%,480px);
+  margin:0 auto;
+  align-content:start;
 }
 body.overview-layout-compact #overviewPage .zone-canvas{
   grid-area:canvas;
   width:100%;
-  height:100%;
-  min-height:380px;
+  height:auto;
+  aspect-ratio:0.95;
+  min-height:0;
   margin:0;
 }
 body.overview-layout-compact #overviewPage .status-mini{
@@ -790,24 +794,36 @@ body.overview-layout-compact #overviewPage .controls-card .row:last-of-type{
   grid-area:sensors;
   display:flex;
   align-items:center;
+  min-width:0;
   margin:0;
 }
 body.overview-layout-compact #overviewPage .floor-card{
   grid-area:floor;
   width:100%;
+  min-width:0;
   display:flex;
   justify-content:flex-end;
 }
 body.overview-layout-compact #overviewPage .floor-card .row{
-  justify-content:flex-end;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  justify-content:end;
+  gap:6px;
+}
+body.overview-layout-compact #overviewPage .floor-card .btn{
+  padding:8px 10px;
+  min-height:36px;
 }
 body.overview-layout-compact #overviewPage .absence-card{
   grid-area:absence;
   width:100%;
+  min-width:0;
+  padding:4px;
 }
 body.overview-layout-compact #overviewPage .presence-card{
   grid-area:presence;
   width:100%;
+  min-width:0;
+  padding:4px;
 }
 body.overview-layout-compact #overviewPage .absence-card > strong,
 body.overview-layout-compact #overviewPage .presence-card > strong{
@@ -817,12 +833,16 @@ body.overview-layout-compact #overviewPage .absence-card .absence-list,
 body.overview-layout-compact #overviewPage .presence-card .absence-list{
   display:flex;
   flex-wrap:wrap;
-  gap:8px;
+  gap:4px;
   margin-top:0;
 }
 body.overview-layout-compact #overviewPage .absence-card .legend-row,
 body.overview-layout-compact #overviewPage .presence-card .legend-row{
   margin-top:0;
+}
+body.overview-layout-compact #overviewPage .absence-list .presence-avatar{
+  width:40px;
+  height:40px;
 }
 body.overview-layout-compact #overviewPage .presence-avatar.away{
   filter:grayscale(1);
