@@ -17,6 +17,10 @@
           "icon": "open_in_new",
           "href": "%web_protocol%://%ip%:%web_port%/adapter/alarmsystem/webui/index.html?instance=alarmsystem.%instance%&v=2026-05-31-sounds4"
         },
+        "_desc_dashboard_embed": {
+          "type": "staticText",
+          "text": "Dashboard-Einbindung (z. B. iframe): URL-Parameter &layout=compact (=EG), &layout=compactEG (=EG) oder &layout=compactOG (=OG) an die WebUI-URL anhängen, um ein kompaktes Einzel-Grundriss-Layout ohne Sidebar/Header zu erhalten. Beispiel: .../webui/index.html?instance=alarmsystem.0&embed=1&layout=compactOG"
+        },
         "debugLevel": {
           "type": "select",
           "label": "Debug level",
