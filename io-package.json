@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "alarmsystem",
-    "version": "0.4.1",
+    "version": "0.4.2",
     "news": {
+      "0.4.2": {
+        "en": "Revert PIN disarm to client-side check (works while adapter is stopped), remove backend PIN config",
+        "de": "PIN-Entschärfung zurück auf Client-seitige Prüfung (funktioniert bei gestopptem Adapter), Backend-PIN-Konfiguration entfernt"
+      },
       "0.4.1": {
         "en": "WebUI PIN disarm (numpad), configurable disarm PIN in admin settings",
         "de": "PIN-Entschärfung im WebUI (Ziffernblock), konfigurierbare Entschärfungs-PIN in den Adapter-Einstellungen"
@@ -103,7 +107,6 @@
     "doorbellRingStateId": "mqtt.1.fingerprintDoorbell.ring",
     "pinSequenceWindowMs": 4000,
     "pinTriggerCooldownMs": 1500,
-    "disarmPin": "1492",
     "presenceIdsJson": "[\"0_userdata.0.presence_geofence.Sebastian\",\"0_userdata.0.presence_geofence.Teresa\",\"0_userdata.0.presence_at_home.Sebastian\",\"0_userdata.0.presence_at_home.Teresa\"]",
     "geofencePersonsTable": [],
     "instarDetectionDatapointId": "",
