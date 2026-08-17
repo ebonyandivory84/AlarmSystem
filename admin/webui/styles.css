@@ -713,198 +713,63 @@ body.overview-layout-floating #overviewPage .panic-btn{
   z-index:16;
 }
 
-/* Compact layout: one-row toolbar above a dominant, centered floorplan,
-   ticker log directly below it, de-emphasized presence/health footer last.
-   Built with display:contents so the existing status-mini/left-stack/
-   controls-card wrapper markup can be re-flattened into a single
-   canvas-shell grid without any HTML changes. Toolbar uses explicit
-   grid-area placement (not flex-wrap) so it never wraps to a second line. */
+/* Compact layout: floorplan only, edge-to-edge. Topbar reduced to just the
+   layout-switch button so the user can still cycle back to another layout;
+   everything else (title, page nav, actions, overlays) is hidden. */
+body.overview-layout-compact .topbar > div:first-child,
+body.overview-layout-compact .topbar .actions,
+body.overview-layout-compact #pageOverviewBtn,
+body.overview-layout-compact #pageDesignerBtn,
+body.overview-layout-compact #pageSettingsBtn{
+  display:none;
+}
+body.overview-layout-compact .topbar{
+  justify-content:flex-end;
+  padding:8px 12px;
+}
+body.overview-layout-compact .app{
+  display:flex;
+  flex-direction:column;
+  padding:0;
+  gap:0;
+  height:100dvh;
+  min-height:100dvh;
+}
+body.overview-layout-compact #overviewPage{
+  display:flex;
+  flex:1 1 auto;
+  height:auto;
+  min-height:0;
+}
 body.overview-layout-compact #overviewPage .canvas-shell{
-  display:grid;
-  grid-template-columns:repeat(12,minmax(0,1fr));
-  grid-template-rows:auto auto auto auto;
-  grid-template-areas:
-    "toggles toggles toggles toggles toggles sensors sensors floor floor floor panic panic"
-    "canvas canvas canvas canvas canvas canvas canvas canvas canvas canvas canvas canvas"
-    "ticker ticker ticker ticker ticker ticker ticker ticker ticker ticker ticker ticker"
-    "absence absence absence absence presence presence presence presence health health health health";
-  gap:6px;
-  width:min(100%,480px);
-  margin:0 auto;
-  align-content:start;
+  display:block;
+  position:relative;
+  flex:1 1 auto;
+  width:100%;
+  height:100%;
+  margin:0;
+  padding:0;
+  background:none;
+  backdrop-filter:none;
+  border:none;
+  border-radius:0;
+  box-shadow:none;
 }
 body.overview-layout-compact #overviewPage .zone-canvas{
-  grid-area:canvas;
   width:100%;
-  height:auto;
-  aspect-ratio:0.95;
+  height:100%;
+  margin:0;
   min-height:0;
-  margin:0;
+  border:none;
+  border-radius:0;
+  background:#000;
 }
-body.overview-layout-compact #overviewPage .status-mini{
-  display:contents;
-}
-body.overview-layout-compact #overviewPage .status-mini .status-shield{
-  grid-area:canvas;
-  justify-self:start;
-  align-self:start;
-  position:relative;
-  z-index:2;
-  width:auto;
-  min-height:0;
-  margin:8px;
-  padding:4px 10px;
-  font-size:.7rem;
-  gap:4px;
-  border-radius:8px;
-  justify-content:flex-start;
-  text-align:left;
-}
-body.overview-layout-compact #overviewPage .status-mini .status-shield svg{
-  width:16px;
-  height:16px;
-}
-body.overview-layout-compact #overviewPage .overview-log-wrap{
-  grid-area:ticker;
-  margin:0;
-}
-body.overview-layout-compact #overviewPage .overview-event-log{
-  max-height:none;
-  white-space:nowrap;
-  overflow-x:hidden;
-  overflow-y:hidden;
-  scroll-behavior:smooth;
-}
-body.overview-layout-compact #overviewPage .left-stack{
-  display:contents;
-}
-body.overview-layout-compact #overviewPage .controls-card{
-  display:contents;
-}
-body.overview-layout-compact #overviewPage .controls-card .row:first-of-type{
-  grid-area:toggles;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:6px;
-  margin:0;
-}
-body.overview-layout-compact #overviewPage .controls-card .row:first-of-type .btn{
-  width:40px;
-  min-height:40px;
-  padding:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-body.overview-layout-compact #overviewPage .controls-card .row:first-of-type .btn .btn-icon{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-}
-body.overview-layout-compact #overviewPage .controls-card .row:first-of-type .btn .btn-label{
+body.overview-layout-compact #overviewPage .status-mini,
+body.overview-layout-compact #overviewPage .left-stack,
+body.overview-layout-compact #overviewPage .panic-btn,
+body.overview-layout-compact #overviewPage .editor-strip,
+body.overview-layout-compact #overviewPage #statusBox{
   display:none;
-}
-body.overview-layout-compact #overviewPage .controls-card .row:last-of-type{
-  grid-area:sensors;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  min-width:0;
-  margin:0;
-}
-body.overview-layout-compact #overviewPage #overviewShowSensorsBtn{
-  width:40px;
-  min-height:40px;
-  padding:0;
-  font-size:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-body.overview-layout-compact #overviewPage #overviewShowSensorsBtn::before{
-  content:"\1F441";
-  font-size:1.1rem;
-}
-body.overview-layout-compact #overviewPage .floor-card{
-  grid-area:floor;
-  width:100%;
-  min-width:0;
-  padding:4px 6px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-body.overview-layout-compact #overviewPage .floor-card .row{
-  display:flex;
-  justify-content:center;
-  gap:6px;
-}
-body.overview-layout-compact #overviewPage .floor-card .btn{
-  padding:6px 8px;
-  min-height:32px;
-  font-size:.75rem;
-}
-body.overview-layout-compact #overviewPage .panic-btn{
-  grid-area:panic;
-  position:static;
-  width:100%;
-  max-width:none;
-  min-height:40px;
-  padding:0 6px;
-  font-size:.8rem;
-}
-body.overview-layout-compact #overviewPage .absence-card{
-  grid-area:absence;
-  width:100%;
-  min-width:0;
-  padding:6px;
-}
-body.overview-layout-compact #overviewPage .presence-card{
-  grid-area:presence;
-  width:100%;
-  min-width:0;
-  padding:6px;
-}
-body.overview-layout-compact #overviewPage .status-card{
-  grid-area:health;
-  width:100%;
-  min-width:0;
-  padding:6px;
-  text-align:center;
-}
-body.overview-layout-compact #overviewPage .absence-card > strong,
-body.overview-layout-compact #overviewPage .presence-card > strong,
-body.overview-layout-compact #overviewPage .status-card > strong{
-  display:none;
-}
-body.overview-layout-compact #overviewPage .absence-card .absence-list,
-body.overview-layout-compact #overviewPage .presence-card .absence-list{
-  display:flex;
-  flex-wrap:wrap;
-  gap:4px;
-  margin-top:0;
-}
-body.overview-layout-compact #overviewPage .absence-card .legend-row,
-body.overview-layout-compact #overviewPage .presence-card .legend-row{
-  margin-top:0;
-}
-body.overview-layout-compact #overviewPage .absence-list .presence-avatar{
-  width:26px;
-  height:26px;
-}
-body.overview-layout-compact #overviewPage .presence-avatar.away{
-  filter:grayscale(1);
-  opacity:.42;
-}
-body.overview-layout-compact #overviewPage .presence-avatar.home{
-  filter:none;
-  opacity:1;
-}
-body.overview-layout-compact #overviewPage .health-pill{
-  font-size:.78rem;
-  padding:6px 8px;
-  margin-top:0;
 }
 
 #designerPage .designer-wrap{
@@ -971,45 +836,6 @@ body.overview-layout-compact #overviewPage .health-pill{
   body.overview-layout-floating #overviewPage .panic-btn{
     position:static;
     width:100%;
-  }
-  /* Compact layout on narrow screens: fall back to a simple stacked column
-     instead of the display:contents header/footer grid. */
-  body.overview-layout-compact #overviewPage .canvas-shell{
-    display:flex;
-    flex-direction:column;
-    gap:10px;
-  }
-  body.overview-layout-compact #overviewPage .status-mini,
-  body.overview-layout-compact #overviewPage .left-stack,
-  body.overview-layout-compact #overviewPage .controls-card{
-    display:block;
-  }
-  body.overview-layout-compact #overviewPage .controls-card .row:first-of-type{
-    display:flex;
-    flex-wrap:wrap;
-    justify-content:flex-start;
-  }
-  body.overview-layout-compact #overviewPage .zone-canvas{
-    min-height:360px;
-    height:52dvh;
-  }
-  body.overview-layout-compact #overviewPage .status-mini .status-shield{
-    position:static;
-    margin:0 0 8px;
-  }
-  body.overview-layout-compact #overviewPage #overviewShowSensorsBtn{
-    width:auto;
-    min-height:0;
-    padding:8px 12px;
-    font-size:inherit;
-  }
-  body.overview-layout-compact #overviewPage #overviewShowSensorsBtn::before{
-    content:none;
-  }
-  body.overview-layout-compact #overviewPage .panic-btn{
-    position:static;
-    width:100%;
-    font-size:1rem;
   }
   .object-browser-layout{
     grid-template-columns:1fr;
