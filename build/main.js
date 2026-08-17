@@ -123,21 +123,6 @@ class AlarmSystemAdapter extends utils.Adapter {
             common: { name: 'Disarm cameras', type: 'boolean', role: 'button', read: true, write: true, def: false },
             native: {}
         });
-        await this.setObjectNotExistsAsync('commands.pinDisarmAction', {
-            type: 'state',
-            common: { name: 'PIN disarm target action', type: 'string', role: 'text', read: true, write: true, def: '' },
-            native: {}
-        });
-        await this.setObjectNotExistsAsync('commands.pinDisarmCode', {
-            type: 'state',
-            common: { name: 'PIN disarm submitted code', type: 'string', role: 'text', read: true, write: true, def: '' },
-            native: {}
-        });
-        await this.setObjectNotExistsAsync('commands.pinDisarmResult', {
-            type: 'state',
-            common: { name: 'PIN disarm result', type: 'string', role: 'text', read: true, write: true, def: '' },
-            native: {}
-        });
         await this.setObjectNotExistsAsync('commands.telegramTestText', {
             type: 'state',
             common: { name: 'Telegram test text', type: 'boolean', role: 'button', read: true, write: true, def: false },
@@ -259,7 +244,6 @@ class AlarmSystemAdapter extends utils.Adapter {
             pinSequenceWindowMs: Math.max(200, this.toNumber(n.pinSequenceWindowMs, 4000)),
             pinTriggerCooldownMs: Math.max(0, this.toNumber(n.pinTriggerCooldownMs, 1500)),
             fingerprintCooldownMs: Math.max(500, this.toNumber(n.fingerprintCooldownMs, 3000)),
-            disarmPin: String(n.disarmPin || '1492'),
             pdlcId: n.pdlcId || 'tuya.0.bf2bb23b342877f2e1maqy.1',
             garageDoorCommandId: n.garageDoorCommandId || 'hmip.0.devices.3014F711A000241F29970E70.channels.1.doorCommand',
             nukiFrontDoorId: n.nukiFrontDoorId || 'nuki-extended.0.smartlocks.haustür._ACTION.UNLATCH',
@@ -895,9 +879,6 @@ class AlarmSystemAdapter extends utils.Adapter {
             ['commands.ackActiveCase', false],
             ['commands.armCameras', false],
             ['commands.disarmCameras', false],
-            ['commands.pinDisarmAction', ''],
-            ['commands.pinDisarmCode', ''],
-            ['commands.pinDisarmResult', ''],
             ['commands.telegramTestText', false],
             ['commands.telegramTestPhoto', false],
             ['commands.telegramTestPhotoCaption', false],
@@ -1128,31 +1109,6 @@ class AlarmSystemAdapter extends utils.Adapter {
                 await this.setStateAsync('runtime.camerasManualArmed', false, true);
                 await this.applyCameraOutputs();
                 await this.setStateAsync(local, false, true);
-            }
-            if (local === 'commands.pinDisarmCode' && typeof state.val === 'string' && state.val.length > 0) {
-                const submittedCode = state.val;
-                await this.setStateAsync(local, '', true);
-                const actionSt = await this.getStateAsync('commands.pinDisarmAction');
-                const action = typeof actionSt?.val === 'string' ? actionSt.val : '';
-                if (submittedCode !== this.cfg.disarmPin) {
-                    await this.setStateAsync('commands.pinDisarmResult', 'fail', true);
-                    await this.logEvent('warn', 'pin_disarm_fail', `Falsche PIN bei Aktion "${action}"`);
-                }
-                else {
-                    if (action === 'disarmAlarm')
-                        await this.disarmAll();
-                    else if (action === 'disarmHull')
-                        await this.disarmZone('aussenhaut');
-                    else if (action === 'disarmPerimeter')
-                        await this.disarmZone('perimeter');
-                    else if (action === 'disarmCameras') {
-                        this.camerasManualArmed = false;
-                        await this.setStateAsync('runtime.camerasManualArmed', false, true);
-                        await this.applyCameraOutputs();
-                    }
-                    await this.setStateAsync('commands.pinDisarmResult', 'ok', true);
-                    await this.logEvent('info', 'pin_disarm_ok', `PIN-Entschärfung erfolgreich: "${action}"`);
-                }
             }
             if (local === 'commands.telegramTestText' && state.val === true) {
                 await this.sendTelegramText('Test');
