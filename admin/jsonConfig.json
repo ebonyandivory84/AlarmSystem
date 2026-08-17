@@ -102,6 +102,13 @@
         "cameraNightModeArmsCameras": {
           "type": "checkbox",
           "label": "Allow camera trigger by person detection in night mode (even if zones are disarmed)"
+        },
+        "disarmPin": {
+          "type": "password",
+          "label": "Entschärfungs-PIN (WebUI Ziffernblock, 4-stellig)",
+          "visible": true,
+          "minLength": 4,
+          "maxLength": 4
         }
       }
     },

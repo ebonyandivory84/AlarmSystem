@@ -56,6 +56,8 @@ class AlarmSystemAdapter extends utils.Adapter {
         this.presenceLastSomeoneHome = null;
         this.lastFingerprintHit = '';
         this.lastFingerprintTs = 0;
+        this.lastGarageFingerprintHit = '';
+        this.lastGarageFingerprintTs = 0;
         this.activeCaseId = '';
         this.eventLog = [];
         this.countdownTimer = null;
@@ -76,6 +78,7 @@ class AlarmSystemAdapter extends utils.Adapter {
         this.triggerLogDir = null;
         this.sunsetAutoTimer = null;
         this.lastSunsetAutoArmDay = '';
+        this.pendingModeFlowTimers = new Set();
         this.on('ready', this.onReady.bind(this));
         this.on('stateChange', this.onStateChange.bind(this));
     }
@@ -118,6 +121,21 @@ class AlarmSystemAdapter extends utils.Adapter {
         await this.setObjectNotExistsAsync('commands.disarmCameras', {
             type: 'state',
             common: { name: 'Disarm cameras', type: 'boolean', role: 'button', read: true, write: true, def: false },
+            native: {}
+        });
+        await this.setObjectNotExistsAsync('commands.pinDisarmAction', {
+            type: 'state',
+            common: { name: 'PIN disarm target action', type: 'string', role: 'text', read: true, write: true, def: '' },
+            native: {}
+        });
+        await this.setObjectNotExistsAsync('commands.pinDisarmCode', {
+            type: 'state',
+            common: { name: 'PIN disarm submitted code', type: 'string', role: 'text', read: true, write: true, def: '' },
+            native: {}
+        });
+        await this.setObjectNotExistsAsync('commands.pinDisarmResult', {
+            type: 'state',
+            common: { name: 'PIN disarm result', type: 'string', role: 'text', read: true, write: true, def: '' },
             native: {}
         });
         await this.setObjectNotExistsAsync('commands.telegramTestText', {
@@ -210,7 +228,7 @@ class AlarmSystemAdapter extends utils.Adapter {
             cameraNightModeArmsCameras: this.toBool(n.cameraNightModeArmsCameras, true),
             alarmActionZoneTriggerTiming: String(n.alarmActionZoneTriggerTiming || '').toLowerCase() === 'immediate' ? 'immediate' : 'after_alarm',
             countdownAbortMode: this.parseCountdownAbortMode(n.countdownAbortMode),
-            alarmRepeatTelegramEnabled: this.toBool(n.alarmRepeatTelegramEnabled, false),
+            alarmRepeatTelegramEnabled: this.toBool(n.alarmRepeatTelegramEnabled, true),
             alarmRepeatTelegramIntervalSec: Math.max(5, this.toNumber(n.alarmRepeatTelegramIntervalSec, 60)),
             alarmRepeatTelegramText: String(n.alarmRepeatTelegramText || 'Alarm !!!'),
             alarmRepeatTelegramIncludeTrigger: this.toBool(n.alarmRepeatTelegramIncludeTrigger, true),
@@ -241,8 +259,19 @@ class AlarmSystemAdapter extends utils.Adapter {
             pinSequenceWindowMs: Math.max(200, this.toNumber(n.pinSequenceWindowMs, 4000)),
             pinTriggerCooldownMs: Math.max(0, this.toNumber(n.pinTriggerCooldownMs, 1500)),
             fingerprintCooldownMs: Math.max(500, this.toNumber(n.fingerprintCooldownMs, 3000)),
+            disarmPin: String(n.disarmPin || '1492'),
             pdlcId: n.pdlcId || 'tuya.0.bf2bb23b342877f2e1maqy.1',
             garageDoorCommandId: n.garageDoorCommandId || 'hmip.0.devices.3014F711A000241F29970E70.channels.1.doorCommand',
+            nukiFrontDoorId: n.nukiFrontDoorId || 'nuki-extended.0.smartlocks.haustür._ACTION.UNLATCH',
+            nukiSideDoorId: n.nukiSideDoorId || 'nuki-extended.0.smartlocks.tür._ACTION.UNLATCH',
+            nukiUnlatchResetMs: Math.max(500, this.toNumber(n.nukiUnlatchResetMs, 3000)),
+            garageFingerprintStateId: n.garageFingerprintStateId || 'mqtt.1.fingerprintSensorGarage.matchName',
+            fingerprintSnapshotCameraKey: String(n.fingerprintSnapshotCameraKey || 'driveway'),
+            fingerprintScenarios: this.parseFingerprintScenariosTable(n.fingerprintScenariosTable),
+            snapshotTriggerDatapoints: this.parseSnapshotTriggerDatapointsTable(n.snapshotTriggerDatapointsTable),
+            doorbellRingStateId: n.doorbellRingStateId || 'mqtt.1.fingerprintDoorbell.ring',
+            geofencePersons: this.parseGeofencePersonsTable(n.geofencePersonsTable),
+            instarDetectionDatapointId: String(n.instarDetectionDatapointId || ''),
             autoArmPresenceIds: this.tryJson(n.presenceIdsJson, [
                 '0_userdata.0.presence_geofence.Sebastian',
                 '0_userdata.0.presence_geofence.Teresa',
@@ -452,6 +481,42 @@ class AlarmSystemAdapter extends utils.Adapter {
             personDetectionDetectValue: String((r.personDetectionDetectValue ?? r.detectValue ?? '')).trim() || 'human detected'
         }));
     }
+    parseFingerprintScenario(v) {
+        const s = String(v || '').trim();
+        if (s === 'entrance' || s === 'zero' || s === 'openGarage' || s === 'garageClose')
+            return s;
+        return 'disarmOnly';
+    }
+    parseFingerprintScenariosTable(rows) {
+        if (!Array.isArray(rows))
+            return [];
+        return rows
+            .filter(r => r?.name)
+            .map((r) => ({
+            name: String(r.name).trim(),
+            scenario: this.parseFingerprintScenario(r.scenario)
+        }));
+    }
+    parseSnapshotTriggerDatapointsTable(rows) {
+        if (!Array.isArray(rows))
+            return [];
+        return rows
+            .filter(r => r?.cameraKey && r?.triggerId)
+            .map((r) => ({
+            cameraKey: String(r.cameraKey).trim(),
+            triggerId: String(r.triggerId).trim()
+        }));
+    }
+    parseGeofencePersonsTable(rows) {
+        if (!Array.isArray(rows))
+            return [];
+        return rows
+            .filter(r => r?.name && r?.datapointId)
+            .map((r) => ({
+            name: String(r.name).trim(),
+            datapointId: String(r.datapointId).trim()
+        }));
+    }
     parseZoneActionsTable(rows) {
         if (!Array.isArray(rows))
             return [];
@@ -542,7 +607,7 @@ class AlarmSystemAdapter extends utils.Adapter {
                 continue;
             if (actionKind === 'snapshot' && !snapshotTargetKey)
                 continue;
-            if (actionKind === 'camera_led' && !cameraTargetKey)
+            if ((actionKind === 'camera_led' || actionKind === 'camera_instar_siren' || actionKind === 'camera_instar_floodlight') && !cameraTargetKey)
                 continue;
             out.push(row);
         }
@@ -583,7 +648,7 @@ class AlarmSystemAdapter extends utils.Adapter {
                 continue;
             if (actionKind === 'snapshot' && !snapshotTargetKey)
                 continue;
-            if (actionKind === 'camera_led' && !cameraTargetKey)
+            if ((actionKind === 'camera_led' || actionKind === 'camera_instar_siren' || actionKind === 'camera_instar_floodlight') && !cameraTargetKey)
                 continue;
             out.push(row);
         }
@@ -709,6 +774,10 @@ class AlarmSystemAdapter extends utils.Adapter {
             return 'snapshot';
         if (s === 'camera_led')
             return 'camera_led';
+        if (s === 'camera_instar_siren')
+            return 'camera_instar_siren';
+        if (s === 'camera_instar_floodlight')
+            return 'camera_instar_floodlight';
         return 'datapoint';
     }
     parseAlarmActionTiming(v) {
@@ -754,6 +823,8 @@ class AlarmSystemAdapter extends utils.Adapter {
             this.cfg.perimeterStateId,
             this.cfg.panicStateId,
             this.cfg.fingerprintStateId,
+            this.cfg.garageFingerprintStateId,
+            this.cfg.doorbellRingStateId,
             this.cfg.pinStateId,
             this.cfg.bedtimeLightSensorId,
             this.cfg.motionSensorId
@@ -765,6 +836,12 @@ class AlarmSystemAdapter extends utils.Adapter {
         for (const c of this.cfg.cameras)
             if (c.personDetectionDp)
                 ids.add(c.personDetectionDp);
+        for (const t of this.cfg.snapshotTriggerDatapoints)
+            ids.add(t.triggerId);
+        for (const g of this.cfg.geofencePersons)
+            ids.add(g.datapointId);
+        if (this.cfg.instarDetectionDatapointId)
+            ids.add(this.cfg.instarDetectionDatapointId);
         for (const p of this.cfg.autoArmPresenceIds)
             ids.add(p);
         for (const p of this.cfg.bedtimePresenceHomeIds)
@@ -818,6 +895,9 @@ class AlarmSystemAdapter extends utils.Adapter {
             ['commands.ackActiveCase', false],
             ['commands.armCameras', false],
             ['commands.disarmCameras', false],
+            ['commands.pinDisarmAction', ''],
+            ['commands.pinDisarmCode', ''],
+            ['commands.pinDisarmResult', ''],
             ['commands.telegramTestText', false],
             ['commands.telegramTestPhoto', false],
             ['commands.telegramTestPhotoCaption', false],
@@ -894,6 +974,10 @@ class AlarmSystemAdapter extends utils.Adapter {
                 then = `Snapshot target: ${String(a.snapshotTargetKey || '-')}`;
             if (a.actionKind === 'camera_led')
                 then = `Kamera-LED: ${String(a.cameraTargetKey || '-')} ${a.durationMs ? `(auto off ${a.durationMs}ms)` : ''}`;
+            if (a.actionKind === 'camera_instar_siren')
+                then = `Instar-Sirene: ${String(a.cameraTargetKey || '-')}${a.durationMs ? ` (${Math.round(a.durationMs / 1000)}s)` : ''}`;
+            if (a.actionKind === 'camera_instar_floodlight')
+                then = `Instar-Flutlicht: ${String(a.cameraTargetKey || '-')}${a.durationMs ? ` (${Math.round(a.durationMs / 1000)}s)` : ''}`;
             rules.push({ if: when, then: `${then} (timing ${timing}, repeat ${a.repeatCount}x / ${a.repeatIntervalMs}ms)` });
         }
         for (const p of this.cfg.panicActions) {
@@ -908,6 +992,10 @@ class AlarmSystemAdapter extends utils.Adapter {
                 then = `Snapshot target: ${String(p.snapshotTargetKey || '-')}`;
             if (p.actionKind === 'camera_led')
                 then = `Kamera-LED: ${String(p.cameraTargetKey || '-')}`;
+            if (p.actionKind === 'camera_instar_siren')
+                then = `Instar-Sirene: ${String(p.cameraTargetKey || '-')}${p.durationMs ? ` (${Math.round(p.durationMs / 1000)}s)` : ''}`;
+            if (p.actionKind === 'camera_instar_floodlight')
+                then = `Instar-Flutlicht: ${String(p.cameraTargetKey || '-')}${p.durationMs ? ` (${Math.round(p.durationMs / 1000)}s)` : ''}`;
             rules.push({ if: `PANIC ${p.when}`, then: `${then} (repeat ${p.repeatCount}x / ${p.repeatIntervalMs}ms)` });
         }
         for (const r of this.cfg.modeFlowRules) {
@@ -1040,6 +1128,31 @@ class AlarmSystemAdapter extends utils.Adapter {
                 await this.setStateAsync('runtime.camerasManualArmed', false, true);
                 await this.applyCameraOutputs();
                 await this.setStateAsync(local, false, true);
+            }
+            if (local === 'commands.pinDisarmCode' && typeof state.val === 'string' && state.val.length > 0) {
+                const submittedCode = state.val;
+                await this.setStateAsync(local, '', true);
+                const actionSt = await this.getStateAsync('commands.pinDisarmAction');
+                const action = typeof actionSt?.val === 'string' ? actionSt.val : '';
+                if (submittedCode !== this.cfg.disarmPin) {
+                    await this.setStateAsync('commands.pinDisarmResult', 'fail', true);
+                    await this.logEvent('warn', 'pin_disarm_fail', `Falsche PIN bei Aktion "${action}"`);
+                }
+                else {
+                    if (action === 'disarmAlarm')
+                        await this.disarmAll();
+                    else if (action === 'disarmHull')
+                        await this.disarmZone('aussenhaut');
+                    else if (action === 'disarmPerimeter')
+                        await this.disarmZone('perimeter');
+                    else if (action === 'disarmCameras') {
+                        this.camerasManualArmed = false;
+                        await this.setStateAsync('runtime.camerasManualArmed', false, true);
+                        await this.applyCameraOutputs();
+                    }
+                    await this.setStateAsync('commands.pinDisarmResult', 'ok', true);
+                    await this.logEvent('info', 'pin_disarm_ok', `PIN-Entschärfung erfolgreich: "${action}"`);
+                }
             }
             if (local === 'commands.telegramTestText' && state.val === true) {
                 await this.sendTelegramText('Test');
@@ -1189,6 +1302,28 @@ class AlarmSystemAdapter extends utils.Adapter {
         }
         if (id === this.cfg.fingerprintStateId) {
             await this.handleFingerprint(state.val);
+            return;
+        }
+        if (id === this.cfg.garageFingerprintStateId) {
+            await this.handleGarageFingerprint(state.val);
+            return;
+        }
+        if (id === this.cfg.doorbellRingStateId) {
+            await this.handleDoorbellRing(state.val);
+            return;
+        }
+        const snapshotTrigger = this.cfg.snapshotTriggerDatapoints.find(t => t.triggerId === id);
+        if (snapshotTrigger) {
+            await this.handleSnapshotTriggerDatapoint(snapshotTrigger, state.val);
+            return;
+        }
+        const geofencePerson = this.cfg.geofencePersons.find(g => g.datapointId === id);
+        if (geofencePerson) {
+            await this.handleGeofencePersonEvent(geofencePerson, state.val);
+            return;
+        }
+        if (this.cfg.instarDetectionDatapointId && id === this.cfg.instarDetectionDatapointId) {
+            await this.handleInstarDetection(state.val);
             return;
         }
         if (id === this.cfg.pinStateId) {
@@ -1397,6 +1532,7 @@ class AlarmSystemAdapter extends utils.Adapter {
         await this.logEvent('info', 'zone_disarmed', `Zone ${zone} disarmed`);
     }
     async disarmAll() {
+        this.cancelPendingModeFlowTimers();
         await this.disarmZone('perimeter');
         await this.disarmZone('aussenhaut');
         await this.disarmZone('innenraum');
@@ -1555,6 +1691,32 @@ class AlarmSystemAdapter extends utils.Adapter {
         await this.setOutput(cam.ledDatapoint, true);
         this.setTimeout(() => void this.setOutput(cam.ledDatapoint, false), Math.max(100, durationMs));
     }
+    async callInstarCgi(cam, queryParams) {
+        if (!cam.instarBaseUrl)
+            return;
+        const base = this.applyCredentials(cam.instarBaseUrl, cam.username, cam.password);
+        const sep = base.includes('?') ? '&' : '?';
+        const url = `${base}${sep}${queryParams}`;
+        try {
+            await axios_1.default.get(url, { timeout: 5000 });
+        }
+        catch (err) {
+            await this.logEvent('warn', 'instar_cgi_error', `Instar CGI fehlgeschlagen (${cam.label || cam.key || cam.ip}): ${String(err)}`);
+        }
+    }
+    async triggerInstarSiren(cam, durationSec) {
+        if (!cam.instarBaseUrl)
+            return;
+        await this.callInstarCgi(cam, 'cmd=setaudioaction&enable=0');
+        await this.callInstarCgi(cam, 'cmd=playalarmsound');
+        const duration = Math.max(1, durationSec) * 1000;
+        this.setTimeout(() => void this.callInstarCgi(cam, 'cmd=stopalarmsound'), duration);
+    }
+    async triggerInstarFloodlight(cam, durationSec) {
+        if (!cam.instarBaseUrl)
+            return;
+        await this.callInstarCgi(cam, `cmd=illuminate&duration=${Math.max(0, Math.round(durationSec))}`);
+    }
     async executeAlarmActions(scenario, ctx, stage = null) {
         const rows = this.cfg.alarmActions.filter(r => r.scenario === scenario);
         for (const row of rows) {
@@ -1615,6 +1777,30 @@ class AlarmSystemAdapter extends utils.Adapter {
                     this.setTimeout(() => void this.triggerCameraLed(cam, duration), i * interval);
                 }
                 await this.logEvent('info', 'alarm_action_camera_led', `Alarm action ${row.label}: Kamera-LED ${cam.label || cam.key || cam.ip}`, ctx.caseId);
+            }
+            else if (row.actionKind === 'camera_instar_siren') {
+                const cam = this.getCameraByTargetKey(row.cameraTargetKey);
+                if (!cam || !cam.instarBaseUrl) {
+                    await this.logEvent('warn', 'alarm_action_instar_siren_missing', `Alarm action ${row.label}: Instar-Kamera fehlt (${String(row.cameraTargetKey || '-')})`, ctx.caseId);
+                    continue;
+                }
+                const durationSec = row.durationMs && row.durationMs > 0 ? Math.round(row.durationMs / 1000) : 10;
+                for (let i = 0; i < repeats; i++) {
+                    this.setTimeout(() => void this.triggerInstarSiren(cam, durationSec), i * interval);
+                }
+                await this.logEvent('info', 'alarm_action_instar_siren', `Alarm action ${row.label}: Instar-Sirene ${cam.label || cam.key || cam.ip}`, ctx.caseId);
+            }
+            else if (row.actionKind === 'camera_instar_floodlight') {
+                const cam = this.getCameraByTargetKey(row.cameraTargetKey);
+                if (!cam || !cam.instarBaseUrl) {
+                    await this.logEvent('warn', 'alarm_action_instar_floodlight_missing', `Alarm action ${row.label}: Instar-Kamera fehlt (${String(row.cameraTargetKey || '-')})`, ctx.caseId);
+                    continue;
+                }
+                const durationSec = row.durationMs && row.durationMs > 0 ? Math.round(row.durationMs / 1000) : 180;
+                for (let i = 0; i < repeats; i++) {
+                    this.setTimeout(() => void this.triggerInstarFloodlight(cam, durationSec), i * interval);
+                }
+                await this.logEvent('info', 'alarm_action_instar_floodlight', `Alarm action ${row.label}: Instar-Flutlicht ${cam.label || cam.key || cam.ip}`, ctx.caseId);
             }
         }
     }
@@ -1768,10 +1954,21 @@ class AlarmSystemAdapter extends utils.Adapter {
         if (row.announceBefore) {
             await this.executeModeFlowAnnounce(`rule:${row.label}`);
             const delayMs = Math.max(0, Number(row.announceDelaySec || 0) * 1000);
-            this.setTimeout(() => void runLevelAndActions(), delayMs);
+            const timer = this.setTimeout(() => {
+                if (timer)
+                    this.pendingModeFlowTimers.delete(timer);
+                void runLevelAndActions();
+            }, delayMs);
+            if (timer)
+                this.pendingModeFlowTimers.add(timer);
             return;
         }
         await runLevelAndActions();
+    }
+    cancelPendingModeFlowTimers() {
+        for (const timer of this.pendingModeFlowTimers)
+            this.clearTimeout(timer);
+        this.pendingModeFlowTimers.clear();
     }
     async executeModeFlowRulesForTrigger(ctx, triggerCam) {
         const sourceType = ctx.sourceType === 'camera' ? 'camera' : (ctx.sourceType === 'personDetection' ? 'personDetection' : 'sensor');
@@ -1845,6 +2042,28 @@ class AlarmSystemAdapter extends utils.Adapter {
                     this.setTimeout(() => void this.triggerCameraLed(cam, duration), i * interval);
                 }
             }
+            else if (row.actionKind === 'camera_instar_siren') {
+                const cam = this.getCameraByTargetKey(row.cameraTargetKey);
+                if (!cam || !cam.instarBaseUrl) {
+                    await this.logEvent('warn', 'panic_action_instar_siren_missing', `PANIC action ${row.label}: Instar-Kamera fehlt (${String(row.cameraTargetKey || '-')})`, this.activeCaseId || undefined);
+                    continue;
+                }
+                const durationSec = row.durationMs && row.durationMs > 0 ? Math.round(row.durationMs / 1000) : 10;
+                for (let i = 0; i < repeats; i++) {
+                    this.setTimeout(() => void this.triggerInstarSiren(cam, durationSec), i * interval);
+                }
+            }
+            else if (row.actionKind === 'camera_instar_floodlight') {
+                const cam = this.getCameraByTargetKey(row.cameraTargetKey);
+                if (!cam || !cam.instarBaseUrl) {
+                    await this.logEvent('warn', 'panic_action_instar_floodlight_missing', `PANIC action ${row.label}: Instar-Kamera fehlt (${String(row.cameraTargetKey || '-')})`, this.activeCaseId || undefined);
+                    continue;
+                }
+                const durationSec = row.durationMs && row.durationMs > 0 ? Math.round(row.durationMs / 1000) : 180;
+                for (let i = 0; i < repeats; i++) {
+                    this.setTimeout(() => void this.triggerInstarFloodlight(cam, durationSec), i * interval);
+                }
+            }
             await this.logEvent('info', 'panic_action_custom', `PANIC custom action ${row.label}`, this.activeCaseId || undefined);
         }
     }
@@ -1882,24 +2101,139 @@ class AlarmSystemAdapter extends utils.Adapter {
             await this.logEvent('warn', 'panic_off', 'PANIC deaktiviert');
         }
     }
+    escapeRegExp(s) {
+        return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+    matchKnownFingerprint(text, names) {
+        const sorted = [...names].sort((a, b) => b.length - a.length);
+        for (const n of sorted) {
+            const re = new RegExp(`\\b${this.escapeRegExp(n)}\\b`, 'i');
+            if (re.test(text))
+                return n;
+        }
+        return null;
+    }
+    getFingerprintScenario(name) {
+        const row = this.cfg.fingerprintScenarios.find(r => r.name.toLowerCase() === name.toLowerCase());
+        return row?.scenario || 'disarmOnly';
+    }
+    async runFingerprintScenarioActions(name) {
+        const scenario = this.getFingerprintScenario(name);
+        if (scenario === 'entrance') {
+            await this.runDatapointAction(this.cfg.nukiFrontDoorId, true, false, this.cfg.nukiUnlatchResetMs, 1, 0);
+        }
+        else if (scenario === 'zero') {
+            await this.runDatapointAction(this.cfg.nukiSideDoorId, true, false, this.cfg.nukiUnlatchResetMs, 1, 0);
+            await this.setOutput(this.cfg.garageDoorCommandId, 0);
+        }
+        else if (scenario === 'openGarage') {
+            await this.setOutput(this.cfg.garageDoorCommandId, 0);
+        }
+        else if (scenario === 'garageClose') {
+            await this.setOutput(this.cfg.garageDoorCommandId, 2);
+        }
+    }
+    async sendFingerprintSnapshot(name) {
+        const cam = this.getCameraByTargetKey(this.cfg.fingerprintSnapshotCameraKey);
+        if (cam)
+            await this.triggerCameraSnapshotOnly(cam, `Fingerprint erkannt: ${name}`);
+    }
     async handleFingerprint(raw) {
         if (typeof raw !== 'string')
             return;
-        const text = raw.trim().toLowerCase();
+        const text = raw.trim();
         if (!text)
             return;
-        for (const n of this.cfg.knownFingerprints) {
-            if (text.includes(n.toLowerCase())) {
-                const now = Date.now();
-                if (this.lastFingerprintHit === n && now - this.lastFingerprintTs < this.cfg.fingerprintCooldownMs)
-                    return;
-                this.lastFingerprintHit = n;
-                this.lastFingerprintTs = now;
-                await this.disarmAll();
-                await this.sendTelegramText(`${n} erkannt – Alarm wird deaktiviert`);
-                return;
+        const n = this.matchKnownFingerprint(text, this.cfg.knownFingerprints);
+        if (!n)
+            return;
+        const now = Date.now();
+        if (this.lastFingerprintHit === n && now - this.lastFingerprintTs < this.cfg.fingerprintCooldownMs)
+            return;
+        this.lastFingerprintHit = n;
+        this.lastFingerprintTs = now;
+        await this.disarmAll();
+        await this.runFingerprintScenarioActions(n);
+        await this.sendTelegramText(`${n} erkannt – Alarm wird deaktiviert`);
+        await this.sendFingerprintSnapshot(n);
+    }
+    async handleGarageFingerprint(raw) {
+        if (typeof raw !== 'string')
+            return;
+        const text = raw.trim();
+        if (!text)
+            return;
+        const n = this.matchKnownFingerprint(text, this.cfg.knownFingerprints);
+        if (!n)
+            return;
+        const now = Date.now();
+        if (this.lastGarageFingerprintHit === n && now - this.lastGarageFingerprintTs < this.cfg.fingerprintCooldownMs)
+            return;
+        this.lastGarageFingerprintHit = n;
+        this.lastGarageFingerprintTs = now;
+        await this.disarmAll();
+        await this.runFingerprintScenarioActions(n);
+        await this.sendTelegramText(`${n} erkannt (Garage) – Alarm wird deaktiviert`);
+        await this.sendFingerprintSnapshot(n);
+    }
+    async handleDoorbellRing(raw) {
+        if (!this.isActiveBooleanValue(raw))
+            return;
+        const cam = this.getCameraByTargetKey(this.cfg.fingerprintSnapshotCameraKey);
+        if (cam)
+            await this.triggerCameraSnapshotOnly(cam);
+    }
+    async handleSnapshotTriggerDatapoint(trigger, raw) {
+        if (!this.isActiveBooleanValue(raw))
+            return;
+        const cam = this.getCameraByTargetKey(trigger.cameraKey);
+        if (cam)
+            await this.triggerCameraSnapshotOnly(cam);
+        await this.setOutput(trigger.triggerId, false);
+    }
+    async handleGeofencePersonEvent(person, raw) {
+        if (typeof raw !== 'boolean')
+            return;
+        const verb = raw ? 'betreten' : 'verlassen';
+        await this.sendTelegramText(`${person.name} hat den Geofence ${verb}`);
+    }
+    formatInstarDetectionTable(json) {
+        let data;
+        try {
+            data = JSON.parse(json);
+        }
+        catch {
+            return 'INSTAR-Erkennung (ungültiges JSON)';
+        }
+        const rows = [];
+        for (const key of Object.keys(data)) {
+            if (key === 'predictions')
+                continue;
+            const val = data[key];
+            if (val !== undefined && val !== null && typeof val !== 'object') {
+                rows.push([key, String(val)]);
             }
         }
+        const predictions = Array.isArray(data?.predictions) ? data.predictions.slice(0, 5) : [];
+        let table = '```\n';
+        table += 'Feld            | Wert\n';
+        table += '----------------|----------\n';
+        for (const [k, v] of rows) {
+            table += `${k.padEnd(15)} | ${v}\n`;
+        }
+        for (const p of predictions) {
+            const label = String(p?.class ?? '?');
+            const conf = p?.confidence !== undefined ? String(p.confidence) : '?';
+            table += `${('Prediction: ' + label).padEnd(15)} | ${conf}\n`;
+        }
+        table += '```';
+        return table;
+    }
+    async handleInstarDetection(raw) {
+        if (typeof raw !== 'string' || !raw)
+            return;
+        const table = this.formatInstarDetectionTable(raw);
+        await this.sendTelegramText(table);
     }
     async handlePin(raw) {
         if (raw === null || raw === undefined)
@@ -2033,7 +2367,8 @@ class AlarmSystemAdapter extends utils.Adapter {
     }
     async handleBedtimePerimeter() {
         const h = new Date().getHours();
-        if (h < this.cfg.bedtimeHour)
+        const inNightWindow = h >= this.cfg.bedtimeHour || h < 6;
+        if (!inNightWindow)
             return;
         const light = (await this.getForeignStateAsync(this.cfg.bedtimeLightSensorId))?.val;
         const armed = this.zoneArmed.perimeter || this.zoneArmed.aussenhaut || this.zoneArmed.innenraum;
@@ -2350,16 +2685,28 @@ class AlarmSystemAdapter extends utils.Adapter {
         }
     }
     async sendSnapshot(url, label, idx) {
-        try {
-            const res = await axios_1.default.get(url, { responseType: 'arraybuffer', timeout: 8000, validateStatus: s => s < 500 });
-            if (res.status !== 200)
-                throw new Error(`HTTP ${res.status}`);
-            const file = path.join(os.tmpdir(), `alarm_${Date.now()}_${idx}.jpg`);
-            await node_fs_1.promises.writeFile(file, Buffer.from(res.data));
-            await this.sendTelegramPhoto(file, `AlarmSystem ${label}`);
-        }
-        catch (e) {
-            await this.logEvent('warn', 'snapshot_error', `Snapshot failed for ${label}: ${String(e)}`);
+        const maxAttempts = 3;
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                const res = await axios_1.default.get(url, { responseType: 'arraybuffer', timeout: 8000, validateStatus: s => s < 500 });
+                if (res.status !== 200)
+                    throw new Error(`HTTP ${res.status}`);
+                const contentType = String(res.headers?.['content-type'] || '');
+                if (!contentType.startsWith('image/'))
+                    throw new Error(`Unexpected content-type: ${contentType || '(none)'}`);
+                const buffer = Buffer.from(res.data);
+                if (buffer.length < 1000)
+                    throw new Error(`Snapshot too small: ${buffer.length} bytes`);
+                const file = path.join(os.tmpdir(), `alarm_${Date.now()}_${idx}.jpg`);
+                await node_fs_1.promises.writeFile(file, buffer);
+                await this.sendTelegramPhoto(file, `AlarmSystem ${label}`);
+                return;
+            }
+            catch (e) {
+                if (attempt >= maxAttempts) {
+                    await this.logEvent('warn', 'snapshot_error', `Snapshot failed for ${label} after ${attempt} attempts: ${String(e)}`);
+                }
+            }
         }
     }
     applyCredentials(url, user, pass) {
@@ -2442,10 +2789,15 @@ class AlarmSystemAdapter extends utils.Adapter {
                     await this.sendToAsync(inst.instance, 'send', { ...payloadBase, user: t.chatId });
         }
     }
-    async sendTelegramPhoto(file, caption) {
+    async sendTelegramPhoto(file, caption, chatIdsOverride) {
+        const override = Array.isArray(chatIdsOverride) ? chatIdsOverride.filter(Boolean) : [];
         for (const inst of this.cfg.telegramInstances) {
-            const targets = this.cfg.telegramTargets.filter(t => t.instance === inst.instance);
+            const targets = override.length > 0
+                ? override.map(chatId => ({ instance: inst.instance, chatId }))
+                : this.cfg.telegramTargets.filter(t => t.instance === inst.instance);
             const payloadBase = { text: file, type: 'photo' };
+            if (inst.token)
+                payloadBase.token = inst.token;
             if (caption !== undefined)
                 payloadBase.caption = caption;
             if (targets.length === 0)
