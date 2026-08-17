@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "alarmsystem",
-    "version": "0.4.0",
+    "version": "0.4.1",
     "news": {
+      "0.4.1": {
+        "en": "WebUI PIN disarm (numpad), configurable disarm PIN in admin settings",
+        "de": "PIN-Entschärfung im WebUI (Ziffernblock), konfigurierbare Entschärfungs-PIN in den Adapter-Einstellungen"
+      },
       "0.4.0": {
         "en": "Zone entry/exit delays, case log+ack, sabotage watchdog, simulation mode",
         "de": "Zonen Entry/Exit-Delay, Case-Log+Quittierung, Sabotage-Watchdog, Simulationsmodus"
