@@ -5889,12 +5889,14 @@
     { key: 'focus', className: 'overview-layout-focus', label: 'Layout: Fokus' },
     { key: 'sidebar', className: 'overview-layout-sidebar', label: 'Layout: Sidebar' },
     { key: 'floating', className: 'overview-layout-floating', label: 'Layout: Floating' },
-    { key: 'compact', className: 'overview-layout-compact', label: 'Layout: Kompakt' }
+    { key: 'compacteg', className: 'overview-layout-compact', label: 'Layout: Kompakt (EG)' },
+    { key: 'compactog', className: 'overview-layout-compact', label: 'Layout: Kompakt (OG)' }
   ];
   const OVERVIEW_LAYOUT_STORAGE_KEY = 'alarmsystem.overviewLayoutMode';
 
   function normalizeOverviewLayoutKey(raw) {
     const key = String(raw || '').trim().toLowerCase();
+    if (key === 'compact') return 'compacteg';
     if (OVERVIEW_LAYOUTS.some(x => x.key === key)) return key;
     return 'focus';
   }
@@ -5925,10 +5927,14 @@
 
   function restoreOverviewLayout() {
     const forced = qs.get('layout');
-    if (forced) { applyOverviewLayout(forced, false); return; }
-    let saved = 'focus';
-    try { saved = String(localStorage.getItem(OVERVIEW_LAYOUT_STORAGE_KEY) || 'focus'); } catch {}
-    applyOverviewLayout(saved, false);
+    let key = forced;
+    if (!key) {
+      try { key = String(localStorage.getItem(OVERVIEW_LAYOUT_STORAGE_KEY) || 'focus'); } catch { key = 'focus'; }
+    }
+    const resolved = normalizeOverviewLayoutKey(key);
+    if (resolved === 'compacteg') state.currentFloor = 'EG';
+    else if (resolved === 'compactog') state.currentFloor = 'OG';
+    applyOverviewLayout(resolved, false);
   }
 
   function clampAvatarProfile(p) {
