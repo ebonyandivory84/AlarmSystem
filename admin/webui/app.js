@@ -53,6 +53,8 @@
     panicBtn: $('panicToggleBtn'),
     shield: $('statusShield'),
     overviewEventLog: $('overviewEventLog'),
+    overviewLogWrap: $('overviewLogWrap'),
+    overviewStatusMini: $('overviewStatusMini'),
     overviewShowSensorsBtn: $('overviewShowSensorsBtn'),
     absenceCard: $('absenceCard'),
     absenceList: $('absenceList'),
@@ -5911,6 +5913,13 @@
     const def = OVERVIEW_LAYOUTS.find(x => x.key === resolved) || OVERVIEW_LAYOUTS[0];
     document.body.classList.add(def.className);
     if (ui.layoutModeBtn) ui.layoutModeBtn.textContent = def.label;
+    if (ui.overviewLogWrap && ui.panicBtn) {
+      if (resolved === 'buttons') {
+        ui.panicBtn.parentNode.insertBefore(ui.overviewLogWrap, ui.panicBtn);
+      } else if (ui.overviewStatusMini) {
+        ui.overviewStatusMini.appendChild(ui.overviewLogWrap);
+      }
+    }
     if (persist) {
       try { localStorage.setItem(OVERVIEW_LAYOUT_STORAGE_KEY, resolved); } catch {}
     }
