@@ -256,6 +256,7 @@
     soundEventDoorDisarmed: $('soundEventDoorDisarmed'),
     soundEventZoneArmed: $('soundEventZoneArmed'),
     soundEventZoneDisarmed: $('soundEventZoneDisarmed'),
+    soundEventLogScroll: $('soundEventLogScroll'),
     healthOverviewText: $('healthOverviewText'),
     healthDetailsPanel: $('healthDetailsPanel'),
     healthCard: $('healthCard'),
@@ -357,6 +358,7 @@
     stateIdsLoaded: false,
     stateIdsLoading: null,
     currentFloor: 'EG',
+    lastLogEventTs: 0,
     editImage: false,
     editZones: false,
     floorLayouts: { EG: null, OG: null },
@@ -465,7 +467,8 @@
     ['soundEventDoorArmed', 'doorArmed'],
     ['soundEventDoorDisarmed', 'doorDisarmed'],
     ['soundEventZoneArmed', 'zoneArmed'],
-    ['soundEventZoneDisarmed', 'zoneDisarmed']
+    ['soundEventZoneDisarmed', 'zoneDisarmed'],
+    ['soundEventLogScroll', 'logScroll']
   ];
   const SOUND_FIELD_TITLES = {
     soundBtnToggleAlarm: 'Vollschutz',
@@ -482,7 +485,8 @@
     soundEventDoorArmed: 'Tueroeffnung (scharf)',
     soundEventDoorDisarmed: 'Tueroeffnung (unscharf)',
     soundEventZoneArmed: 'Zone scharfschalten',
-    soundEventZoneDisarmed: 'Zone unscharfschalten'
+    soundEventZoneDisarmed: 'Zone unscharfschalten',
+    soundEventLogScroll: 'Log Scroll (neuer Eintrag)'
   };
   const MAX_SOUND_SELECTION = 5;
   const soundPicker = {
@@ -518,7 +522,8 @@
       doorArmed: [],
       doorDisarmed: [],
       zoneArmed: [],
-      zoneDisarmed: []
+      zoneDisarmed: [],
+      logScroll: []
     }
   };
 
@@ -5915,7 +5920,7 @@
     if (ui.layoutModeBtn) ui.layoutModeBtn.textContent = def.label;
     if (ui.overviewLogWrap && ui.panicBtn) {
       if (resolved === 'buttons') {
-        ui.panicBtn.parentNode.insertBefore(ui.overviewLogWrap, ui.panicBtn);
+        ui.panicBtn.parentNode.insertBefore(ui.overviewLogWrap, ui.panicBtn.nextSibling);
       } else if (ui.overviewStatusMini) {
         ui.overviewStatusMini.appendChild(ui.overviewLogWrap);
       }
@@ -6109,6 +6114,11 @@
     const events = Array.isArray(eventsRaw) ? eventsRaw : [];
     const lastArmTs = Number((events.find(e => String(e?.type || '') === 'zone_armed') || {}).ts || 0);
     const filtered = (lastArmTs > 0 ? events.filter(e => Number(e?.ts || 0) >= lastArmTs) : events).slice(0, 120);
+    const newestTs = Number(events[0]?.ts || 0);
+    if (newestTs > 0 && newestTs > state.lastLogEventTs) {
+      if (state.lastLogEventTs > 0) playConfiguredEventSound('logScroll');
+      state.lastLogEventTs = newestTs;
+    }
     const chronological = filtered.slice().reverse();
     // Compact layout renders the log as a single-line, right-appending ticker
     // instead of the multi-line "newest first" view used by the other layouts.

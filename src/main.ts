@@ -1742,6 +1742,12 @@ class AlarmSystemAdapter extends utils.Adapter {
     this.camerasManualArmed = false;
     await this.setStateAsync('runtime.camerasManualArmed', false, true);
     await this.applyCameraOutputs();
+    await this.clearEventLog();
+  }
+
+  private async clearEventLog(): Promise<void> {
+    this.eventLog = [];
+    await this.setStateAsync('diagnostics.eventsJson', '[]', true);
   }
 
   private async applyCameraOutputs(): Promise<void> {
@@ -2933,7 +2939,7 @@ class AlarmSystemAdapter extends utils.Adapter {
   private async logEvent(level: 'info' | 'warn' | 'alarm', type: string, message: string, caseId?: string): Promise<void> {
     const e: EventEntry = { ts: Date.now(), level, type, message, caseId, acked: false };
     this.eventLog.unshift(e);
-    this.eventLog = this.eventLog.slice(0, 200);
+    this.eventLog = this.eventLog.slice(0, 100);
     await this.setStateAsync('diagnostics.eventsJson', JSON.stringify(this.eventLog), true);
     if (level === 'warn') this.log.warn(message);
     else if (level === 'alarm') this.log.error(message);
