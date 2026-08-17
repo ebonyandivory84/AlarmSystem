@@ -5890,7 +5890,8 @@
     { key: 'sidebar', className: 'overview-layout-sidebar', label: 'Layout: Sidebar' },
     { key: 'floating', className: 'overview-layout-floating', label: 'Layout: Floating' },
     { key: 'compacteg', className: 'overview-layout-compact', label: 'Layout: Kompakt (EG)' },
-    { key: 'compactog', className: 'overview-layout-compact', label: 'Layout: Kompakt (OG)' }
+    { key: 'compactog', className: 'overview-layout-compact', label: 'Layout: Kompakt (OG)' },
+    { key: 'buttons', className: 'overview-layout-buttons', label: 'Layout: Buttons' }
   ];
   const OVERVIEW_LAYOUT_STORAGE_KEY = 'alarmsystem.overviewLayoutMode';
 

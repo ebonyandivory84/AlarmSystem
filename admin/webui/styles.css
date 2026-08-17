@@ -772,6 +772,75 @@ body.overview-layout-compact #overviewPage #statusBox{
   display:none;
 }
 
+/* Buttons layout: controls, cards and event log only, no floorplan.
+   Meant for embedding as a second iframe next to a compact/floorplan
+   iframe in an external dashboard. Chrome reduced like compact layout. */
+body.overview-layout-buttons .topbar > div:first-child,
+body.overview-layout-buttons .topbar .actions,
+body.overview-layout-buttons #pageOverviewBtn,
+body.overview-layout-buttons #pageDesignerBtn,
+body.overview-layout-buttons #pageSettingsBtn{
+  display:none;
+}
+body.overview-layout-buttons .topbar{
+  justify-content:flex-end;
+  padding:8px 12px;
+}
+body.overview-layout-buttons .app{
+  padding:12px;
+  gap:12px;
+}
+body.overview-layout-buttons #overviewPage{
+  height:auto;
+  min-height:0;
+}
+body.overview-layout-buttons #overviewPage .canvas-shell{
+  position:static;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  padding:0;
+  height:auto;
+  min-height:0;
+  background:none;
+  backdrop-filter:none;
+  border:none;
+  border-radius:0;
+  box-shadow:none;
+}
+body.overview-layout-buttons #overviewPage .zone-canvas,
+body.overview-layout-buttons #overviewPage .editor-strip,
+body.overview-layout-buttons #overviewPage #statusBox{
+  display:none;
+}
+body.overview-layout-buttons #overviewPage .status-mini{
+  position:static;
+  width:100%;
+}
+body.overview-layout-buttons #overviewPage .left-stack{
+  position:static;
+  width:100%;
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:14px;
+  margin-top:0;
+  align-content:start;
+  overflow:visible;
+  padding-right:0;
+}
+body.overview-layout-buttons #overviewPage .left-stack .controls-card,
+body.overview-layout-buttons #overviewPage .left-stack .floor-card,
+body.overview-layout-buttons #overviewPage .left-stack .absence-card,
+body.overview-layout-buttons #overviewPage .left-stack .presence-card,
+body.overview-layout-buttons #overviewPage .left-stack .status-card{
+  width:100%;
+}
+body.overview-layout-buttons #overviewPage .panic-btn{
+  position:static;
+  width:100%;
+  max-width:none;
+}
+
 #designerPage .designer-wrap{
   width:100%;
   min-height:72dvh;

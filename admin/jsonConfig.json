@@ -19,7 +19,7 @@
         },
         "_desc_dashboard_embed": {
           "type": "staticText",
-          "text": "Dashboard-Einbindung (z. B. iframe): URL-Parameter &layout=compact (=EG), &layout=compactEG (=EG) oder &layout=compactOG (=OG) an die WebUI-URL anhängen, um ein kompaktes Einzel-Grundriss-Layout ohne Sidebar/Header zu erhalten. Beispiel: .../webui/index.html?instance=alarmsystem.0&embed=1&layout=compactOG"
+          "text": "Dashboard-Einbindung (z. B. iframe): URL-Parameter &layout=compact (=EG), &layout=compactEG (=EG) oder &layout=compactOG (=OG) an die WebUI-URL anhängen, um ein kompaktes Einzel-Grundriss-Layout ohne Sidebar/Header zu erhalten. Beispiel: .../webui/index.html?instance=alarmsystem.0&embed=1&layout=compactOG. Für ein zweites iframe mit nur Buttons/Karten/Log (ohne Grundriss) &layout=buttons verwenden, z. B. .../webui/index.html?instance=alarmsystem.0&embed=1&layout=buttons"
         },
         "debugLevel": {
           "type": "select",
