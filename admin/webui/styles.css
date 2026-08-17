@@ -124,6 +124,7 @@ label{display:grid;gap:6px;min-width:220px} input,select,textarea{background:var
 .controls-card,.floor-card,.absence-card,.presence-card,.status-card,.editor-strip{left:20px;width:280px;padding:10px;border-radius:12px;background:rgba(10,10,10,.62);border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(8px);z-index:7}
 .left-stack .controls-card,.left-stack .floor-card,.left-stack .absence-card,.left-stack .presence-card,.left-stack .status-card{position:relative;left:auto;top:auto;width:100%}
 .controls-card .row{display:grid;grid-template-columns:1fr;gap:10px;margin:0}
+.controls-card > strong{display:block;margin-bottom:8px}
 .floor-card .row{display:grid;grid-template-columns:repeat(2,minmax(90px,1fr));gap:8px;margin:0}
 .absence-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .legend-row{display:flex;align-items:center;gap:8px;margin-top:0}
