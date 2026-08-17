@@ -125,8 +125,8 @@ label{display:grid;gap:6px;min-width:220px} input,select,textarea{background:var
 .left-stack .controls-card,.left-stack .floor-card,.left-stack .absence-card,.left-stack .presence-card,.left-stack .status-card{position:relative;left:auto;top:auto;width:100%}
 .controls-card .row{display:grid;grid-template-columns:1fr;gap:10px;margin:0}
 .floor-card .row{display:grid;grid-template-columns:repeat(2,minmax(90px,1fr));gap:8px;margin:0}
-.absence-list{display:grid;gap:6px;margin-top:6px}
-.legend-row{display:flex;align-items:center;gap:8px;margin-top:6px}
+.absence-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.legend-row{display:flex;align-items:center;gap:8px;margin-top:0}
 .health-pill{margin-top:8px;border-radius:999px;padding:10px 12px;font-size:.92rem;font-weight:700;text-align:center;border:1px solid}
 .health-pill.clickable{cursor:pointer;width:100%;appearance:none}
 .health-pill.ok{color:#d7ffe2;background:linear-gradient(180deg,rgba(30,120,56,.28),rgba(9,22,14,.85));border-color:#2f8a45}
@@ -835,6 +835,14 @@ body.overview-layout-buttons #overviewPage .left-stack .presence-card,
 body.overview-layout-buttons #overviewPage .left-stack .status-card{
   width:100%;
 }
+body.overview-layout-buttons #overviewPage .left-stack .floor-card,
+body.overview-layout-buttons #overviewPage .sensors-toggle-row{
+  display:none;
+}
+body.overview-layout-buttons #overviewPage .left-stack .controls-card{ order:1; }
+body.overview-layout-buttons #overviewPage .left-stack .status-card{ order:2; }
+body.overview-layout-buttons #overviewPage .left-stack .absence-card{ order:3; }
+body.overview-layout-buttons #overviewPage .left-stack .presence-card{ order:4; }
 body.overview-layout-buttons #overviewPage .panic-btn{
   position:static;
   width:100%;
