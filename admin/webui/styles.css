@@ -839,6 +839,32 @@ body.overview-layout-buttons #overviewPage .panic-btn{
   position:static;
   width:100%;
   max-width:none;
+  min-height:40px;
+  padding:6px 12px;
+  font-size:.9rem;
+}
+body.overview-layout-buttons .btn{
+  min-height:38px;
+  padding:6px 10px;
+  border-radius:10px;
+  font-size:.85rem;
+}
+body.overview-layout-buttons .btn .btn-icon{
+  display:inline-flex;
+}
+body.overview-layout-buttons .btn .btn-label{
+  display:none;
+}
+body.overview-layout-buttons #overviewPage .controls-card .row{
+  grid-template-columns:repeat(auto-fill,minmax(44px,1fr));
+  gap:8px;
+}
+body.overview-layout-buttons #overviewPage .controls-card .row .btn,
+body.overview-layout-buttons #overviewPage .floor-card .row .btn{
+  min-width:44px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
 
 #designerPage .designer-wrap{

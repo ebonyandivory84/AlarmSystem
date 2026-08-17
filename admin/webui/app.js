@@ -5820,6 +5820,7 @@
   const TOGGLE_ICON_HOUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7"></path><path d="M6 10v9h12v-9"></path></svg>';
   const TOGGLE_ICON_PERIMETER = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="4 3"></rect></svg>';
   const TOGGLE_ICON_CAMERA = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-2h6l2 2h3v11H4z"></path><circle cx="12" cy="13.5" r="3.2"></circle></svg>';
+  const TOGGLE_ICON_EYE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
 
   function setToggleButton(btn, activateText, deactivateText, isOn, iconMarkup) {
     if (!btn) return;
@@ -5880,7 +5881,7 @@
     const btn = ui.overviewShowSensorsBtn;
     if (!btn) return;
     const on = !!state.overviewShowSensors;
-    btn.textContent = `Show sensors: ${on ? 'on' : 'off'}`;
+    setToggleButton(btn, 'Show sensors: off', 'Show sensors: on', on, TOGGLE_ICON_EYE);
     btn.classList.toggle('primary', on);
     btn.classList.toggle('ghost', !on);
   }
